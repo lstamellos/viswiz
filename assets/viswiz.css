@@ -37,11 +37,9 @@
   margin-bottom: 12px;
 }
 
-.viswiz-pie-chart {
+.viswiz-pie-canvas {
   display: block;
   margin: 0 auto 12px;
-  width: 220px;
-  height: 220px;
 }
 
 .viswiz-pie-legend {
