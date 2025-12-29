@@ -1,14 +1,8 @@
 (function () {
   const POLL_INTERVAL = 30000;
 
-  function fetchJson(endpoint, params = {}) {
-    const url = new URL(`${VisWizData.restUrl}${endpoint}`);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== '' && value !== null && value !== undefined) {
-        url.searchParams.set(key, value);
-      }
-    });
-    return fetch(url.toString(), {
+  function fetchJson(endpoint) {
+    return fetch(`${VisWizData.restUrl}${endpoint}`, {
       credentials: 'same-origin',
       headers: {
         'X-WP-Nonce': VisWizData.nonce,
@@ -46,27 +40,28 @@
     title.className = 'viswiz-pie-title';
     title.textContent = data.title;
 
-    const svg = d3
-      .create('svg')
-      .attr('viewBox', '0 0 220 220')
-      .attr('class', 'viswiz-pie-chart');
-
-    const total = data.values.reduce((sum, entry) => sum + entry.value, 0);
-    const pie = d3.pie().value((entry) => entry.value || 0);
-    const arc = d3.arc().innerRadius(0).outerRadius(100);
-    const g = svg.append('g').attr('transform', 'translate(110,110)');
-
-    g.selectAll('path')
-      .data(pie(data.values))
-      .enter()
-      .append('path')
-      .attr('d', arc)
-      .attr('fill', (entry, index) => entry.data.color || defaultColors[index % defaultColors.length])
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 1);
-
+    const canvas = document.createElement('canvas');
+    canvas.width = 220;
+    canvas.height = 220;
+    canvas.className = 'viswiz-pie-canvas';
     container.appendChild(title);
-    container.appendChild(svg.node());
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    const total = data.values.reduce((sum, entry) => sum + entry.value, 0);
+    let startAngle = -Math.PI / 2;
+
+    data.values.forEach((entry, index) => {
+      const slice = total > 0 ? (entry.value / total) * Math.PI * 2 : 0;
+      const color = entry.color || defaultColors[index % defaultColors.length];
+      ctx.beginPath();
+      ctx.moveTo(110, 110);
+      ctx.arc(110, 110, 100, startAngle, startAngle + slice);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      startAngle += slice;
+    });
 
     const legend = document.createElement('ul');
     legend.className = 'viswiz-pie-legend';
@@ -132,8 +127,7 @@
   }
 
   function loadAutoProgress(container) {
-    const params = buildSalesParams(container);
-    fetchJson('/sales', params)
+    fetchJson('/sales')
       .then((data) => {
         const target = parseFloat(container.dataset.target || VisWizData.target || 0);
         renderProgress(container, {
@@ -148,27 +142,11 @@
   }
 
   function loadAutoPie(container) {
-    const params = buildSalesParams(container);
-    const scope = params.scope || VisWizData.salesScope || 'total';
-    if (scope === 'total') {
-      fetchJson('/sales-status', params)
-        .then((data) => {
-          renderPie(container, {
-            title: container.dataset.title || 'Sales Breakdown',
-            values: data.statusCounts || [],
-          });
-        })
-        .catch(() => {
-          container.textContent = 'Unable to load sales breakdown.';
-        });
-      return;
-    }
-
-    fetchJson('/sales-breakdown', params)
+    fetchJson('/sales-status')
       .then((data) => {
         renderPie(container, {
           title: container.dataset.title || 'Sales Breakdown',
-          values: data.values || [],
+          values: data.statusCounts || [],
         });
       })
       .catch(() => {
@@ -230,15 +208,6 @@
     document.querySelectorAll('.viswiz-graph').forEach((container) => {
       renderGraph(container, VisWizData.graphData || {});
     });
-  }
-
-  function buildSalesParams(container) {
-    return {
-      scope: container.dataset.scope || VisWizData.salesScope || '',
-      period_days: container.dataset.periodDays || VisWizData.salesPeriod || '',
-      product_id: container.dataset.productId || VisWizData.salesProduct || '',
-      category_id: container.dataset.categoryId || VisWizData.salesCategory || '',
-    };
   }
 
   const defaultColors = [

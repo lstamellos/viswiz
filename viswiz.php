@@ -17,10 +17,6 @@ const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
 const VISWIZ_OPTION_DIAGRAM = 'viswiz_diagram_data';
 const VISWIZ_OPTION_GRAPH = 'viswiz_graph_data';
-const VISWIZ_OPTION_SALES_SCOPE = 'viswiz_sales_scope';
-const VISWIZ_OPTION_SALES_PERIOD = 'viswiz_sales_period_days';
-const VISWIZ_OPTION_SALES_PRODUCT = 'viswiz_sales_product_id';
-const VISWIZ_OPTION_SALES_CATEGORY = 'viswiz_sales_category_id';
 
 add_action( 'init', 'viswiz_register_shortcodes' );
 add_action( 'rest_api_init', 'viswiz_register_rest_routes' );
@@ -43,16 +39,9 @@ function viswiz_enqueue_assets() {
         VISWIZ_VERSION
     );
     wp_register_script(
-        'd3',
-        'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js',
-        array(),
-        '7.9.0',
-        true
-    );
-    wp_register_script(
         'viswiz-script',
         plugins_url( 'assets/viswiz.js', __FILE__ ),
-        array( 'd3' ),
+        array(),
         VISWIZ_VERSION,
         true
     );
@@ -71,10 +60,6 @@ function viswiz_enqueue_assets() {
             'manualPie' => viswiz_get_manual_pie(),
             'diagramData' => viswiz_get_diagram_data(),
             'graphData' => viswiz_get_graph_data(),
-            'salesScope' => get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' ),
-            'salesPeriod' => (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 ),
-            'salesProduct' => (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 ),
-            'salesCategory' => (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 ),
         )
     );
 }
@@ -91,15 +76,6 @@ function viswiz_register_rest_routes() {
     );
     register_rest_route(
         'viswiz/v1',
-        '/sales-breakdown',
-        array(
-            'methods' => 'GET',
-            'callback' => 'viswiz_get_sales_breakdown',
-            'permission_callback' => '__return_true',
-        )
-    );
-    register_rest_route(
-        'viswiz/v1',
         '/sales-status',
         array(
             'methods' => 'GET',
@@ -109,71 +85,37 @@ function viswiz_register_rest_routes() {
     );
 }
 
-function viswiz_get_sales_data( WP_REST_Request $request ) {
+function viswiz_get_sales_data() {
     if ( ! class_exists( 'WooCommerce' ) ) {
         return new WP_Error( 'viswiz_no_woocommerce', 'WooCommerce is not active.' );
     }
 
-    $scope = sanitize_text_field( $request->get_param( 'scope' ) );
-    if ( $scope === '' ) {
-        $scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
-    }
+    $orders = wc_get_orders(
+        array(
+            'status' => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
+            'limit' => -1,
+            'date_created' => '>' . ( new DateTime( '-30 days' ) )->format( 'Y-m-d' ),
+            'return' => 'ids',
+        )
+    );
 
-    $period_days = (int) $request->get_param( 'period_days' );
-    if ( $period_days <= 0 ) {
-        $period_days = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
-    }
-
-    $product_id = (int) $request->get_param( 'product_id' );
-    if ( $product_id <= 0 ) {
-        $product_id = (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 );
-    }
-
-    $category_id = (int) $request->get_param( 'category_id' );
-    if ( $category_id <= 0 ) {
-        $category_id = (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 );
-    }
-
-    $orders = viswiz_get_orders_for_period( $period_days );
     $total_sales = 0.0;
-    $order_count = 0;
-
     foreach ( $orders as $order_id ) {
         $order = wc_get_order( $order_id );
-        if ( ! $order ) {
-            continue;
+        if ( $order ) {
+            $total_sales += (float) $order->get_total();
         }
-
-        if ( $scope === 'product' && $product_id > 0 ) {
-            $total_sales += viswiz_get_order_total_for_product( $order, $product_id );
-            $order_count++;
-            continue;
-        }
-
-        if ( $scope === 'category' && $category_id > 0 ) {
-            $total_sales += viswiz_get_order_total_for_category( $order, $category_id );
-            $order_count++;
-            continue;
-        }
-
-        $total_sales += (float) $order->get_total();
-        $order_count++;
     }
 
     return array(
         'totalSales' => $total_sales,
-        'orderCount' => $order_count,
+        'orderCount' => count( $orders ),
     );
 }
 
-function viswiz_get_sales_status_data( WP_REST_Request $request ) {
+function viswiz_get_sales_status_data() {
     if ( ! class_exists( 'WooCommerce' ) ) {
         return new WP_Error( 'viswiz_no_woocommerce', 'WooCommerce is not active.' );
-    }
-
-    $period_days = (int) $request->get_param( 'period_days' );
-    if ( $period_days <= 0 ) {
-        $period_days = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
     }
 
     $statuses = wc_get_order_statuses();
@@ -184,7 +126,6 @@ function viswiz_get_sales_status_data( WP_REST_Request $request ) {
             array(
                 'status' => array( $status_key ),
                 'limit' => -1,
-                'date_created' => '>' . ( new DateTime( sprintf( '-%d days', $period_days ) ) )->format( 'Y-m-d' ),
                 'return' => 'ids',
             )
         );
@@ -205,10 +146,6 @@ function viswiz_progress_shortcode( $atts ) {
             'type' => 'auto',
             'label' => 'Sales Progress',
             'target' => '',
-            'scope' => '',
-            'period_days' => '',
-            'product_id' => '',
-            'category_id' => '',
         ),
         $atts,
         'viswiz_progress'
@@ -217,14 +154,10 @@ function viswiz_progress_shortcode( $atts ) {
     $target = $atts['target'] !== '' ? (float) $atts['target'] : (float) get_option( VISWIZ_OPTION_TARGET, 0 );
 
     return sprintf(
-        '<div class="viswiz-progress" data-type="%s" data-label="%s" data-target="%s" data-scope="%s" data-period-days="%s" data-product-id="%s" data-category-id="%s"></div>',
+        '<div class="viswiz-progress" data-type="%s" data-label="%s" data-target="%s"></div>',
         esc_attr( $atts['type'] ),
         esc_attr( $atts['label'] ),
-        esc_attr( $target ),
-        esc_attr( $atts['scope'] ),
-        esc_attr( $atts['period_days'] ),
-        esc_attr( $atts['product_id'] ),
-        esc_attr( $atts['category_id'] )
+        esc_attr( $target )
     );
 }
 
@@ -233,23 +166,15 @@ function viswiz_pie_shortcode( $atts ) {
         array(
             'type' => 'auto',
             'title' => 'Sales Breakdown',
-            'scope' => '',
-            'period_days' => '',
-            'product_id' => '',
-            'category_id' => '',
         ),
         $atts,
         'viswiz_pie'
     );
 
     return sprintf(
-        '<div class="viswiz-pie" data-type="%s" data-title="%s" data-scope="%s" data-period-days="%s" data-product-id="%s" data-category-id="%s"></div>',
+        '<div class="viswiz-pie" data-type="%s" data-title="%s"></div>',
         esc_attr( $atts['type'] ),
-        esc_attr( $atts['title'] ),
-        esc_attr( $atts['scope'] ),
-        esc_attr( $atts['period_days'] ),
-        esc_attr( $atts['product_id'] ),
-        esc_attr( $atts['category_id'] )
+        esc_attr( $atts['title'] )
     );
 }
 
@@ -279,10 +204,6 @@ function viswiz_register_settings() {
     register_setting( 'viswiz_settings', VISWIZ_OPTION_PIE_MANUAL, array( 'sanitize_callback' => 'viswiz_sanitize_pie_option' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_DIAGRAM, array( 'sanitize_callback' => 'viswiz_sanitize_diagram_option' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_GRAPH, array( 'sanitize_callback' => 'viswiz_sanitize_graph_option' ) );
-    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_SCOPE, array( 'sanitize_callback' => 'sanitize_text_field' ) );
-    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD, array( 'sanitize_callback' => 'absint' ) );
-    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PRODUCT, array( 'sanitize_callback' => 'absint' ) );
-    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_CATEGORY, array( 'sanitize_callback' => 'absint' ) );
 }
 
 function viswiz_render_settings_page() {
@@ -290,52 +211,12 @@ function viswiz_render_settings_page() {
     $pie_items = viswiz_get_manual_pie();
     $diagram_sections = viswiz_get_diagram_data();
     $graph_data = viswiz_get_graph_data();
-    $sales_scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
-    $sales_period = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
-    $sales_product = (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 );
-    $sales_category = (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 );
     ?>
     <div class="wrap">
         <h1>VisWiz Settings</h1>
         <form method="post" action="options.php">
             <?php settings_fields( 'viswiz_settings' ); ?>
             <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><label for="viswiz_sales_scope">Default Sales Scope</label></th>
-                    <td>
-                        <select name="viswiz_sales_scope" id="viswiz_sales_scope">
-                            <option value="total" <?php selected( $sales_scope, 'total' ); ?>>All sales (total)</option>
-                            <option value="product" <?php selected( $sales_scope, 'product' ); ?>>Specific product</option>
-                            <option value="category" <?php selected( $sales_scope, 'category' ); ?>>Specific category</option>
-                        </select>
-                        <p class="description">Used for automatic charts when shortcode overrides are not set.</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="viswiz_sales_period_days">Default Sales Period (days)</label></th>
-                    <td>
-                        <select name="viswiz_sales_period_days" id="viswiz_sales_period_days">
-                            <option value="7" <?php selected( $sales_period, 7 ); ?>>Last 7 days</option>
-                            <option value="30" <?php selected( $sales_period, 30 ); ?>>Last 30 days</option>
-                            <option value="90" <?php selected( $sales_period, 90 ); ?>>Last 90 days</option>
-                        </select>
-                        <p class="description">Used for WooCommerce data queries.</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="viswiz_sales_product_id">Default Product ID</label></th>
-                    <td>
-                        <input type="number" name="viswiz_sales_product_id" id="viswiz_sales_product_id" value="<?php echo esc_attr( $sales_product ); ?>" class="regular-text" />
-                        <p class="description">Set a product ID for product-specific charts.</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="viswiz_sales_category_id">Default Category ID</label></th>
-                    <td>
-                        <input type="number" name="viswiz_sales_category_id" id="viswiz_sales_category_id" value="<?php echo esc_attr( $sales_category ); ?>" class="regular-text" />
-                        <p class="description">Set a category ID for category-specific charts.</p>
-                    </td>
-                </tr>
                 <tr>
                     <th scope="row"><label for="viswiz_sales_target">Sales Target</label></th>
                     <td>
@@ -721,100 +602,4 @@ function viswiz_get_diagram_data() {
 function viswiz_get_graph_data() {
     $raw = get_option( VISWIZ_OPTION_GRAPH, '[]' );
     return json_decode( $raw, true ) ?: array();
-}
-
-function viswiz_get_orders_for_period( $period_days ) {
-    $period_days = max( 1, (int) $period_days );
-    return wc_get_orders(
-        array(
-            'status' => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
-            'limit' => -1,
-            'date_created' => '>' . ( new DateTime( sprintf( '-%d days', $period_days ) ) )->format( 'Y-m-d' ),
-            'return' => 'ids',
-        )
-    );
-}
-
-function viswiz_get_order_total_for_product( WC_Order $order, $product_id ) {
-    $total = 0.0;
-    foreach ( $order->get_items() as $item ) {
-        if ( (int) $item->get_product_id() === (int) $product_id ) {
-            $total += (float) $item->get_total();
-        }
-    }
-    return $total;
-}
-
-function viswiz_get_order_total_for_category( WC_Order $order, $category_id ) {
-    $total = 0.0;
-    foreach ( $order->get_items() as $item ) {
-        $product = $item->get_product();
-        if ( ! $product ) {
-            continue;
-        }
-        $categories = $product->get_category_ids();
-        if ( in_array( (int) $category_id, $categories, true ) ) {
-            $total += (float) $item->get_total();
-        }
-    }
-    return $total;
-}
-
-function viswiz_get_sales_breakdown( WP_REST_Request $request ) {
-    if ( ! class_exists( 'WooCommerce' ) ) {
-        return new WP_Error( 'viswiz_no_woocommerce', 'WooCommerce is not active.' );
-    }
-
-    $scope = sanitize_text_field( $request->get_param( 'scope' ) );
-    if ( $scope === '' ) {
-        $scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
-    }
-
-    $period_days = (int) $request->get_param( 'period_days' );
-    if ( $period_days <= 0 ) {
-        $period_days = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
-    }
-
-    $orders = viswiz_get_orders_for_period( $period_days );
-    $totals = array();
-
-    foreach ( $orders as $order_id ) {
-        $order = wc_get_order( $order_id );
-        if ( ! $order ) {
-            continue;
-        }
-
-        foreach ( $order->get_items() as $item ) {
-            $product = $item->get_product();
-            if ( ! $product ) {
-                continue;
-            }
-
-            if ( $scope === 'category' ) {
-                foreach ( $product->get_category_ids() as $category_id ) {
-                    $label = sprintf( 'Category %d', $category_id );
-                    $term = get_term( $category_id, 'product_cat' );
-                    if ( $term && ! is_wp_error( $term ) ) {
-                        $label = $term->name;
-                    }
-                    $totals[ $label ] = ( $totals[ $label ] ?? 0 ) + (float) $item->get_total();
-                }
-            } else {
-                $label = $product->get_name();
-                $totals[ $label ] = ( $totals[ $label ] ?? 0 ) + (float) $item->get_total();
-            }
-        }
-    }
-
-    $values = array();
-    foreach ( $totals as $label => $value ) {
-        $values[] = array(
-            'label' => $label,
-            'value' => $value,
-        );
-    }
-
-    return array(
-        'values' => $values,
-    );
 }
