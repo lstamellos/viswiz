@@ -59,7 +59,7 @@
     if (!container) {
       return;
     }
-    const index = container.children.length;
+    const index = getNextDiagramIndex(container);
     const section = document.createElement('div');
     section.className = 'viswiz-section';
     section.dataset.sectionIndex = index;
@@ -75,6 +75,14 @@
       <button type="button" class="button viswiz-remove-section">Remove Section</button>
     `;
     container.appendChild(section);
+  }
+
+  function getNextDiagramIndex(container) {
+    const values = Array.from(container.querySelectorAll('.viswiz-section')).map((section) =>
+      parseInt(section.dataset.sectionIndex, 10)
+    );
+    const max = values.length ? Math.max(...values) : -1;
+    return max + 1;
   }
 
   const addHandlers = {
