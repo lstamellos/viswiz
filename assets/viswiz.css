@@ -6,7 +6,8 @@
   padding: 16px;
   margin: 16px 0;
   border-radius: 8px;
-  background: #fff;
+  background: var(--viswiz-background, #fff);
+  color: var(--viswiz-text, #333);
 }
 
 .viswiz-progress-label {
@@ -25,7 +26,11 @@
 
 .viswiz-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4caf50, #2196f3);
+  background: linear-gradient(
+    90deg,
+    var(--viswiz-primary, #4caf50),
+    var(--viswiz-secondary, #2196f3)
+  );
 }
 
 .viswiz-progress-meta {
@@ -54,9 +59,88 @@
   content: '';
   width: 2px;
   height: 8px;
-  background: #555;
+  background: var(--viswiz-accent, #555);
   border-radius: 2px;
   margin-bottom: 2px;
+}
+
+.viswiz-meta-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.viswiz-tab-panel {
+  display: none;
+  margin-top: 12px;
+}
+
+.viswiz-tab-panel.is-active {
+  display: block;
+}
+
+.viswiz-tab-button.is-active {
+  background: #1e1e1e;
+  color: #fff;
+}
+
+.viswiz-animate-fade {
+  animation: viswizFadeIn 0.6s ease;
+}
+
+.viswiz-animate-slide {
+  animation: viswizSlideUp 0.6s ease;
+}
+
+.viswiz-animate-grow {
+  animation: viswizGrow 0.6s ease;
+}
+
+.viswiz-animate-pulse {
+  animation: viswizPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes viswizFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes viswizSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes viswizGrow {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes viswizPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .viswiz-progress-marker-label {

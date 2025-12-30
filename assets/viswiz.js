@@ -247,6 +247,7 @@
 
   function initProgress() {
     document.querySelectorAll('.viswiz-progress').forEach((container, index) => {
+      applyFormatting(container);
       if (container.dataset.type === 'manual') {
         loadManualProgress(container, index);
       } else {
@@ -258,6 +259,7 @@
 
   function initPie() {
     document.querySelectorAll('.viswiz-pie').forEach((container) => {
+      applyFormatting(container);
       if (container.dataset.type === 'manual') {
         loadManualPie(container);
       } else {
@@ -269,6 +271,7 @@
 
   function initDiagram() {
     document.querySelectorAll('.viswiz-diagram').forEach((container) => {
+      applyFormatting(container);
       const manual = getManualData(container) || VisWizData.diagramData || [];
       renderDiagram(container, manual);
     });
@@ -276,6 +279,7 @@
 
   function initGraph() {
     document.querySelectorAll('.viswiz-graph').forEach((container) => {
+      applyFormatting(container);
       const manual = getManualData(container) || VisWizData.graphData || {};
       renderGraph(container, manual);
     });
@@ -286,15 +290,18 @@
       container.dataset.productIds ||
       (Array.isArray(VisWizData.salesProduct) ? VisWizData.salesProduct.join(',') : VisWizData.salesProduct) ||
       '';
+    const categoryIds =
+      container.dataset.categoryIds ||
+      (Array.isArray(VisWizData.salesCategory) ? VisWizData.salesCategory.join(',') : VisWizData.salesCategory) ||
+      '';
     return {
       scope: container.dataset.scope || VisWizData.salesScope || '',
-      period_days: container.dataset.periodDays || VisWizData.salesPeriod || '',
       period_mode: container.dataset.periodMode || VisWizData.salesPeriodMode || '',
       period_value: container.dataset.periodValue || VisWizData.salesPeriodValue || '',
       period_unit: container.dataset.periodUnit || VisWizData.salesPeriodUnit || '',
       period_start: container.dataset.periodStart || VisWizData.salesPeriodStart || '',
       product_ids: productIds,
-      category_id: container.dataset.categoryId || VisWizData.salesCategory || '',
+      category_ids: categoryIds,
     };
   }
 
@@ -307,6 +314,34 @@
       return JSON.parse(container.dataset.manual);
     } catch (error) {
       return null;
+    }
+  }
+
+  function applyFormatting(container) {
+    if (container.dataset.animation && container.dataset.animation !== 'none') {
+      container.classList.add(`viswiz-animate-${container.dataset.animation}`);
+    }
+    if (container.dataset.colors) {
+      try {
+        const colors = JSON.parse(container.dataset.colors);
+        if (colors.primary) {
+          container.style.setProperty('--viswiz-primary', colors.primary);
+        }
+        if (colors.secondary) {
+          container.style.setProperty('--viswiz-secondary', colors.secondary);
+        }
+        if (colors.accent) {
+          container.style.setProperty('--viswiz-accent', colors.accent);
+        }
+        if (colors.background) {
+          container.style.setProperty('--viswiz-background', colors.background);
+        }
+        if (colors.text) {
+          container.style.setProperty('--viswiz-text', colors.text);
+        }
+      } catch (error) {
+        return;
+      }
     }
   }
 
@@ -325,7 +360,12 @@
 
   function formatPieValue(value, isCurrency) {
     if (isCurrency === false) {
-      return new Intl.NumberFormat().format(parseFloat(value || 0));
+      const amount = parseFloat(value || 0);
+      try {
+        return new Intl.NumberFormat().format(amount);
+      } catch (error) {
+        return amount.toFixed(0);
+      }
     }
     return formatCurrency(value);
   }

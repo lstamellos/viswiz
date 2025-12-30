@@ -231,9 +231,18 @@
     updateVisualizationFields();
   });
 
+  $(document).on('click', '.viswiz-tab-button', function () {
+    const tab = $(this).data('viswiz-tab');
+    $('.viswiz-tab-button').removeClass('is-active');
+    $(this).addClass('is-active');
+    $('.viswiz-tab-panel').removeClass('is-active');
+    $(`[data-viswiz-panel="${tab}"]`).addClass('is-active');
+  });
+
   $(document).ready(function () {
     updateVisualizationFields();
     updateSalesPeriodVisibility();
+    $('.viswiz-tab-button.is-active').trigger('click');
   });
 
   function updateSalesPeriodVisibility() {
