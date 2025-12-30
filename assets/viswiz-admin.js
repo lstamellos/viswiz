@@ -1,14 +1,18 @@
 (function ($) {
   function updateVisualizationFields() {
     const type = $('[data-viswiz-type]').val();
-    const source = $('[data-viswiz-source]').val();
+    const source = $('[data-viswiz-source]').val() || 'auto';
     const periodMode = $('[data-viswiz-period-mode]').val();
     if (!type) {
       return;
     }
     $('[data-viswiz-types]').each(function () {
-      const supported = $(this).data('viswiz-types').split(',');
-      const sourceFilter = $(this).data('viswiz-sources');
+      const typeAttr = $(this).attr('data-viswiz-types');
+      if (!typeAttr) {
+        return;
+      }
+      const supported = typeAttr.split(',');
+      const sourceFilter = $(this).attr('data-viswiz-sources');
       const sources = sourceFilter ? sourceFilter.split(',') : [];
       const matchesType = supported.includes(type);
       const matchesSource = sources.length === 0 || sources.includes(source);
@@ -20,7 +24,7 @@
     });
 
     $('[data-viswiz-period]').each(function () {
-      const supported = $(this).data('viswiz-period');
+      const supported = $(this).attr('data-viswiz-period');
       if (!supported || supported === periodMode) {
         $(this).show();
       } else {
@@ -254,6 +258,7 @@
     $(this).addClass('is-active');
     $('.viswiz-tab-panel').removeClass('is-active');
     $(`[data-viswiz-panel="${tab}"]`).addClass('is-active');
+    updateVisualizationFields();
   });
 
   $(document).ready(function () {
