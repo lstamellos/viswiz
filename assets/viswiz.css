@@ -10,6 +10,10 @@
   color: var(--viswiz-text, #333);
 }
 
+.viswiz-progress-item + .viswiz-progress-item {
+  margin-top: 12px;
+}
+
 .viswiz-progress-label {
   font-weight: 600;
   margin-bottom: 8px;

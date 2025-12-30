@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.1.5
+ * Version: 1.1.6
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.1.5';
+const VISWIZ_VERSION = '1.1.6';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -486,7 +486,7 @@ function viswiz_render_settings_page() {
                                     <?php endif; ?>
                                     <input type="text" name="viswiz_manual_progress[label][]" placeholder="Label" value="<?php echo esc_attr( $progress_item['label'] ?? '' ); ?>" class="regular-text" />
                                     <input type="number" name="viswiz_manual_progress[value][]" placeholder="Value" value="<?php echo esc_attr( $progress_item['value'] ?? '' ); ?>" step="0.01" />
-                                    <div class="viswiz-targets" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-name-prefix="viswiz_manual_progress">
+                                    <div class="viswiz-targets" data-name-prefix="viswiz_manual_progress">
                                         <?php foreach ( $progress_targets as $target ) : ?>
                                             <div class="viswiz-target-row">
                                                 <input type="text" name="viswiz_manual_progress[targets][name][<?php echo esc_attr( $progress_index ); ?>][]" placeholder="Target name" value="<?php echo esc_attr( $target['name'] ?? '' ); ?>" class="regular-text" />
@@ -495,7 +495,7 @@ function viswiz_render_settings_page() {
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
-                                    <button type="button" class="button viswiz-add-target" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-target-scope="settings">Add Target</button>
+                                    <button type="button" class="button viswiz-add-target" data-target-scope="settings">Add Target</button>
                                     <button type="button" class="button viswiz-remove-row">Remove</button>
                                 </div>
                             <?php endforeach; ?>
@@ -1272,7 +1272,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <?php endif; ?>
                 <input type="text" name="viswiz_meta[manual_progress][label][]" placeholder="Label" value="<?php echo esc_attr( $progress_item['label'] ?? '' ); ?>" class="regular-text" />
                 <input type="number" name="viswiz_meta[manual_progress][value][]" placeholder="Value" value="<?php echo esc_attr( $progress_item['value'] ?? '' ); ?>" step="0.01" />
-                <div class="viswiz-targets" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-name-prefix="viswiz_meta[manual_progress]">
+                <div class="viswiz-targets" data-name-prefix="viswiz_meta[manual_progress]">
                     <?php foreach ( $progress_targets as $target ) : ?>
                         <div class="viswiz-target-row">
                             <input type="text" name="viswiz_meta[manual_progress][targets][name][<?php echo esc_attr( $progress_index ); ?>][]" placeholder="Target name" value="<?php echo esc_attr( $target['name'] ?? '' ); ?>" class="regular-text" />
@@ -1281,7 +1281,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                         </div>
                     <?php endforeach; ?>
                 </div>
-                <button type="button" class="button viswiz-add-target" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-target-scope="visual">Add Target</button>
+                <button type="button" class="button viswiz-add-target" data-target-scope="visual">Add Target</button>
                 <button type="button" class="button viswiz-remove-row">Remove</button>
             </div>
         <?php endforeach; ?>
@@ -1530,8 +1530,7 @@ function viswiz_render_visualization( $post_id ) {
     );
 
     if ( $meta['type'] === 'progress' ) {
-        $manual = $meta['manual_progress'][0] ?? array();
-        $manual_json = $meta['source'] === 'manual' ? esc_attr( viswiz_json_encode( $manual ) ) : '';
+        $manual_json = $meta['source'] === 'manual' ? esc_attr( viswiz_json_encode( $meta['manual_progress'] ) ) : '';
         return sprintf( '<div class="viswiz-progress" %s data-manual="%s"></div>', $data_attrs, $manual_json );
     }
 

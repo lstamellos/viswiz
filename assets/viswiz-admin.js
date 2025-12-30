@@ -76,14 +76,14 @@
     row.innerHTML = `
       <input type="text" name="${namePrefix}[label][]" placeholder="Label" class="regular-text" />
       <input type="number" name="${namePrefix}[value][]" placeholder="Value" step="0.01" />
-      <div class="viswiz-targets" data-progress-index="${index}" data-name-prefix="${namePrefix}">
+      <div class="viswiz-targets" data-name-prefix="${namePrefix}">
         <div class="viswiz-target-row">
           <input type="text" name="${namePrefix}[targets][name][${index}][]" placeholder="Target name" class="regular-text" />
           <input type="number" name="${namePrefix}[targets][value][${index}][]" placeholder="Target value" step="0.01" />
           <button type="button" class="button viswiz-remove-target">Remove</button>
         </div>
       </div>
-      <button type="button" class="button viswiz-add-target" data-progress-index="${index}">Add Target</button>
+      <button type="button" class="button viswiz-add-target">Add Target</button>
       <button type="button" class="button viswiz-remove-row">Remove</button>
     `;
     container.appendChild(row);
@@ -97,6 +97,19 @@
     return max + 1;
   }
 
+  function reindexProgressRows(container) {
+    Array.from(container.querySelectorAll('.viswiz-row')).forEach((row, index) => {
+      row.dataset.progressIndex = index;
+      row.querySelectorAll('.viswiz-target-row input').forEach((input) => {
+        const name = input.getAttribute('name');
+        if (!name) {
+          return;
+        }
+        const updated = name.replace(/targets\\]\\[(name|value)\\]\\[\\d+\\]\\[/, `targets][$1][${index}][`);
+        input.setAttribute('name', updated);
+      });
+    });
+  }
   function addDiagramSection(containerId, namePrefix) {
     const container = document.getElementById(containerId);
     if (!container) {
@@ -173,7 +186,11 @@
   });
 
   $(document).on('click', '.viswiz-remove-row', function () {
+    const container = $(this).closest('.viswiz-repeatable');
     $(this).closest('.viswiz-row').remove();
+    if (container.length) {
+      reindexProgressRows(container.get(0));
+    }
   });
 
   $(document).on('click', '.viswiz-remove-section', function () {

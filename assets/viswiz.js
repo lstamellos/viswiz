@@ -212,6 +212,10 @@
   function loadManualProgress(container, index) {
     const manualOverride = getManualData(container);
     if (manualOverride) {
+      if (Array.isArray(manualOverride)) {
+        renderProgressList(container, manualOverride, container.dataset.label || 'Manual Progress');
+        return;
+      }
       renderProgress(container, {
         label: manualOverride.label || container.dataset.label || 'Manual Progress',
         value: parseFloat(manualOverride.value || 0),
@@ -233,6 +237,21 @@
     } else {
       container.textContent = 'No manual progress data available.';
     }
+  }
+
+  function renderProgressList(container, items, fallbackLabel) {
+    container.innerHTML = '';
+    items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'viswiz-progress-item';
+      renderProgress(row, {
+        label: item.label || fallbackLabel,
+        value: parseFloat(item.value || 0),
+        target: parseFloat(item.target || 0),
+        targets: item.targets || [],
+      });
+      container.appendChild(row);
+    });
   }
 
   function loadManualPie(container) {
