@@ -202,3 +202,16 @@
   padding: 6px 0;
   border-bottom: 1px dashed #ddd;
 }
+
+.viswiz-preview-wrap {
+  margin-top: 16px;
+  padding: 20px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+#viswiz-refresh-preview {
+  margin-bottom: 12px;
+}

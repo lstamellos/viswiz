@@ -1188,6 +1188,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     <div class="viswiz-meta-tabs">
         <button type="button" class="button viswiz-tab-button is-active" data-viswiz-tab="data">Data</button>
         <button type="button" class="button viswiz-tab-button" data-viswiz-tab="formatting">Formatting</button>
+        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="preview">Preview</button>
     </div>
     <div class="viswiz-tab-panel is-active" data-viswiz-panel="data">
     <p>
@@ -1405,6 +1406,11 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <label for="viswiz_color_text">Text</label>
             <input type="color" name="viswiz_meta[format_colors][text]" id="viswiz_color_text" value="<?php echo esc_attr( $meta['format_colors']['text'] ?? '#333333' ); ?>" />
         </p>
+    </div>
+    <div class="viswiz-tab-panel" data-viswiz-panel="preview">
+        <p class="description">This preview shows how your visualization will appear based on current settings. For WooCommerce data sources, sample data is shown.</p>
+        <button type="button" class="button button-secondary" id="viswiz-refresh-preview">Refresh Preview</button>
+        <div id="viswiz-preview-container" class="viswiz-preview-wrap"></div>
     </div>
     <?php
 }
