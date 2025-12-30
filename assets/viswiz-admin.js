@@ -2,6 +2,7 @@
   function updateVisualizationFields() {
     const type = $('[data-viswiz-type]').val();
     const source = $('[data-viswiz-source]').val();
+    const periodMode = $('[data-viswiz-period-mode]').val();
     if (!type) {
       return;
     }
@@ -12,6 +13,15 @@
       const matchesType = supported.includes(type);
       const matchesSource = sources.length === 0 || sources.includes(source);
       if (matchesType && matchesSource) {
+        $(this).show();
+      } else {
+        $(this).hide();
+      }
+    });
+
+    $('[data-viswiz-period]').each(function () {
+      const supported = $(this).data('viswiz-period');
+      if (!supported || supported === periodMode) {
         $(this).show();
       } else {
         $(this).hide();
@@ -54,6 +64,39 @@
     container.appendChild(row);
   }
 
+  function addProgressRow(containerId, namePrefix) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+      return;
+    }
+    const index = getNextProgressIndex(container);
+    const row = document.createElement('div');
+    row.className = 'viswiz-row';
+    row.dataset.progressIndex = index;
+    row.innerHTML = `
+      <input type="text" name="${namePrefix}[label][]" placeholder="Label" class="regular-text" />
+      <input type="number" name="${namePrefix}[value][]" placeholder="Value" step="0.01" />
+      <div class="viswiz-targets" data-progress-index="${index}" data-name-prefix="${namePrefix}">
+        <div class="viswiz-target-row">
+          <input type="text" name="${namePrefix}[targets][name][${index}][]" placeholder="Target name" class="regular-text" />
+          <input type="number" name="${namePrefix}[targets][value][${index}][]" placeholder="Target value" step="0.01" />
+          <button type="button" class="button viswiz-remove-target">Remove</button>
+        </div>
+      </div>
+      <button type="button" class="button viswiz-add-target" data-progress-index="${index}">Add Target</button>
+      <button type="button" class="button viswiz-remove-row">Remove</button>
+    `;
+    container.appendChild(row);
+  }
+
+  function getNextProgressIndex(container) {
+    const values = Array.from(container.querySelectorAll('.viswiz-row')).map((row) =>
+      parseInt(row.dataset.progressIndex, 10)
+    );
+    const max = values.length ? Math.max(...values) : -1;
+    return max + 1;
+  }
+
   function addDiagramSection(containerId, namePrefix) {
     const container = document.getElementById(containerId);
     if (!container) {
@@ -87,9 +130,7 @@
 
   const addHandlers = {
     progress() {
-      addRow('viswiz-progress-rows', ['Label', 'Value', 'Target'], 'viswiz_manual_progress', ['label', 'value', 'target'], {
-        typeMap: { value: 'number', target: 'number' },
-      });
+      addProgressRow('viswiz-progress-rows', 'viswiz_manual_progress');
     },
     pie() {
       addRow('viswiz-pie-rows', ['Label', 'Value', 'Color'], 'viswiz_manual_pie', ['label', 'value', 'color'], {
@@ -106,9 +147,7 @@
       addRow('viswiz-graph-links', ['From ID', 'To ID', 'Label'], 'viswiz_graph_data[links]', ['from', 'to', 'label']);
     },
     'visual-progress': function () {
-      addRow('viswiz-visual-progress', ['Label', 'Value', 'Target'], 'viswiz_meta[manual_progress]', ['label', 'value', 'target'], {
-        typeMap: { value: 'number', target: 'number' },
-      });
+      addProgressRow('viswiz-visual-progress', 'viswiz_meta[manual_progress]');
     },
     'visual-pie': function () {
       addRow('viswiz-visual-pie', ['Label', 'Value', 'Color'], 'viswiz_meta[manual_pie]', ['label', 'value', 'color'], {
@@ -158,6 +197,28 @@
     $(this).closest('.viswiz-item-row').remove();
   });
 
+  $(document).on('click', '.viswiz-add-target', function () {
+    const row = $(this).closest('.viswiz-row');
+    const index = row.data('progress-index');
+    const targets = row.find('.viswiz-targets');
+    const namePrefix = targets.data('name-prefix');
+    if (!namePrefix) {
+      return;
+    }
+    const rowHtml = `
+      <div class="viswiz-target-row">
+        <input type="text" name="${namePrefix}[targets][name][${index}][]" placeholder="Target name" class="regular-text" />
+        <input type="number" name="${namePrefix}[targets][value][${index}][]" placeholder="Target value" step="0.01" />
+        <button type="button" class="button viswiz-remove-target">Remove</button>
+      </div>
+    `;
+    targets.append(rowHtml);
+  });
+
+  $(document).on('click', '.viswiz-remove-target', function () {
+    $(this).closest('.viswiz-target-row').remove();
+  });
+
   $(document).on('change', '[data-viswiz-type]', function () {
     updateVisualizationFields();
   });
@@ -166,7 +227,28 @@
     updateVisualizationFields();
   });
 
+  $(document).on('change', '[data-viswiz-period-mode]', function () {
+    updateVisualizationFields();
+  });
+
   $(document).ready(function () {
     updateVisualizationFields();
+    updateSalesPeriodVisibility();
+  });
+
+  function updateSalesPeriodVisibility() {
+    const mode = $('#viswiz_sales_period_mode').val();
+    $('.viswiz-period-group[data-viswiz-period]').each(function () {
+      const supported = $(this).data('viswiz-period');
+      if (!supported || supported === mode) {
+        $(this).show();
+      } else {
+        $(this).hide();
+      }
+    });
+  }
+
+  $(document).on('change', '#viswiz_sales_period_mode', function () {
+    updateSalesPeriodVisibility();
   });
 })(jQuery);

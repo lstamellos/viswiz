@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.1.3
+ * Version: 1.1.4
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.1.3';
+const VISWIZ_VERSION = '1.1.4';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -21,6 +21,10 @@ const VISWIZ_OPTION_SALES_SCOPE = 'viswiz_sales_scope';
 const VISWIZ_OPTION_SALES_PERIOD = 'viswiz_sales_period_days';
 const VISWIZ_OPTION_SALES_PERIOD_VALUE = 'viswiz_sales_period_value';
 const VISWIZ_OPTION_SALES_PERIOD_UNIT = 'viswiz_sales_period_unit';
+const VISWIZ_OPTION_SALES_PERIOD_MODE = 'viswiz_sales_period_mode';
+const VISWIZ_OPTION_SALES_PERIOD_START = 'viswiz_sales_period_start';
+const VISWIZ_OPTION_SALES_PRODUCTS = 'viswiz_sales_product_ids';
+const VISWIZ_OPTION_CURRENCY = 'viswiz_currency_code';
 const VISWIZ_OPTION_SALES_PRODUCT = 'viswiz_sales_product_id';
 const VISWIZ_OPTION_SALES_CATEGORY = 'viswiz_sales_category_id';
 
@@ -85,7 +89,11 @@ function viswiz_enqueue_assets() {
             'salesPeriod' => (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 ),
             'salesPeriodValue' => (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 30 ),
             'salesPeriodUnit' => viswiz_get_period_unit_option(),
-            'salesProduct' => (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 ),
+            'salesPeriodMode' => viswiz_get_period_mode_option(),
+            'salesPeriodStart' => get_option( VISWIZ_OPTION_SALES_PERIOD_START, '' ),
+            'currencyCode' => viswiz_get_currency_code(),
+            'currencySymbol' => viswiz_get_currency_symbol(),
+            'salesProduct' => viswiz_get_sales_product_ids(),
             'salesCategory' => (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 ),
         )
     );
@@ -140,11 +148,16 @@ function viswiz_get_sales_data( WP_REST_Request $request ) {
         $scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
     }
 
-    list( $period_value, $period_unit ) = viswiz_get_period_spec_from_request( $request );
+    $period_spec = viswiz_get_period_spec_from_request( $request );
+    $period_mode = $period_spec[0];
 
+    $product_ids = viswiz_parse_id_list( $request->get_param( 'product_ids' ) );
     $product_id = (int) $request->get_param( 'product_id' );
-    if ( $product_id <= 0 ) {
-        $product_id = (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 );
+    if ( $product_id > 0 && empty( $product_ids ) ) {
+        $product_ids = array( $product_id );
+    }
+    if ( empty( $product_ids ) ) {
+        $product_ids = viswiz_get_sales_product_ids();
     }
 
     $category_id = (int) $request->get_param( 'category_id' );
@@ -152,7 +165,11 @@ function viswiz_get_sales_data( WP_REST_Request $request ) {
         $category_id = (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 );
     }
 
-    $orders = viswiz_get_orders_for_period( $period_value, $period_unit );
+    if ( $period_mode === 'fixed' ) {
+        $orders = viswiz_get_orders_for_fixed_period( $period_spec[1] );
+    } else {
+        $orders = viswiz_get_orders_for_period( $period_spec[1], $period_spec[2] );
+    }
     $total_sales = 0.0;
     $order_count = 0;
 
@@ -162,14 +179,14 @@ function viswiz_get_sales_data( WP_REST_Request $request ) {
             continue;
         }
 
-        if ( $scope === 'product' && $product_id > 0 ) {
-            $total_sales += viswiz_get_order_total_for_product( $order, $product_id );
+        if ( $scope === 'product' && ! empty( $product_ids ) ) {
+            $total_sales += viswiz_get_order_total_for_products( $order, $product_ids );
             $order_count++;
             continue;
         }
 
         if ( $scope === 'category' && $category_id > 0 ) {
-            $total_sales += viswiz_get_order_total_for_category( $order, $category_id );
+            $total_sales += viswiz_get_order_total_for_category( $order, array( $category_id ) );
             $order_count++;
             continue;
         }
@@ -189,17 +206,21 @@ function viswiz_get_sales_status_data( WP_REST_Request $request ) {
         return new WP_Error( 'viswiz_no_woocommerce', 'WooCommerce is not active.' );
     }
 
-    list( $period_value, $period_unit ) = viswiz_get_period_spec_from_request( $request );
+    $period_spec = viswiz_get_period_spec_from_request( $request );
+    $period_mode = $period_spec[0];
 
     $statuses = wc_get_order_statuses();
     $counts = array();
 
     foreach ( $statuses as $status_key => $label ) {
+        $date_created = $period_mode === 'fixed'
+            ? viswiz_get_fixed_period_start_date( $period_spec[1] )
+            : viswiz_get_period_start_date( $period_spec[1], $period_spec[2] );
         $orders = wc_get_orders(
             array(
                 'status' => array( $status_key ),
                 'limit' => -1,
-                'date_created' => '>' . viswiz_get_period_start_date( $period_value, $period_unit ),
+                'date_created' => '>' . $date_created,
                 'return' => 'ids',
             )
         );
@@ -222,9 +243,12 @@ function viswiz_progress_shortcode( $atts ) {
             'target' => '',
             'scope' => '',
             'period_days' => '',
+            'period_mode' => '',
             'period_value' => '',
             'period_unit' => '',
+            'period_start' => '',
             'product_id' => '',
+            'product_ids' => '',
             'category_id' => '',
         ),
         $atts,
@@ -234,15 +258,17 @@ function viswiz_progress_shortcode( $atts ) {
     $target = $atts['target'] !== '' ? (float) $atts['target'] : (float) get_option( VISWIZ_OPTION_TARGET, 0 );
 
     return sprintf(
-        '<div class="viswiz-progress" data-type="%s" data-label="%s" data-target="%s" data-scope="%s" data-period-days="%s" data-period-value="%s" data-period-unit="%s" data-product-id="%s" data-category-id="%s"></div>',
+        '<div class="viswiz-progress" data-type="%s" data-label="%s" data-target="%s" data-scope="%s" data-period-days="%s" data-period-mode="%s" data-period-value="%s" data-period-unit="%s" data-period-start="%s" data-product-ids="%s" data-category-id="%s"></div>',
         esc_attr( $atts['type'] ),
         esc_attr( $atts['label'] ),
         esc_attr( $target ),
         esc_attr( $atts['scope'] ),
         esc_attr( $atts['period_days'] ),
+        esc_attr( $atts['period_mode'] ),
         esc_attr( $atts['period_value'] ),
         esc_attr( $atts['period_unit'] ),
-        esc_attr( $atts['product_id'] ),
+        esc_attr( $atts['period_start'] ),
+        esc_attr( $atts['product_ids'] !== '' ? $atts['product_ids'] : $atts['product_id'] ),
         esc_attr( $atts['category_id'] )
     );
 }
@@ -254,9 +280,12 @@ function viswiz_pie_shortcode( $atts ) {
             'title' => 'Sales Breakdown',
             'scope' => '',
             'period_days' => '',
+            'period_mode' => '',
             'period_value' => '',
             'period_unit' => '',
+            'period_start' => '',
             'product_id' => '',
+            'product_ids' => '',
             'category_id' => '',
         ),
         $atts,
@@ -264,14 +293,16 @@ function viswiz_pie_shortcode( $atts ) {
     );
 
     return sprintf(
-        '<div class="viswiz-pie" data-type="%s" data-title="%s" data-scope="%s" data-period-days="%s" data-period-value="%s" data-period-unit="%s" data-product-id="%s" data-category-id="%s"></div>',
+        '<div class="viswiz-pie" data-type="%s" data-title="%s" data-scope="%s" data-period-days="%s" data-period-mode="%s" data-period-value="%s" data-period-unit="%s" data-period-start="%s" data-product-ids="%s" data-category-id="%s"></div>',
         esc_attr( $atts['type'] ),
         esc_attr( $atts['title'] ),
         esc_attr( $atts['scope'] ),
         esc_attr( $atts['period_days'] ),
+        esc_attr( $atts['period_mode'] ),
         esc_attr( $atts['period_value'] ),
         esc_attr( $atts['period_unit'] ),
-        esc_attr( $atts['product_id'] ),
+        esc_attr( $atts['period_start'] ),
+        esc_attr( $atts['product_ids'] !== '' ? $atts['product_ids'] : $atts['product_id'] ),
         esc_attr( $atts['category_id'] )
     );
 }
@@ -337,8 +368,12 @@ function viswiz_register_settings() {
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD, array( 'sanitize_callback' => 'absint' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD_VALUE, array( 'sanitize_callback' => 'absint' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD_UNIT, array( 'sanitize_callback' => 'sanitize_text_field' ) );
+    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD_MODE, array( 'sanitize_callback' => 'sanitize_text_field' ) );
+    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD_START, array( 'sanitize_callback' => 'sanitize_text_field' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PRODUCT, array( 'sanitize_callback' => 'absint' ) );
+    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PRODUCTS, array( 'sanitize_callback' => 'viswiz_sanitize_id_array' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_CATEGORY, array( 'sanitize_callback' => 'absint' ) );
+    register_setting( 'viswiz_settings', VISWIZ_OPTION_CURRENCY, array( 'sanitize_callback' => 'sanitize_text_field' ) );
 }
 
 function viswiz_render_settings_page() {
@@ -347,13 +382,17 @@ function viswiz_render_settings_page() {
     $diagram_sections = viswiz_get_diagram_data();
     $graph_data = viswiz_get_graph_data();
     $sales_scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
+    $sales_period_mode = viswiz_get_period_mode_option();
     $sales_period_value = (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 0 );
     $sales_period_unit = viswiz_get_period_unit_option();
+    $sales_period_start = get_option( VISWIZ_OPTION_SALES_PERIOD_START, '' );
+    $currency_code = viswiz_get_currency_code();
+    $currency_symbol = viswiz_get_currency_symbol();
     if ( $sales_period_value <= 0 ) {
         $sales_period_value = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
         $sales_period_unit = 'day';
     }
-    $sales_product = (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 );
+    $sales_product_ids = viswiz_get_sales_product_ids();
     $sales_category = (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 );
     $active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'sales';
     ?>
@@ -386,22 +425,46 @@ function viswiz_render_settings_page() {
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="viswiz_sales_period_value">Default Sales Period</label></th>
+                        <th scope="row"><label for="viswiz_currency_code">Currency</label></th>
                         <td>
-                            <input type="number" name="viswiz_sales_period_value" id="viswiz_sales_period_value" value="<?php echo esc_attr( $sales_period_value ); ?>" min="1" class="small-text" />
-                            <select name="viswiz_sales_period_unit" id="viswiz_sales_period_unit">
-                                <option value="day" <?php selected( $sales_period_unit, 'day' ); ?>>day(s)</option>
-                                <option value="month" <?php selected( $sales_period_unit, 'month' ); ?>>month(s)</option>
-                                <option value="year" <?php selected( $sales_period_unit, 'year' ); ?>>year(s)</option>
+                            <select name="viswiz_currency_code" id="viswiz_currency_code">
+                                <?php foreach ( viswiz_get_currency_options() as $code => $label ) : ?>
+                                    <option value="<?php echo esc_attr( $code ); ?>" <?php selected( $currency_code, $code ); ?>>
+                                        <?php echo esc_html( sprintf( '%s (%s)', $label, viswiz_get_currency_symbol_for_code( $code ) ) ); ?>
+                                    </option>
+                                <?php endforeach; ?>
                             </select>
-                            <p class="description">Defines the default time window for WooCommerce sales queries. Example: <code>period_value="3" period_unit="month"</code>.</p>
+                            <p class="description">Controls how amounts are labeled in charts and progress bars. Example: <code>USD ($)</code>.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="viswiz_sales_period_mode">Default Sales Period</label></th>
+                        <td>
+                            <select name="viswiz_sales_period_mode" id="viswiz_sales_period_mode">
+                                <option value="relative" <?php selected( $sales_period_mode, 'relative' ); ?>>Period (value + unit)</option>
+                                <option value="fixed" <?php selected( $sales_period_mode, 'fixed' ); ?>>From date/time until now</option>
+                            </select>
+                            <p class="description">Choose how the default period is calculated.</p>
+                            <div class="viswiz-period-group" data-viswiz-period="relative">
+                                <input type="number" name="viswiz_sales_period_value" id="viswiz_sales_period_value" value="<?php echo esc_attr( $sales_period_value ); ?>" min="1" class="small-text" />
+                                <select name="viswiz_sales_period_unit" id="viswiz_sales_period_unit">
+                                    <option value="day" <?php selected( $sales_period_unit, 'day' ); ?>>day(s)</option>
+                                    <option value="month" <?php selected( $sales_period_unit, 'month' ); ?>>month(s)</option>
+                                    <option value="year" <?php selected( $sales_period_unit, 'year' ); ?>>year(s)</option>
+                                </select>
+                                <p class="description">Example: <code>period_mode="relative" period_value="3" period_unit="month"</code>.</p>
+                            </div>
+                            <div class="viswiz-period-group" data-viswiz-period="fixed">
+                                <input type="datetime-local" name="viswiz_sales_period_start" id="viswiz_sales_period_start" value="<?php echo esc_attr( $sales_period_start ); ?>" />
+                                <p class="description">Example: <code>period_mode="fixed" period_start="2024-01-01T00:00"</code>.</p>
+                            </div>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="viswiz_sales_product_id">Default Product</label></th>
                         <td>
-                            <?php echo viswiz_render_product_search_field( 'viswiz_sales_product_id', $sales_product ); ?>
-                            <p class="description">Used for product-scope charts. Example: <code>product_id="123"</code>.</p>
+                            <?php echo viswiz_render_product_search_field( 'viswiz_sales_product_ids[]', $sales_product_ids, true ); ?>
+                            <p class="description">Used for product-scope charts. Example: <code>product_ids="123,456"</code>.</p>
                         </td>
                     </tr>
                     <tr>
@@ -427,15 +490,31 @@ function viswiz_render_settings_page() {
                                 <?php if ( empty( $progress_items ) ) : ?>
                                     <?php $progress_items = array( array( 'label' => '', 'value' => '', 'target' => '' ) ); ?>
                                 <?php endif; ?>
-                                <?php foreach ( $progress_items as $progress_item ) : ?>
-                                    <div class="viswiz-row">
-                                        <input type="text" name="viswiz_manual_progress[label][]" placeholder="Label" value="<?php echo esc_attr( $progress_item['label'] ?? '' ); ?>" class="regular-text" />
-                                        <input type="number" name="viswiz_manual_progress[value][]" placeholder="Value" value="<?php echo esc_attr( $progress_item['value'] ?? '' ); ?>" step="0.01" />
-                                        <input type="number" name="viswiz_manual_progress[target][]" placeholder="Target" value="<?php echo esc_attr( $progress_item['target'] ?? '' ); ?>" step="0.01" />
-                                        <button type="button" class="button viswiz-remove-row">Remove</button>
+                            <?php foreach ( $progress_items as $progress_index => $progress_item ) : ?>
+                                <div class="viswiz-row" data-progress-index="<?php echo esc_attr( $progress_index ); ?>">
+                                    <?php $progress_targets = $progress_item['targets'] ?? array(); ?>
+                                    <?php if ( empty( $progress_targets ) && isset( $progress_item['target'] ) ) : ?>
+                                        <?php $progress_targets = array( array( 'name' => 'Target', 'value' => $progress_item['target'] ) ); ?>
+                                    <?php endif; ?>
+                                    <?php if ( empty( $progress_targets ) ) : ?>
+                                        <?php $progress_targets = array( array( 'name' => '', 'value' => '' ) ); ?>
+                                    <?php endif; ?>
+                                    <input type="text" name="viswiz_manual_progress[label][]" placeholder="Label" value="<?php echo esc_attr( $progress_item['label'] ?? '' ); ?>" class="regular-text" />
+                                    <input type="number" name="viswiz_manual_progress[value][]" placeholder="Value" value="<?php echo esc_attr( $progress_item['value'] ?? '' ); ?>" step="0.01" />
+                                    <div class="viswiz-targets" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-name-prefix="viswiz_manual_progress">
+                                        <?php foreach ( $progress_targets as $target ) : ?>
+                                            <div class="viswiz-target-row">
+                                                <input type="text" name="viswiz_manual_progress[targets][name][<?php echo esc_attr( $progress_index ); ?>][]" placeholder="Target name" value="<?php echo esc_attr( $target['name'] ?? '' ); ?>" class="regular-text" />
+                                                <input type="number" name="viswiz_manual_progress[targets][value][<?php echo esc_attr( $progress_index ); ?>][]" placeholder="Target value" value="<?php echo esc_attr( $target['value'] ?? '' ); ?>" step="0.01" />
+                                                <button type="button" class="button viswiz-remove-target">Remove</button>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
-                                <?php endforeach; ?>
-                            </div>
+                                    <button type="button" class="button viswiz-add-target" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-target-scope="settings">Add Target</button>
+                                    <button type="button" class="button viswiz-remove-row">Remove</button>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
                             <button type="button" class="button" data-viswiz-add="progress">Add Progress Row</button>
                             <p class="description">Each row becomes a manual progress bar. Example: Label “Campaign”, Value 45, Target 100.</p>
                         </td>
@@ -556,6 +635,14 @@ function viswiz_sanitize_json_option( $value ) {
     return viswiz_json_encode( $decoded );
 }
 
+function viswiz_sanitize_id_array( $value ) {
+    if ( ! is_array( $value ) ) {
+        $value = array();
+    }
+    $value = array_map( 'absint', $value );
+    return array_values( array_filter( $value ) );
+}
+
 function viswiz_sanitize_progress_option( $value ) {
     if ( ! is_array( $value ) ) {
         return viswiz_sanitize_json_option( $value );
@@ -564,19 +651,48 @@ function viswiz_sanitize_progress_option( $value ) {
     $labels = $value['label'] ?? array();
     $values = $value['value'] ?? array();
     $targets = $value['target'] ?? array();
+    $targets_name = $value['targets']['name'] ?? array();
+    $targets_value = $value['targets']['value'] ?? array();
     $sanitized = array();
 
     foreach ( $labels as $index => $label ) {
         $label = sanitize_text_field( $label );
         $val = isset( $values[ $index ] ) ? (float) $values[ $index ] : 0;
         $target = isset( $targets[ $index ] ) ? (float) $targets[ $index ] : 0;
-        if ( $label === '' && $val === 0.0 && $target === 0.0 ) {
+        $named_targets = array();
+        $names = $targets_name[ $index ] ?? array();
+        $values_for_targets = $targets_value[ $index ] ?? array();
+        foreach ( $names as $target_index => $name ) {
+            $name = sanitize_text_field( $name );
+            $target_value = isset( $values_for_targets[ $target_index ] ) ? (float) $values_for_targets[ $target_index ] : 0;
+            if ( $name === '' && $target_value === 0.0 ) {
+                continue;
+            }
+            $named_targets[] = array(
+                'name' => $name,
+                'value' => $target_value,
+            );
+        }
+        if ( $label === '' && $val === 0.0 && $target === 0.0 && empty( $named_targets ) ) {
             continue;
+        }
+        if ( empty( $named_targets ) && $target > 0 ) {
+            $named_targets[] = array(
+                'name' => 'Target',
+                'value' => $target,
+            );
+        }
+        $max_target = $target;
+        foreach ( $named_targets as $named_target ) {
+            if ( $named_target['value'] > $max_target ) {
+                $max_target = $named_target['value'];
+            }
         }
         $sanitized[] = array(
             'label' => $label,
             'value' => $val,
-            'target' => $target,
+            'target' => $max_target,
+            'targets' => $named_targets,
         );
     }
 
@@ -710,10 +826,92 @@ function viswiz_get_graph_data() {
     return json_decode( $raw, true ) ?: array();
 }
 
+function viswiz_get_sales_product_ids() {
+    $ids = get_option( VISWIZ_OPTION_SALES_PRODUCTS, array() );
+    $ids = viswiz_sanitize_id_array( $ids );
+    if ( empty( $ids ) ) {
+        $legacy = (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 );
+        if ( $legacy > 0 ) {
+            $ids = array( $legacy );
+        }
+    }
+    return $ids;
+}
+
+function viswiz_get_post_meta_ids( $post_id, $key ) {
+    $value = get_post_meta( $post_id, $key, true );
+    return viswiz_sanitize_id_array( is_array( $value ) ? $value : array() );
+}
+
+function viswiz_parse_id_list( $value ) {
+    if ( is_array( $value ) ) {
+        return viswiz_sanitize_id_array( $value );
+    }
+    if ( is_string( $value ) ) {
+        $parts = array_map( 'trim', explode( ',', $value ) );
+        return viswiz_sanitize_id_array( $parts );
+    }
+    return array();
+}
+
+function viswiz_get_currency_code() {
+    $code = get_option( VISWIZ_OPTION_CURRENCY, '' );
+    if ( $code !== '' ) {
+        return $code;
+    }
+    if ( function_exists( 'get_woocommerce_currency' ) ) {
+        return get_woocommerce_currency();
+    }
+    return 'USD';
+}
+
+function viswiz_get_currency_symbol() {
+    $code = viswiz_get_currency_code();
+    return viswiz_get_currency_symbol_for_code( $code );
+}
+
+function viswiz_get_currency_symbol_for_code( $code ) {
+    if ( function_exists( 'get_woocommerce_currency_symbol' ) ) {
+        return get_woocommerce_currency_symbol( $code );
+    }
+    $symbols = array(
+        'USD' => '$',
+        'EUR' => '€',
+        'GBP' => '£',
+        'JPY' => '¥',
+    );
+    return $symbols[ $code ] ?? '$';
+}
+
+function viswiz_get_currency_options() {
+    if ( function_exists( 'get_woocommerce_currencies' ) ) {
+        return get_woocommerce_currencies();
+    }
+    return array(
+        'USD' => 'US Dollar',
+        'EUR' => 'Euro',
+        'GBP' => 'British Pound',
+        'JPY' => 'Japanese Yen',
+    );
+}
+
 function viswiz_get_period_spec_from_request( WP_REST_Request $request ) {
     $period_value = (int) $request->get_param( 'period_value' );
     $period_unit = sanitize_text_field( $request->get_param( 'period_unit' ) );
     $period_days = (int) $request->get_param( 'period_days' );
+    $period_mode = sanitize_text_field( $request->get_param( 'period_mode' ) );
+    $period_start = sanitize_text_field( $request->get_param( 'period_start' ) );
+
+    if ( $period_mode === '' ) {
+        $period_mode = viswiz_get_period_mode_option();
+    }
+
+    if ( $period_mode === 'fixed' ) {
+        if ( $period_start === '' ) {
+            $period_start = get_option( VISWIZ_OPTION_SALES_PERIOD_START, '' );
+        }
+        return array( 'fixed', $period_start );
+    }
 
     if ( $period_value <= 0 && $period_days > 0 ) {
         $period_value = $period_days;
@@ -730,7 +928,7 @@ function viswiz_get_period_spec_from_request( WP_REST_Request $request ) {
         $period_unit = 'day';
     }
 
-    return array( $period_value, viswiz_normalize_period_unit( $period_unit ) );
+    return array( 'relative', $period_value, viswiz_normalize_period_unit( $period_unit ) );
 }
 
 function viswiz_get_period_start_date( $period_value, $period_unit ) {
@@ -739,6 +937,18 @@ function viswiz_get_period_start_date( $period_value, $period_unit ) {
     $date = new DateTime();
     $date->modify( sprintf( '-%d %ss', $period_value, $period_unit ) );
     return $date->format( 'Y-m-d' );
+}
+
+function viswiz_get_fixed_period_start_date( $period_start ) {
+    if ( $period_start === '' ) {
+        return ( new DateTime( '-30 days' ) )->format( 'Y-m-d' );
+    }
+    try {
+        $date = new DateTime( $period_start );
+        return $date->format( 'Y-m-d' );
+    } catch ( Exception $exception ) {
+        return ( new DateTime( '-30 days' ) )->format( 'Y-m-d' );
+    }
 }
 
 function viswiz_normalize_period_unit( $unit ) {
@@ -755,6 +965,11 @@ function viswiz_get_period_unit_option() {
     return viswiz_normalize_period_unit( $unit );
 }
 
+function viswiz_get_period_mode_option() {
+    $mode = get_option( VISWIZ_OPTION_SALES_PERIOD_MODE, 'relative' );
+    return $mode === 'fixed' ? 'fixed' : 'relative';
+}
+
 function viswiz_get_orders_for_period( $period_value, $period_unit ) {
     $period_value = max( 1, (int) $period_value );
     $period_unit = viswiz_normalize_period_unit( $period_unit );
@@ -763,6 +978,17 @@ function viswiz_get_orders_for_period( $period_value, $period_unit ) {
             'status' => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
             'limit' => -1,
             'date_created' => '>' . viswiz_get_period_start_date( $period_value, $period_unit ),
+            'return' => 'ids',
+        )
+    );
+}
+
+function viswiz_get_orders_for_fixed_period( $period_start ) {
+    return wc_get_orders(
+        array(
+            'status' => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
+            'limit' => -1,
+            'date_created' => '>' . viswiz_get_fixed_period_start_date( $period_start ),
             'return' => 'ids',
         )
     );
@@ -778,19 +1004,49 @@ function viswiz_get_order_total_for_product( WC_Order $order, $product_id ) {
     return $total;
 }
 
-function viswiz_get_order_total_for_category( WC_Order $order, $category_id ) {
+function viswiz_get_order_total_for_products( WC_Order $order, array $product_ids ) {
     $total = 0.0;
+    $product_ids = array_map( 'absint', $product_ids );
+    foreach ( $order->get_items() as $item ) {
+        if ( in_array( (int) $item->get_product_id(), $product_ids, true ) ) {
+            $total += (float) $item->get_total();
+        }
+    }
+    return $total;
+}
+
+function viswiz_get_order_total_for_category( WC_Order $order, array $category_ids ) {
+    $total = 0.0;
+    $category_ids = viswiz_get_category_ids_with_children( $category_ids );
     foreach ( $order->get_items() as $item ) {
         $product = $item->get_product();
         if ( ! $product ) {
             continue;
         }
         $categories = $product->get_category_ids();
-        if ( in_array( (int) $category_id, $categories, true ) ) {
+        if ( array_intersect( $category_ids, $categories ) ) {
             $total += (float) $item->get_total();
         }
     }
     return $total;
+}
+
+function viswiz_get_category_ids_with_children( array $category_ids ) {
+    $all_ids = array();
+    foreach ( $category_ids as $category_id ) {
+        $category_id = (int) $category_id;
+        if ( $category_id <= 0 ) {
+            continue;
+        }
+        $all_ids[] = $category_id;
+        $children = get_term_children( $category_id, 'product_cat' );
+        if ( is_array( $children ) ) {
+            foreach ( $children as $child_id ) {
+                $all_ids[] = (int) $child_id;
+            }
+        }
+    }
+    return array_values( array_unique( array_filter( $all_ids ) ) );
 }
 
 function viswiz_get_sales_breakdown( WP_REST_Request $request ) {
@@ -803,8 +1059,23 @@ function viswiz_get_sales_breakdown( WP_REST_Request $request ) {
         $scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
     }
 
-    list( $period_value, $period_unit ) = viswiz_get_period_spec_from_request( $request );
-    $orders = viswiz_get_orders_for_period( $period_value, $period_unit );
+    $period_spec = viswiz_get_period_spec_from_request( $request );
+    $period_mode = $period_spec[0];
+    $product_ids = viswiz_parse_id_list( $request->get_param( 'product_ids' ) );
+    $product_id = (int) $request->get_param( 'product_id' );
+    if ( $product_id > 0 && empty( $product_ids ) ) {
+        $product_ids = array( $product_id );
+    }
+    if ( empty( $product_ids ) ) {
+        $product_ids = viswiz_get_sales_product_ids();
+    }
+    $category_id = (int) $request->get_param( 'category_id' );
+    $category_ids = $category_id > 0 ? viswiz_get_category_ids_with_children( array( $category_id ) ) : array();
+    if ( $period_mode === 'fixed' ) {
+        $orders = viswiz_get_orders_for_fixed_period( $period_spec[1] );
+    } else {
+        $orders = viswiz_get_orders_for_period( $period_spec[1], $period_spec[2] );
+    }
     $totals = array();
 
     foreach ( $orders as $order_id ) {
@@ -819,8 +1090,20 @@ function viswiz_get_sales_breakdown( WP_REST_Request $request ) {
                 continue;
             }
 
+            if ( $scope === 'product' && ! empty( $product_ids ) ) {
+                if ( ! in_array( (int) $item->get_product_id(), $product_ids, true ) ) {
+                    continue;
+                }
+                $label = $product->get_name();
+                $totals[ $label ] = ( $totals[ $label ] ?? 0 ) + (float) $item->get_total();
+                continue;
+            }
+
             if ( $scope === 'category' ) {
                 foreach ( $product->get_category_ids() as $category_id ) {
+                    if ( ! empty( $category_ids ) && ! in_array( (int) $category_id, $category_ids, true ) ) {
+                        continue;
+                    }
                     $label = sprintf( 'Category %d', $category_id );
                     $term = get_term( $category_id, 'product_cat' );
                     if ( $term && ! is_wp_error( $term ) ) {
@@ -951,6 +1234,13 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </select>
     </p>
     <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
+        <label for="viswiz_period_mode">Period Type</label>
+        <select name="viswiz_meta[period_mode]" id="viswiz_period_mode" data-viswiz-period-mode>
+            <option value="relative" <?php selected( $meta['period_mode'], 'relative' ); ?>>Period (value + unit)</option>
+            <option value="fixed" <?php selected( $meta['period_mode'], 'fixed' ); ?>>From date/time until now</option>
+        </select>
+    </p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto" data-viswiz-period="relative">
         <label for="viswiz_period_value">Period</label>
         <input type="number" name="viswiz_meta[period_value]" id="viswiz_period_value" value="<?php echo esc_attr( $meta['period_value'] ); ?>" min="1" class="small-text" />
         <select name="viswiz_meta[period_unit]" id="viswiz_period_unit">
@@ -959,9 +1249,13 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <option value="year" <?php selected( $meta['period_unit'], 'year' ); ?>>year(s)</option>
         </select>
     </p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto" data-viswiz-period="fixed">
+        <label for="viswiz_period_start">Start date/time</label>
+        <input type="datetime-local" name="viswiz_meta[period_start]" id="viswiz_period_start" value="<?php echo esc_attr( $meta['period_start'] ); ?>" />
+    </p>
     <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
         <label for="viswiz_product_id">Product</label>
-        <?php echo viswiz_render_product_search_field( 'viswiz_meta[product_id]', $meta['product_id'] ); ?>
+        <?php echo viswiz_render_product_search_field( 'viswiz_meta[product_ids][]', $meta['product_ids'], true ); ?>
     </p>
     <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
         <label for="viswiz_category_id">Category</label>
@@ -973,11 +1267,27 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <?php if ( empty( $manual_progress ) ) : ?>
                 <?php $manual_progress = array( array( 'label' => '', 'value' => '', 'target' => '' ) ); ?>
             <?php endif; ?>
-            <?php foreach ( $manual_progress as $progress_item ) : ?>
-            <div class="viswiz-row">
+        <?php foreach ( $manual_progress as $progress_index => $progress_item ) : ?>
+            <div class="viswiz-row" data-progress-index="<?php echo esc_attr( $progress_index ); ?>">
+                <?php $progress_targets = $progress_item['targets'] ?? array(); ?>
+                <?php if ( empty( $progress_targets ) && isset( $progress_item['target'] ) ) : ?>
+                    <?php $progress_targets = array( array( 'name' => 'Target', 'value' => $progress_item['target'] ) ); ?>
+                <?php endif; ?>
+                <?php if ( empty( $progress_targets ) ) : ?>
+                    <?php $progress_targets = array( array( 'name' => '', 'value' => '' ) ); ?>
+                <?php endif; ?>
                 <input type="text" name="viswiz_meta[manual_progress][label][]" placeholder="Label" value="<?php echo esc_attr( $progress_item['label'] ?? '' ); ?>" class="regular-text" />
                 <input type="number" name="viswiz_meta[manual_progress][value][]" placeholder="Value" value="<?php echo esc_attr( $progress_item['value'] ?? '' ); ?>" step="0.01" />
-                <input type="number" name="viswiz_meta[manual_progress][target][]" placeholder="Target" value="<?php echo esc_attr( $progress_item['target'] ?? '' ); ?>" step="0.01" />
+                <div class="viswiz-targets" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-name-prefix="viswiz_meta[manual_progress]">
+                    <?php foreach ( $progress_targets as $target ) : ?>
+                        <div class="viswiz-target-row">
+                            <input type="text" name="viswiz_meta[manual_progress][targets][name][<?php echo esc_attr( $progress_index ); ?>][]" placeholder="Target name" value="<?php echo esc_attr( $target['name'] ?? '' ); ?>" class="regular-text" />
+                            <input type="number" name="viswiz_meta[manual_progress][targets][value][<?php echo esc_attr( $progress_index ); ?>][]" placeholder="Target value" value="<?php echo esc_attr( $target['value'] ?? '' ); ?>" step="0.01" />
+                            <button type="button" class="button viswiz-remove-target">Remove</button>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <button type="button" class="button viswiz-add-target" data-progress-index="<?php echo esc_attr( $progress_index ); ?>" data-target-scope="visual">Add Target</button>
                 <button type="button" class="button viswiz-remove-row">Remove</button>
             </div>
         <?php endforeach; ?>
@@ -1083,16 +1393,24 @@ function viswiz_save_visualization_meta( $post_id ) {
     $label = sanitize_text_field( $meta['label'] ?? '' );
     $target = isset( $meta['target'] ) ? (float) $meta['target'] : 0;
     $scope = sanitize_text_field( $meta['scope'] ?? 'total' );
+    $period_mode = isset( $meta['period_mode'] ) ? sanitize_text_field( $meta['period_mode'] ) : '';
     $period_value = isset( $meta['period_value'] ) ? (int) $meta['period_value'] : 0;
     $period_unit = isset( $meta['period_unit'] ) ? viswiz_normalize_period_unit( $meta['period_unit'] ) : '';
     $period_days = isset( $meta['period_days'] ) ? (int) $meta['period_days'] : 0;
+    $period_start = isset( $meta['period_start'] ) ? sanitize_text_field( $meta['period_start'] ) : '';
     if ( $period_value <= 0 ) {
         $period_value = $period_days > 0 ? $period_days : 30;
     }
     if ( $period_unit === '' ) {
         $period_unit = 'day';
     }
-    $product_id = isset( $meta['product_id'] ) ? (int) $meta['product_id'] : 0;
+    if ( $period_mode === '' ) {
+        $period_mode = 'relative';
+    }
+    $product_ids = isset( $meta['product_ids'] ) ? viswiz_sanitize_id_array( $meta['product_ids'] ) : array();
+    if ( empty( $product_ids ) && isset( $meta['product_id'] ) ) {
+        $product_ids = viswiz_sanitize_id_array( array( $meta['product_id'] ) );
+    }
     $category_id = isset( $meta['category_id'] ) ? (int) $meta['category_id'] : 0;
 
     update_post_meta( $post_id, 'viswiz_type', $type );
@@ -1100,9 +1418,11 @@ function viswiz_save_visualization_meta( $post_id ) {
     update_post_meta( $post_id, 'viswiz_label', $label );
     update_post_meta( $post_id, 'viswiz_target', $target );
     update_post_meta( $post_id, 'viswiz_scope', $scope );
+    update_post_meta( $post_id, 'viswiz_period_mode', $period_mode );
     update_post_meta( $post_id, 'viswiz_period_value', $period_value );
     update_post_meta( $post_id, 'viswiz_period_unit', $period_unit );
-    update_post_meta( $post_id, 'viswiz_product_id', $product_id );
+    update_post_meta( $post_id, 'viswiz_period_start', $period_start );
+    update_post_meta( $post_id, 'viswiz_product_ids', $product_ids );
     update_post_meta( $post_id, 'viswiz_category_id', $category_id );
 
     $progress_json = viswiz_sanitize_progress_option( $meta['manual_progress'] ?? array() );
@@ -1117,15 +1437,25 @@ function viswiz_save_visualization_meta( $post_id ) {
 }
 
 function viswiz_get_visualization_meta( $post_id ) {
+    $product_ids = viswiz_get_post_meta_ids( $post_id, 'viswiz_product_ids' );
+    if ( empty( $product_ids ) ) {
+        $legacy_product_id = (int) get_post_meta( $post_id, 'viswiz_product_id', true );
+        if ( $legacy_product_id > 0 ) {
+            $product_ids = array( $legacy_product_id );
+        }
+    }
+
     return array(
         'type' => get_post_meta( $post_id, 'viswiz_type', true ) ?: 'progress',
         'source' => get_post_meta( $post_id, 'viswiz_source', true ) ?: 'auto',
         'label' => get_post_meta( $post_id, 'viswiz_label', true ) ?: '',
         'target' => (float) get_post_meta( $post_id, 'viswiz_target', true ),
         'scope' => get_post_meta( $post_id, 'viswiz_scope', true ) ?: 'total',
+        'period_mode' => get_post_meta( $post_id, 'viswiz_period_mode', true ) ?: viswiz_get_period_mode_option(),
         'period_value' => (int) get_post_meta( $post_id, 'viswiz_period_value', true ) ?: (int) get_post_meta( $post_id, 'viswiz_period_days', true ) ?: (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 30 ),
         'period_unit' => get_post_meta( $post_id, 'viswiz_period_unit', true ) ?: viswiz_get_period_unit_option(),
-        'product_id' => (int) get_post_meta( $post_id, 'viswiz_product_id', true ),
+        'period_start' => get_post_meta( $post_id, 'viswiz_period_start', true ) ?: '',
+        'product_ids' => $product_ids,
         'category_id' => (int) get_post_meta( $post_id, 'viswiz_category_id', true ),
         'manual_progress' => json_decode( get_post_meta( $post_id, 'viswiz_manual_progress', true ) ?: '[]', true ) ?: array(),
         'manual_pie' => json_decode( get_post_meta( $post_id, 'viswiz_manual_pie', true ) ?: '[]', true ) ?: array(),
@@ -1146,15 +1476,17 @@ function viswiz_render_visualization_block( $attributes ) {
 function viswiz_render_visualization( $post_id ) {
     $meta = viswiz_get_visualization_meta( $post_id );
     $data_attrs = sprintf(
-        'data-type="%s" data-label="%s" data-title="%s" data-target="%s" data-scope="%s" data-period-value="%s" data-period-unit="%s" data-product-id="%s" data-category-id="%s"',
+        'data-type="%s" data-label="%s" data-title="%s" data-target="%s" data-scope="%s" data-period-mode="%s" data-period-value="%s" data-period-unit="%s" data-period-start="%s" data-product-ids="%s" data-category-id="%s"',
         esc_attr( $meta['source'] ),
         esc_attr( $meta['label'] ),
         esc_attr( $meta['label'] ),
         esc_attr( $meta['target'] ),
         esc_attr( $meta['scope'] ),
+        esc_attr( $meta['period_mode'] ),
         esc_attr( $meta['period_value'] ),
         esc_attr( $meta['period_unit'] ),
-        esc_attr( $meta['product_id'] ),
+        esc_attr( $meta['period_start'] ),
+        esc_attr( implode( ',', $meta['product_ids'] ) ),
         esc_attr( $meta['category_id'] )
     );
 
@@ -1262,20 +1594,23 @@ function viswiz_enqueue_admin_assets( $hook ) {
     }
 }
 
-function viswiz_render_product_search_field( $name, $selected_id ) {
-    $selected_id = (int) $selected_id;
-    $product_title = $selected_id ? get_the_title( $selected_id ) : '';
+function viswiz_render_product_search_field( $name, $selected_ids, $multiple = false ) {
+    $selected_ids = viswiz_sanitize_id_array( is_array( $selected_ids ) ? $selected_ids : array( $selected_ids ) );
     $field_id = sanitize_html_class( str_replace( array( '[', ']' ), array( '-', '' ), $name ) );
 
     $options = '';
-    if ( $selected_id ) {
-        $options = sprintf( '<option value="%d" selected="selected">%s</option>', $selected_id, esc_html( $product_title ) );
+    if ( ! empty( $selected_ids ) ) {
+        foreach ( $selected_ids as $selected_id ) {
+            $product_title = get_the_title( $selected_id );
+            $options .= sprintf( '<option value="%d" selected="selected">%s</option>', $selected_id, esc_html( $product_title ) );
+        }
     }
 
     return sprintf(
-        '<select id="%s" name="%s" class="wc-product-search" data-action="woocommerce_json_search_products_and_variations" data-placeholder="Search for a product" style="width: 300px;">%s</select>',
+        '<select id="%s" name="%s" class="wc-product-search" data-action="woocommerce_json_search_products_and_variations" data-placeholder="Search for a product" style="width: 300px;" %s>%s</select>',
         esc_attr( $field_id ),
         esc_attr( $name ),
+        $multiple ? 'multiple="multiple"' : '',
         $options
     );
 }

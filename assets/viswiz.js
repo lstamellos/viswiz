@@ -27,17 +27,48 @@
 
     const fill = document.createElement('div');
     fill.className = 'viswiz-progress-fill';
-    const percent = data.target > 0 ? Math.min(100, (data.value / data.target) * 100) : 0;
+    const targetValue = data.target > 0 ? data.target : getMaxTargetValue(data.targets);
+    const percent = targetValue > 0 ? Math.min(100, (data.value / targetValue) * 100) : 0;
     fill.style.width = `${percent}%`;
 
     const meta = document.createElement('div');
     meta.className = 'viswiz-progress-meta';
-    meta.textContent = `${data.value.toFixed(2)} / ${data.target.toFixed(2)} (${percent.toFixed(1)}%)`;
+    meta.textContent = `${formatCurrency(data.value)} / ${formatCurrency(targetValue)} (${percent.toFixed(1)}%)`;
 
     bar.appendChild(fill);
     container.appendChild(label);
     container.appendChild(bar);
+    container.appendChild(buildProgressMarkers(data.targets, targetValue));
     container.appendChild(meta);
+  }
+
+  function getMaxTargetValue(targets) {
+    if (!targets || !targets.length) {
+      return 0;
+    }
+    return targets.reduce((max, target) => Math.max(max, parseFloat(target.value || 0)), 0);
+  }
+
+  function buildProgressMarkers(targets, maxValue) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'viswiz-progress-markers';
+    (targets || []).forEach((target) => {
+      const targetValue = parseFloat(target.value || 0);
+      if (!targetValue) {
+        return;
+      }
+      const marker = document.createElement('div');
+      marker.className = 'viswiz-progress-marker';
+      const offset = maxValue > 0 ? Math.min(100, (targetValue / maxValue) * 100) : 0;
+      marker.style.left = `${offset}%`;
+      marker.title = `${target.name || 'Target'}: ${targetValue}`;
+      const markerLabel = document.createElement('span');
+      markerLabel.className = 'viswiz-progress-marker-label';
+      markerLabel.textContent = target.name || 'Target';
+      marker.appendChild(markerLabel);
+      wrapper.appendChild(marker);
+    });
+    return wrapper;
   }
 
   function renderPie(container, data) {
@@ -76,7 +107,7 @@
       swatch.className = 'viswiz-swatch';
       swatch.style.backgroundColor = entry.color || defaultColors[index % defaultColors.length];
       item.appendChild(swatch);
-      item.appendChild(document.createTextNode(`${entry.label}: ${entry.value}`));
+      item.appendChild(document.createTextNode(`${entry.label}: ${formatCurrency(entry.value)}`));
       legend.appendChild(item);
     });
     container.appendChild(legend);
@@ -183,6 +214,7 @@
         label: manualOverride.label || container.dataset.label || 'Manual Progress',
         value: parseFloat(manualOverride.value || 0),
         target: parseFloat(manualOverride.target || 0),
+        targets: manualOverride.targets || [],
       });
       return;
     }
@@ -194,6 +226,7 @@
         label: item.label || 'Manual Progress',
         value: parseFloat(item.value || 0),
         target: parseFloat(item.target || 0),
+        targets: item.targets || [],
       });
     } else {
       container.textContent = 'No manual progress data available.';
@@ -246,12 +279,18 @@
   }
 
   function buildSalesParams(container) {
+    const productIds =
+      container.dataset.productIds ||
+      (Array.isArray(VisWizData.salesProduct) ? VisWizData.salesProduct.join(',') : VisWizData.salesProduct) ||
+      '';
     return {
       scope: container.dataset.scope || VisWizData.salesScope || '',
       period_days: container.dataset.periodDays || VisWizData.salesPeriod || '',
+      period_mode: container.dataset.periodMode || VisWizData.salesPeriodMode || '',
       period_value: container.dataset.periodValue || VisWizData.salesPeriodValue || '',
       period_unit: container.dataset.periodUnit || VisWizData.salesPeriodUnit || '',
-      product_id: container.dataset.productId || VisWizData.salesProduct || '',
+      period_start: container.dataset.periodStart || VisWizData.salesPeriodStart || '',
+      product_ids: productIds,
       category_id: container.dataset.categoryId || VisWizData.salesCategory || '',
     };
   }
@@ -265,6 +304,19 @@
       return JSON.parse(container.dataset.manual);
     } catch (error) {
       return null;
+    }
+  }
+
+  function formatCurrency(value) {
+    const amount = parseFloat(value || 0);
+    const code = VisWizData.currencyCode || 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: code,
+      }).format(amount);
+    } catch (error) {
+      return `${VisWizData.currencySymbol || '$'}${amount.toFixed(2)}`;
     }
   }
 
