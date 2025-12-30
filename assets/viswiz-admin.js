@@ -216,7 +216,7 @@
 
   $(document).on('click', '.viswiz-add-target', function () {
     const row = $(this).closest('.viswiz-row');
-    const index = row.data('progress-index');
+    const index = row.attr('data-progress-index');
     const targets = row.find('.viswiz-targets');
     const namePrefix = targets.data('name-prefix');
     if (!namePrefix) {

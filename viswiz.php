@@ -941,13 +941,13 @@ function viswiz_get_period_start_date( $period_value, $period_unit ) {
 
 function viswiz_get_fixed_period_start_date( $period_start ) {
     if ( $period_start === '' ) {
-        return ( new DateTime( '-30 days' ) )->format( 'Y-m-d' );
+        return ( new DateTime( '-30 days' ) )->format( 'Y-m-d H:i:s' );
     }
     try {
         $date = new DateTime( $period_start );
-        return $date->format( 'Y-m-d' );
+        return $date->format( 'Y-m-d H:i:s' );
     } catch ( Exception $exception ) {
-        return ( new DateTime( '-30 days' ) )->format( 'Y-m-d' );
+        return ( new DateTime( '-30 days' ) )->format( 'Y-m-d H:i:s' );
     }
 }
 
