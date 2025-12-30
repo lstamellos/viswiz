@@ -107,7 +107,7 @@
       swatch.className = 'viswiz-swatch';
       swatch.style.backgroundColor = entry.color || defaultColors[index % defaultColors.length];
       item.appendChild(swatch);
-      item.appendChild(document.createTextNode(`${entry.label}: ${formatCurrency(entry.value)}`));
+      item.appendChild(document.createTextNode(`${entry.label}: ${formatPieValue(entry.value, data.isCurrency)}`));
       legend.appendChild(item);
     });
     container.appendChild(legend);
@@ -187,6 +187,7 @@
           renderPie(container, {
             title: container.dataset.title || 'Sales Breakdown',
             values: data.statusCounts || [],
+            isCurrency: false,
           });
         })
         .catch(() => {
@@ -200,6 +201,7 @@
         renderPie(container, {
           title: container.dataset.title || 'Sales Breakdown',
           values: data.values || [],
+          isCurrency: true,
         });
       })
       .catch(() => {
@@ -239,6 +241,7 @@
     renderPie(container, {
       title: container.dataset.title || 'Manual Pie Chart',
       values: manual,
+      isCurrency: true,
     });
   }
 
@@ -318,6 +321,13 @@
     } catch (error) {
       return `${VisWizData.currencySymbol || '$'}${amount.toFixed(2)}`;
     }
+  }
+
+  function formatPieValue(value, isCurrency) {
+    if (isCurrency === false) {
+      return new Intl.NumberFormat().format(parseFloat(value || 0));
+    }
+    return formatCurrency(value);
   }
 
   const defaultColors = [
