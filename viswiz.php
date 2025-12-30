@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.0.5
+ * Version: 1.1.0
  * Author: VisWiz
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.0.5';
+const VISWIZ_VERSION = '1.1.0';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -842,29 +842,29 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     ?>
     <p>
         <label for="viswiz_type">Visualization Type</label>
-        <select name="viswiz_meta[type]" id="viswiz_type">
+        <select name="viswiz_meta[type]" id="viswiz_type" data-viswiz-type>
             <option value="progress" <?php selected( $meta['type'], 'progress' ); ?>>Progress</option>
             <option value="pie" <?php selected( $meta['type'], 'pie' ); ?>>Pie</option>
             <option value="diagram" <?php selected( $meta['type'], 'diagram' ); ?>>Diagram</option>
             <option value="graph" <?php selected( $meta['type'], 'graph' ); ?>>Graph</option>
         </select>
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_source">Data Source</label>
         <select name="viswiz_meta[source]" id="viswiz_source">
             <option value="auto" <?php selected( $meta['source'], 'auto' ); ?>>WooCommerce</option>
             <option value="manual" <?php selected( $meta['source'], 'manual' ); ?>>Manual</option>
         </select>
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_label">Label/Title</label>
         <input type="text" name="viswiz_meta[label]" id="viswiz_label" value="<?php echo esc_attr( $meta['label'] ); ?>" class="regular-text" />
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress">
         <label for="viswiz_target">Target (progress)</label>
         <input type="number" name="viswiz_meta[target]" id="viswiz_target" value="<?php echo esc_attr( $meta['target'] ); ?>" step="0.01" />
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_scope">Sales Scope</label>
         <select name="viswiz_meta[scope]" id="viswiz_scope">
             <option value="total" <?php selected( $meta['scope'], 'total' ); ?>>All sales</option>
@@ -872,7 +872,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <option value="category" <?php selected( $meta['scope'], 'category' ); ?>>By category</option>
         </select>
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_period_days">Period (days)</label>
         <select name="viswiz_meta[period_days]" id="viswiz_period_days">
             <option value="7" <?php selected( $meta['period_days'], 7 ); ?>>Last 7 days</option>
@@ -880,20 +880,21 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <option value="90" <?php selected( $meta['period_days'], 90 ); ?>>Last 90 days</option>
         </select>
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_product_id">Product</label>
         <?php echo viswiz_render_product_search_field( 'viswiz_meta[product_id]', $meta['product_id'] ); ?>
     </p>
-    <p>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_category_id">Category</label>
         <?php echo viswiz_render_category_select_field( 'viswiz_meta[category_id]', $meta['category_id'], 'viswiz_category_id' ); ?>
     </p>
-    <h4>Manual Progress</h4>
-    <div id="viswiz-visual-progress" class="viswiz-repeatable">
-        <?php if ( empty( $manual_progress ) ) : ?>
-            <?php $manual_progress = array( array( 'label' => '', 'value' => '', 'target' => '' ) ); ?>
-        <?php endif; ?>
-        <?php foreach ( $manual_progress as $progress_item ) : ?>
+    <div class="viswiz-field-group" data-viswiz-types="progress">
+        <h4>Manual Progress</h4>
+        <div id="viswiz-visual-progress" class="viswiz-repeatable">
+            <?php if ( empty( $manual_progress ) ) : ?>
+                <?php $manual_progress = array( array( 'label' => '', 'value' => '', 'target' => '' ) ); ?>
+            <?php endif; ?>
+            <?php foreach ( $manual_progress as $progress_item ) : ?>
             <div class="viswiz-row">
                 <input type="text" name="viswiz_meta[manual_progress][label][]" placeholder="Label" value="<?php echo esc_attr( $progress_item['label'] ?? '' ); ?>" class="regular-text" />
                 <input type="number" name="viswiz_meta[manual_progress][value][]" placeholder="Value" value="<?php echo esc_attr( $progress_item['value'] ?? '' ); ?>" step="0.01" />
@@ -901,14 +902,16 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <button type="button" class="button viswiz-remove-row">Remove</button>
             </div>
         <?php endforeach; ?>
+        </div>
+        <button type="button" class="button" data-viswiz-add="visual-progress">Add Progress Row</button>
     </div>
-    <button type="button" class="button" data-viswiz-add="visual-progress">Add Progress Row</button>
-    <h4>Manual Pie</h4>
-    <div id="viswiz-visual-pie" class="viswiz-repeatable">
-        <?php if ( empty( $manual_pie ) ) : ?>
-            <?php $manual_pie = array( array( 'label' => '', 'value' => '', 'color' => '' ) ); ?>
-        <?php endif; ?>
-        <?php foreach ( $manual_pie as $pie_item ) : ?>
+    <div class="viswiz-field-group" data-viswiz-types="pie">
+        <h4>Manual Pie</h4>
+        <div id="viswiz-visual-pie" class="viswiz-repeatable">
+            <?php if ( empty( $manual_pie ) ) : ?>
+                <?php $manual_pie = array( array( 'label' => '', 'value' => '', 'color' => '' ) ); ?>
+            <?php endif; ?>
+            <?php foreach ( $manual_pie as $pie_item ) : ?>
             <div class="viswiz-row">
                 <input type="text" name="viswiz_meta[manual_pie][label][]" placeholder="Label" value="<?php echo esc_attr( $pie_item['label'] ?? '' ); ?>" class="regular-text" />
                 <input type="number" name="viswiz_meta[manual_pie][value][]" placeholder="Value" value="<?php echo esc_attr( $pie_item['value'] ?? '' ); ?>" step="0.01" />
@@ -916,14 +919,16 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <button type="button" class="button viswiz-remove-row">Remove</button>
             </div>
         <?php endforeach; ?>
+        </div>
+        <button type="button" class="button" data-viswiz-add="visual-pie">Add Pie Slice</button>
     </div>
-    <button type="button" class="button" data-viswiz-add="visual-pie">Add Pie Slice</button>
-    <h4>Manual Diagram</h4>
-    <div id="viswiz-visual-diagram" class="viswiz-repeatable">
-        <?php if ( empty( $diagram_data ) ) : ?>
-            <?php $diagram_data = array( array( 'title' => '', 'items' => array( '' ) ) ); ?>
-        <?php endif; ?>
-        <?php foreach ( $diagram_data as $section_index => $diagram_section ) : ?>
+    <div class="viswiz-field-group" data-viswiz-types="diagram">
+        <h4>Manual Diagram</h4>
+        <div id="viswiz-visual-diagram" class="viswiz-repeatable">
+            <?php if ( empty( $diagram_data ) ) : ?>
+                <?php $diagram_data = array( array( 'title' => '', 'items' => array( '' ) ) ); ?>
+            <?php endif; ?>
+            <?php foreach ( $diagram_data as $section_index => $diagram_section ) : ?>
             <div class="viswiz-section" data-section-index="<?php echo esc_attr( $section_index ); ?>">
                 <input type="text" name="viswiz_meta[diagram_data][title][]" placeholder="Section Title" value="<?php echo esc_attr( $diagram_section['title'] ?? '' ); ?>" class="regular-text" />
                 <div class="viswiz-items">
@@ -942,32 +947,34 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <button type="button" class="button viswiz-remove-section">Remove Section</button>
             </div>
         <?php endforeach; ?>
+        </div>
+        <button type="button" class="button" data-viswiz-add="visual-diagram">Add Diagram Section</button>
     </div>
-    <button type="button" class="button" data-viswiz-add="visual-diagram">Add Diagram Section</button>
-    <h4>Manual Graph</h4>
-    <div class="viswiz-graph">
-        <h5>Nodes</h5>
-        <div id="viswiz-visual-graph-nodes" class="viswiz-repeatable">
-            <?php $nodes = $graph_data['nodes'] ?? array(); ?>
-            <?php if ( empty( $nodes ) ) : ?>
-                <?php $nodes = array( array( 'id' => '', 'label' => '' ) ); ?>
-            <?php endif; ?>
-            <?php foreach ( $nodes as $node ) : ?>
+    <div class="viswiz-field-group" data-viswiz-types="graph">
+        <h4>Manual Graph</h4>
+        <div class="viswiz-graph">
+            <h5>Nodes</h5>
+            <div id="viswiz-visual-graph-nodes" class="viswiz-repeatable">
+                <?php $nodes = $graph_data['nodes'] ?? array(); ?>
+                <?php if ( empty( $nodes ) ) : ?>
+                    <?php $nodes = array( array( 'id' => '', 'label' => '' ) ); ?>
+                <?php endif; ?>
+                <?php foreach ( $nodes as $node ) : ?>
                 <div class="viswiz-row">
                     <input type="text" name="viswiz_meta[graph_data][nodes][id][]" placeholder="Node ID" value="<?php echo esc_attr( $node['id'] ?? '' ); ?>" class="regular-text" />
                     <input type="text" name="viswiz_meta[graph_data][nodes][label][]" placeholder="Label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" />
                     <button type="button" class="button viswiz-remove-row">Remove</button>
                 </div>
             <?php endforeach; ?>
-        </div>
-        <button type="button" class="button" data-viswiz-add="visual-graph-node">Add Node</button>
-        <h5>Links</h5>
-        <div id="viswiz-visual-graph-links" class="viswiz-repeatable">
-            <?php $links = $graph_data['links'] ?? array(); ?>
-            <?php if ( empty( $links ) ) : ?>
-                <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
-            <?php endif; ?>
-            <?php foreach ( $links as $link ) : ?>
+            </div>
+            <button type="button" class="button" data-viswiz-add="visual-graph-node">Add Node</button>
+            <h5>Links</h5>
+            <div id="viswiz-visual-graph-links" class="viswiz-repeatable">
+                <?php $links = $graph_data['links'] ?? array(); ?>
+                <?php if ( empty( $links ) ) : ?>
+                    <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
+                <?php endif; ?>
+                <?php foreach ( $links as $link ) : ?>
                 <div class="viswiz-row">
                     <input type="text" name="viswiz_meta[graph_data][links][from][]" placeholder="From ID" value="<?php echo esc_attr( $link['from'] ?? '' ); ?>" class="regular-text" />
                     <input type="text" name="viswiz_meta[graph_data][links][to][]" placeholder="To ID" value="<?php echo esc_attr( $link['to'] ?? '' ); ?>" class="regular-text" />
@@ -975,8 +982,9 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                     <button type="button" class="button viswiz-remove-row">Remove</button>
                 </div>
             <?php endforeach; ?>
+            </div>
+            <button type="button" class="button" data-viswiz-add="visual-graph-link">Add Link</button>
         </div>
-        <button type="button" class="button" data-viswiz-add="visual-graph-link">Add Link</button>
     </div>
     <?php
 }

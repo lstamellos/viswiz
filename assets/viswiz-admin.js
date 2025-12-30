@@ -1,4 +1,19 @@
 (function ($) {
+  function updateVisualizationFields() {
+    const type = $('[data-viswiz-type]').val();
+    if (!type) {
+      return;
+    }
+    $('[data-viswiz-types]').each(function () {
+      const supported = $(this).data('viswiz-types').split(',');
+      if (supported.includes(type)) {
+        $(this).show();
+      } else {
+        $(this).hide();
+      }
+    });
+  }
+
   function addRow(containerId, placeholders, namePrefix, keys, options = {}) {
     const container = document.getElementById(containerId);
     if (!container) {
@@ -128,5 +143,13 @@
 
   $(document).on('click', '.viswiz-remove-item', function () {
     $(this).closest('.viswiz-item-row').remove();
+  });
+
+  $(document).on('change', '[data-viswiz-type]', function () {
+    updateVisualizationFields();
+  });
+
+  $(document).ready(function () {
+    updateVisualizationFields();
   });
 })(jQuery);
