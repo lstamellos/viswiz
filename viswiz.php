@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.0.0
+ * Version: 1.0.3
  * Author: VisWiz
  * Requires Plugins: woocommerce
  */
