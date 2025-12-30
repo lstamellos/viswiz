@@ -1,8 +1,14 @@
 (function () {
   const POLL_INTERVAL = 30000;
 
-  function fetchJson(endpoint) {
-    return fetch(`${VisWizData.restUrl}${endpoint}`, {
+  function fetchJson(endpoint, params = {}) {
+    const url = new URL(`${VisWizData.restUrl}${endpoint}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== '' && value !== null && value !== undefined) {
+        url.searchParams.set(key, value);
+      }
+    });
+    return fetch(url.toString(), {
       credentials: 'same-origin',
       headers: {
         'X-WP-Nonce': VisWizData.nonce,
@@ -40,28 +46,27 @@
     title.className = 'viswiz-pie-title';
     title.textContent = data.title;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 220;
-    canvas.height = 220;
-    canvas.className = 'viswiz-pie-canvas';
-    container.appendChild(title);
-    container.appendChild(canvas);
+    const svg = d3
+      .create('svg')
+      .attr('viewBox', '0 0 220 220')
+      .attr('class', 'viswiz-pie-chart');
 
-    const ctx = canvas.getContext('2d');
     const total = data.values.reduce((sum, entry) => sum + entry.value, 0);
-    let startAngle = -Math.PI / 2;
+    const pie = d3.pie().value((entry) => entry.value || 0);
+    const arc = d3.arc().innerRadius(0).outerRadius(100);
+    const g = svg.append('g').attr('transform', 'translate(110,110)');
 
-    data.values.forEach((entry, index) => {
-      const slice = total > 0 ? (entry.value / total) * Math.PI * 2 : 0;
-      const color = entry.color || defaultColors[index % defaultColors.length];
-      ctx.beginPath();
-      ctx.moveTo(110, 110);
-      ctx.arc(110, 110, 100, startAngle, startAngle + slice);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
-      startAngle += slice;
-    });
+    g.selectAll('path')
+      .data(pie(data.values))
+      .enter()
+      .append('path')
+      .attr('d', arc)
+      .attr('fill', (entry, index) => entry.data.color || defaultColors[index % defaultColors.length])
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1);
+
+    container.appendChild(title);
+    container.appendChild(svg.node());
 
     const legend = document.createElement('ul');
     legend.className = 'viswiz-pie-legend';
@@ -127,7 +132,8 @@
   }
 
   function loadAutoProgress(container) {
-    fetchJson('/sales')
+    const params = buildSalesParams(container);
+    fetchJson('/sales', params)
       .then((data) => {
         const target = parseFloat(container.dataset.target || VisWizData.target || 0);
         renderProgress(container, {
@@ -142,11 +148,27 @@
   }
 
   function loadAutoPie(container) {
-    fetchJson('/sales-status')
+    const params = buildSalesParams(container);
+    const scope = params.scope || VisWizData.salesScope || 'total';
+    if (scope === 'total') {
+      fetchJson('/sales-status', params)
+        .then((data) => {
+          renderPie(container, {
+            title: container.dataset.title || 'Sales Breakdown',
+            values: data.statusCounts || [],
+          });
+        })
+        .catch(() => {
+          container.textContent = 'Unable to load sales breakdown.';
+        });
+      return;
+    }
+
+    fetchJson('/sales-breakdown', params)
       .then((data) => {
         renderPie(container, {
           title: container.dataset.title || 'Sales Breakdown',
-          values: data.statusCounts || [],
+          values: data.values || [],
         });
       })
       .catch(() => {
@@ -155,6 +177,16 @@
   }
 
   function loadManualProgress(container, index) {
+    const manualOverride = getManualData(container);
+    if (manualOverride) {
+      renderProgress(container, {
+        label: manualOverride.label || container.dataset.label || 'Manual Progress',
+        value: parseFloat(manualOverride.value || 0),
+        target: parseFloat(manualOverride.target || 0),
+      });
+      return;
+    }
+
     const manual = VisWizData.manualProgress || [];
     const item = manual[index];
     if (item) {
@@ -169,7 +201,8 @@
   }
 
   function loadManualPie(container) {
-    const manual = VisWizData.manualPie || [];
+    const manualOverride = getManualData(container);
+    const manual = manualOverride || VisWizData.manualPie || [];
     renderPie(container, {
       title: container.dataset.title || 'Manual Pie Chart',
       values: manual,
@@ -200,14 +233,37 @@
 
   function initDiagram() {
     document.querySelectorAll('.viswiz-diagram').forEach((container) => {
-      renderDiagram(container, VisWizData.diagramData || []);
+      const manual = getManualData(container) || VisWizData.diagramData || [];
+      renderDiagram(container, manual);
     });
   }
 
   function initGraph() {
     document.querySelectorAll('.viswiz-graph').forEach((container) => {
-      renderGraph(container, VisWizData.graphData || {});
+      const manual = getManualData(container) || VisWizData.graphData || {};
+      renderGraph(container, manual);
     });
+  }
+
+  function buildSalesParams(container) {
+    return {
+      scope: container.dataset.scope || VisWizData.salesScope || '',
+      period_days: container.dataset.periodDays || VisWizData.salesPeriod || '',
+      product_id: container.dataset.productId || VisWizData.salesProduct || '',
+      category_id: container.dataset.categoryId || VisWizData.salesCategory || '',
+    };
+  }
+
+  function getManualData(container) {
+    if (!container.dataset.manual) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(container.dataset.manual);
+    } catch (error) {
+      return null;
+    }
   }
 
   const defaultColors = [
