@@ -109,7 +109,7 @@
         if (!name) {
           return;
         }
-        const updated = name.replace(/targets\\]\\[(name|value)\\]\\[\\d+\\]\\[/, `targets][$1][${index}][`);
+        const updated = name.replace(/targets\]\[(name|value)\]\[\d+\]\[/, `targets][$1][${index}][`);
         input.setAttribute('name', updated);
       });
     });
