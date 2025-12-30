@@ -1,12 +1,17 @@
 (function ($) {
   function updateVisualizationFields() {
     const type = $('[data-viswiz-type]').val();
+    const source = $('[data-viswiz-source]').val();
     if (!type) {
       return;
     }
     $('[data-viswiz-types]').each(function () {
       const supported = $(this).data('viswiz-types').split(',');
-      if (supported.includes(type)) {
+      const sourceFilter = $(this).data('viswiz-sources');
+      const sources = sourceFilter ? sourceFilter.split(',') : [];
+      const matchesType = supported.includes(type);
+      const matchesSource = sources.length === 0 || sources.includes(source);
+      if (matchesType && matchesSource) {
         $(this).show();
       } else {
         $(this).hide();
@@ -146,6 +151,10 @@
   });
 
   $(document).on('change', '[data-viswiz-type]', function () {
+    updateVisualizationFields();
+  });
+
+  $(document).on('change', '[data-viswiz-source]', function () {
     updateVisualizationFields();
   });
 

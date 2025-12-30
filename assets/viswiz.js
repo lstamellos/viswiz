@@ -249,6 +249,8 @@
     return {
       scope: container.dataset.scope || VisWizData.salesScope || '',
       period_days: container.dataset.periodDays || VisWizData.salesPeriod || '',
+      period_value: container.dataset.periodValue || VisWizData.salesPeriodValue || '',
+      period_unit: container.dataset.periodUnit || VisWizData.salesPeriodUnit || '',
       product_id: container.dataset.productId || VisWizData.salesProduct || '',
       category_id: container.dataset.categoryId || VisWizData.salesCategory || '',
     };

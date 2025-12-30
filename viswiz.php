@@ -2,8 +2,8 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.1.0
- * Author: VisWiz
+ * Version: 1.1.2
+ * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
 
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.1.0';
+const VISWIZ_VERSION = '1.1.2';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -19,6 +19,8 @@ const VISWIZ_OPTION_DIAGRAM = 'viswiz_diagram_data';
 const VISWIZ_OPTION_GRAPH = 'viswiz_graph_data';
 const VISWIZ_OPTION_SALES_SCOPE = 'viswiz_sales_scope';
 const VISWIZ_OPTION_SALES_PERIOD = 'viswiz_sales_period_days';
+const VISWIZ_OPTION_SALES_PERIOD_VALUE = 'viswiz_sales_period_value';
+const VISWIZ_OPTION_SALES_PERIOD_UNIT = 'viswiz_sales_period_unit';
 const VISWIZ_OPTION_SALES_PRODUCT = 'viswiz_sales_product_id';
 const VISWIZ_OPTION_SALES_CATEGORY = 'viswiz_sales_category_id';
 
@@ -32,6 +34,8 @@ add_action( 'init', 'viswiz_register_block_assets' );
 add_action( 'add_meta_boxes', 'viswiz_register_visualization_meta_box' );
 add_action( 'save_post_viswiz_visualization', 'viswiz_save_visualization_meta' );
 add_action( 'admin_enqueue_scripts', 'viswiz_enqueue_admin_assets' );
+add_filter( 'manage_viswiz_visualization_posts_columns', 'viswiz_add_visualization_columns' );
+add_action( 'manage_viswiz_visualization_posts_custom_column', 'viswiz_render_visualization_columns', 10, 2 );
 
 function viswiz_register_shortcodes() {
     add_shortcode( 'viswiz_progress', 'viswiz_progress_shortcode' );
@@ -79,6 +83,8 @@ function viswiz_enqueue_assets() {
             'graphData' => viswiz_get_graph_data(),
             'salesScope' => get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' ),
             'salesPeriod' => (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 ),
+            'salesPeriodValue' => (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 30 ),
+            'salesPeriodUnit' => viswiz_get_period_unit_option(),
             'salesProduct' => (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 ),
             'salesCategory' => (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 ),
         )
@@ -134,10 +140,7 @@ function viswiz_get_sales_data( WP_REST_Request $request ) {
         $scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
     }
 
-    $period_days = (int) $request->get_param( 'period_days' );
-    if ( $period_days <= 0 ) {
-        $period_days = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
-    }
+    list( $period_value, $period_unit ) = viswiz_get_period_spec_from_request( $request );
 
     $product_id = (int) $request->get_param( 'product_id' );
     if ( $product_id <= 0 ) {
@@ -149,7 +152,7 @@ function viswiz_get_sales_data( WP_REST_Request $request ) {
         $category_id = (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 );
     }
 
-    $orders = viswiz_get_orders_for_period( $period_days );
+    $orders = viswiz_get_orders_for_period( $period_value, $period_unit );
     $total_sales = 0.0;
     $order_count = 0;
 
@@ -186,10 +189,7 @@ function viswiz_get_sales_status_data( WP_REST_Request $request ) {
         return new WP_Error( 'viswiz_no_woocommerce', 'WooCommerce is not active.' );
     }
 
-    $period_days = (int) $request->get_param( 'period_days' );
-    if ( $period_days <= 0 ) {
-        $period_days = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
-    }
+    list( $period_value, $period_unit ) = viswiz_get_period_spec_from_request( $request );
 
     $statuses = wc_get_order_statuses();
     $counts = array();
@@ -199,7 +199,7 @@ function viswiz_get_sales_status_data( WP_REST_Request $request ) {
             array(
                 'status' => array( $status_key ),
                 'limit' => -1,
-                'date_created' => '>' . ( new DateTime( sprintf( '-%d days', $period_days ) ) )->format( 'Y-m-d' ),
+                'date_created' => '>' . viswiz_get_period_start_date( $period_value, $period_unit ),
                 'return' => 'ids',
             )
         );
@@ -222,6 +222,8 @@ function viswiz_progress_shortcode( $atts ) {
             'target' => '',
             'scope' => '',
             'period_days' => '',
+            'period_value' => '',
+            'period_unit' => '',
             'product_id' => '',
             'category_id' => '',
         ),
@@ -232,12 +234,14 @@ function viswiz_progress_shortcode( $atts ) {
     $target = $atts['target'] !== '' ? (float) $atts['target'] : (float) get_option( VISWIZ_OPTION_TARGET, 0 );
 
     return sprintf(
-        '<div class="viswiz-progress" data-type="%s" data-label="%s" data-target="%s" data-scope="%s" data-period-days="%s" data-product-id="%s" data-category-id="%s"></div>',
+        '<div class="viswiz-progress" data-type="%s" data-label="%s" data-target="%s" data-scope="%s" data-period-days="%s" data-period-value="%s" data-period-unit="%s" data-product-id="%s" data-category-id="%s"></div>',
         esc_attr( $atts['type'] ),
         esc_attr( $atts['label'] ),
         esc_attr( $target ),
         esc_attr( $atts['scope'] ),
         esc_attr( $atts['period_days'] ),
+        esc_attr( $atts['period_value'] ),
+        esc_attr( $atts['period_unit'] ),
         esc_attr( $atts['product_id'] ),
         esc_attr( $atts['category_id'] )
     );
@@ -250,6 +254,8 @@ function viswiz_pie_shortcode( $atts ) {
             'title' => 'Sales Breakdown',
             'scope' => '',
             'period_days' => '',
+            'period_value' => '',
+            'period_unit' => '',
             'product_id' => '',
             'category_id' => '',
         ),
@@ -258,11 +264,13 @@ function viswiz_pie_shortcode( $atts ) {
     );
 
     return sprintf(
-        '<div class="viswiz-pie" data-type="%s" data-title="%s" data-scope="%s" data-period-days="%s" data-product-id="%s" data-category-id="%s"></div>',
+        '<div class="viswiz-pie" data-type="%s" data-title="%s" data-scope="%s" data-period-days="%s" data-period-value="%s" data-period-unit="%s" data-product-id="%s" data-category-id="%s"></div>',
         esc_attr( $atts['type'] ),
         esc_attr( $atts['title'] ),
         esc_attr( $atts['scope'] ),
         esc_attr( $atts['period_days'] ),
+        esc_attr( $atts['period_value'] ),
+        esc_attr( $atts['period_unit'] ),
         esc_attr( $atts['product_id'] ),
         esc_attr( $atts['category_id'] )
     );
@@ -303,6 +311,20 @@ function viswiz_register_admin_menu() {
         'dashicons-chart-pie',
         56
     );
+    add_submenu_page(
+        'viswiz-settings',
+        'Visualizations',
+        'Visualizations',
+        'edit_posts',
+        'edit.php?post_type=viswiz_visualization'
+    );
+    add_submenu_page(
+        'viswiz-settings',
+        'Add New Visualization',
+        'Add New Visualization',
+        'edit_posts',
+        'post-new.php?post_type=viswiz_visualization'
+    );
 }
 
 function viswiz_register_settings() {
@@ -313,6 +335,8 @@ function viswiz_register_settings() {
     register_setting( 'viswiz_settings', VISWIZ_OPTION_GRAPH, array( 'sanitize_callback' => 'viswiz_sanitize_graph_option' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_SCOPE, array( 'sanitize_callback' => 'sanitize_text_field' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD, array( 'sanitize_callback' => 'absint' ) );
+    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD_VALUE, array( 'sanitize_callback' => 'absint' ) );
+    register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PERIOD_UNIT, array( 'sanitize_callback' => 'sanitize_text_field' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_PRODUCT, array( 'sanitize_callback' => 'absint' ) );
     register_setting( 'viswiz_settings', VISWIZ_OPTION_SALES_CATEGORY, array( 'sanitize_callback' => 'absint' ) );
 }
@@ -323,7 +347,12 @@ function viswiz_render_settings_page() {
     $diagram_sections = viswiz_get_diagram_data();
     $graph_data = viswiz_get_graph_data();
     $sales_scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
-    $sales_period = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
+    $sales_period_value = (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 0 );
+    $sales_period_unit = viswiz_get_period_unit_option();
+    if ( $sales_period_value <= 0 ) {
+        $sales_period_value = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
+        $sales_period_unit = 'day';
+    }
     $sales_product = (int) get_option( VISWIZ_OPTION_SALES_PRODUCT, 0 );
     $sales_category = (int) get_option( VISWIZ_OPTION_SALES_CATEGORY, 0 );
     $active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'sales';
@@ -357,14 +386,15 @@ function viswiz_render_settings_page() {
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="viswiz_sales_period_days">Default Sales Period (days)</label></th>
+                        <th scope="row"><label for="viswiz_sales_period_value">Default Sales Period</label></th>
                         <td>
-                            <select name="viswiz_sales_period_days" id="viswiz_sales_period_days">
-                                <option value="7" <?php selected( $sales_period, 7 ); ?>>Last 7 days</option>
-                                <option value="30" <?php selected( $sales_period, 30 ); ?>>Last 30 days</option>
-                                <option value="90" <?php selected( $sales_period, 90 ); ?>>Last 90 days</option>
+                            <input type="number" name="viswiz_sales_period_value" id="viswiz_sales_period_value" value="<?php echo esc_attr( $sales_period_value ); ?>" min="1" class="small-text" />
+                            <select name="viswiz_sales_period_unit" id="viswiz_sales_period_unit">
+                                <option value="day" <?php selected( $sales_period_unit, 'day' ); ?>>day(s)</option>
+                                <option value="month" <?php selected( $sales_period_unit, 'month' ); ?>>month(s)</option>
+                                <option value="year" <?php selected( $sales_period_unit, 'year' ); ?>>year(s)</option>
                             </select>
-                            <p class="description">Defines the default time window for WooCommerce sales queries. Example: <code>period_days="30"</code>.</p>
+                            <p class="description">Defines the default time window for WooCommerce sales queries. Example: <code>period_value="3" period_unit="month"</code>.</p>
                         </td>
                     </tr>
                     <tr>
@@ -680,13 +710,59 @@ function viswiz_get_graph_data() {
     return json_decode( $raw, true ) ?: array();
 }
 
-function viswiz_get_orders_for_period( $period_days ) {
-    $period_days = max( 1, (int) $period_days );
+function viswiz_get_period_spec_from_request( WP_REST_Request $request ) {
+    $period_value = (int) $request->get_param( 'period_value' );
+    $period_unit = sanitize_text_field( $request->get_param( 'period_unit' ) );
+    $period_days = (int) $request->get_param( 'period_days' );
+
+    if ( $period_value <= 0 && $period_days > 0 ) {
+        $period_value = $period_days;
+        $period_unit = 'day';
+    }
+
+    if ( $period_value <= 0 ) {
+        $period_value = (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 0 );
+        $period_unit = $period_unit !== '' ? $period_unit : viswiz_get_period_unit_option();
+    }
+
+    if ( $period_value <= 0 ) {
+        $period_value = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
+        $period_unit = 'day';
+    }
+
+    return array( $period_value, viswiz_normalize_period_unit( $period_unit ) );
+}
+
+function viswiz_get_period_start_date( $period_value, $period_unit ) {
+    $period_value = max( 1, (int) $period_value );
+    $period_unit = viswiz_normalize_period_unit( $period_unit );
+    $date = new DateTime();
+    $date->modify( sprintf( '-%d %ss', $period_value, $period_unit ) );
+    return $date->format( 'Y-m-d' );
+}
+
+function viswiz_normalize_period_unit( $unit ) {
+    $unit = strtolower( trim( $unit ) );
+    $allowed = array( 'day', 'month', 'year' );
+    if ( ! in_array( $unit, $allowed, true ) ) {
+        return 'day';
+    }
+    return $unit;
+}
+
+function viswiz_get_period_unit_option() {
+    $unit = get_option( VISWIZ_OPTION_SALES_PERIOD_UNIT, 'day' );
+    return viswiz_normalize_period_unit( $unit );
+}
+
+function viswiz_get_orders_for_period( $period_value, $period_unit ) {
+    $period_value = max( 1, (int) $period_value );
+    $period_unit = viswiz_normalize_period_unit( $period_unit );
     return wc_get_orders(
         array(
             'status' => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
             'limit' => -1,
-            'date_created' => '>' . ( new DateTime( sprintf( '-%d days', $period_days ) ) )->format( 'Y-m-d' ),
+            'date_created' => '>' . viswiz_get_period_start_date( $period_value, $period_unit ),
             'return' => 'ids',
         )
     );
@@ -727,12 +803,8 @@ function viswiz_get_sales_breakdown( WP_REST_Request $request ) {
         $scope = get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' );
     }
 
-    $period_days = (int) $request->get_param( 'period_days' );
-    if ( $period_days <= 0 ) {
-        $period_days = (int) get_option( VISWIZ_OPTION_SALES_PERIOD, 30 );
-    }
-
-    $orders = viswiz_get_orders_for_period( $period_days );
+    list( $period_value, $period_unit ) = viswiz_get_period_spec_from_request( $request );
+    $orders = viswiz_get_orders_for_period( $period_value, $period_unit );
     $totals = array();
 
     foreach ( $orders as $order_id ) {
@@ -791,6 +863,7 @@ function viswiz_register_visualizations_cpt() {
             'public' => false,
             'show_ui' => true,
             'show_in_rest' => true,
+            'show_in_menu' => false,
             'menu_icon' => 'dashicons-chart-bar',
             'supports' => array( 'title' ),
         )
@@ -841,6 +914,11 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     $graph_data = $meta['graph_data'];
     ?>
     <p>
+        <label for="viswiz_shortcode"><strong>Shortcode</strong></label><br />
+        <input type="text" id="viswiz_shortcode" class="large-text" readonly value="<?php echo esc_attr( viswiz_get_visualization_shortcode( $post->ID ) ); ?>" />
+        <span class="description">Copy and paste this shortcode into any post or page.</span>
+    </p>
+    <p>
         <label for="viswiz_type">Visualization Type</label>
         <select name="viswiz_meta[type]" id="viswiz_type" data-viswiz-type>
             <option value="progress" <?php selected( $meta['type'], 'progress' ); ?>>Progress</option>
@@ -851,7 +929,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     </p>
     <p class="viswiz-field-group" data-viswiz-types="progress,pie">
         <label for="viswiz_source">Data Source</label>
-        <select name="viswiz_meta[source]" id="viswiz_source">
+        <select name="viswiz_meta[source]" id="viswiz_source" data-viswiz-source>
             <option value="auto" <?php selected( $meta['source'], 'auto' ); ?>>WooCommerce</option>
             <option value="manual" <?php selected( $meta['source'], 'manual' ); ?>>Manual</option>
         </select>
@@ -864,7 +942,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         <label for="viswiz_target">Target (progress)</label>
         <input type="number" name="viswiz_meta[target]" id="viswiz_target" value="<?php echo esc_attr( $meta['target'] ); ?>" step="0.01" />
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
         <label for="viswiz_scope">Sales Scope</label>
         <select name="viswiz_meta[scope]" id="viswiz_scope">
             <option value="total" <?php selected( $meta['scope'], 'total' ); ?>>All sales</option>
@@ -872,23 +950,24 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <option value="category" <?php selected( $meta['scope'], 'category' ); ?>>By category</option>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
-        <label for="viswiz_period_days">Period (days)</label>
-        <select name="viswiz_meta[period_days]" id="viswiz_period_days">
-            <option value="7" <?php selected( $meta['period_days'], 7 ); ?>>Last 7 days</option>
-            <option value="30" <?php selected( $meta['period_days'], 30 ); ?>>Last 30 days</option>
-            <option value="90" <?php selected( $meta['period_days'], 90 ); ?>>Last 90 days</option>
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
+        <label for="viswiz_period_value">Period</label>
+        <input type="number" name="viswiz_meta[period_value]" id="viswiz_period_value" value="<?php echo esc_attr( $meta['period_value'] ); ?>" min="1" class="small-text" />
+        <select name="viswiz_meta[period_unit]" id="viswiz_period_unit">
+            <option value="day" <?php selected( $meta['period_unit'], 'day' ); ?>>day(s)</option>
+            <option value="month" <?php selected( $meta['period_unit'], 'month' ); ?>>month(s)</option>
+            <option value="year" <?php selected( $meta['period_unit'], 'year' ); ?>>year(s)</option>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
         <label for="viswiz_product_id">Product</label>
         <?php echo viswiz_render_product_search_field( 'viswiz_meta[product_id]', $meta['product_id'] ); ?>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
         <label for="viswiz_category_id">Category</label>
         <?php echo viswiz_render_category_select_field( 'viswiz_meta[category_id]', $meta['category_id'], 'viswiz_category_id' ); ?>
     </p>
-    <div class="viswiz-field-group" data-viswiz-types="progress">
+    <div class="viswiz-field-group" data-viswiz-types="progress" data-viswiz-sources="manual">
         <h4>Manual Progress</h4>
         <div id="viswiz-visual-progress" class="viswiz-repeatable">
             <?php if ( empty( $manual_progress ) ) : ?>
@@ -905,7 +984,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </div>
         <button type="button" class="button" data-viswiz-add="visual-progress">Add Progress Row</button>
     </div>
-    <div class="viswiz-field-group" data-viswiz-types="pie">
+    <div class="viswiz-field-group" data-viswiz-types="pie" data-viswiz-sources="manual">
         <h4>Manual Pie</h4>
         <div id="viswiz-visual-pie" class="viswiz-repeatable">
             <?php if ( empty( $manual_pie ) ) : ?>
@@ -1004,7 +1083,15 @@ function viswiz_save_visualization_meta( $post_id ) {
     $label = sanitize_text_field( $meta['label'] ?? '' );
     $target = isset( $meta['target'] ) ? (float) $meta['target'] : 0;
     $scope = sanitize_text_field( $meta['scope'] ?? 'total' );
-    $period_days = isset( $meta['period_days'] ) ? (int) $meta['period_days'] : 30;
+    $period_value = isset( $meta['period_value'] ) ? (int) $meta['period_value'] : 0;
+    $period_unit = isset( $meta['period_unit'] ) ? viswiz_normalize_period_unit( $meta['period_unit'] ) : '';
+    $period_days = isset( $meta['period_days'] ) ? (int) $meta['period_days'] : 0;
+    if ( $period_value <= 0 ) {
+        $period_value = $period_days > 0 ? $period_days : 30;
+    }
+    if ( $period_unit === '' ) {
+        $period_unit = 'day';
+    }
     $product_id = isset( $meta['product_id'] ) ? (int) $meta['product_id'] : 0;
     $category_id = isset( $meta['category_id'] ) ? (int) $meta['category_id'] : 0;
 
@@ -1013,7 +1100,8 @@ function viswiz_save_visualization_meta( $post_id ) {
     update_post_meta( $post_id, 'viswiz_label', $label );
     update_post_meta( $post_id, 'viswiz_target', $target );
     update_post_meta( $post_id, 'viswiz_scope', $scope );
-    update_post_meta( $post_id, 'viswiz_period_days', $period_days );
+    update_post_meta( $post_id, 'viswiz_period_value', $period_value );
+    update_post_meta( $post_id, 'viswiz_period_unit', $period_unit );
     update_post_meta( $post_id, 'viswiz_product_id', $product_id );
     update_post_meta( $post_id, 'viswiz_category_id', $category_id );
 
@@ -1035,7 +1123,8 @@ function viswiz_get_visualization_meta( $post_id ) {
         'label' => get_post_meta( $post_id, 'viswiz_label', true ) ?: '',
         'target' => (float) get_post_meta( $post_id, 'viswiz_target', true ),
         'scope' => get_post_meta( $post_id, 'viswiz_scope', true ) ?: 'total',
-        'period_days' => (int) get_post_meta( $post_id, 'viswiz_period_days', true ) ?: 30,
+        'period_value' => (int) get_post_meta( $post_id, 'viswiz_period_value', true ) ?: (int) get_post_meta( $post_id, 'viswiz_period_days', true ) ?: (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 30 ),
+        'period_unit' => get_post_meta( $post_id, 'viswiz_period_unit', true ) ?: viswiz_get_period_unit_option(),
         'product_id' => (int) get_post_meta( $post_id, 'viswiz_product_id', true ),
         'category_id' => (int) get_post_meta( $post_id, 'viswiz_category_id', true ),
         'manual_progress' => json_decode( get_post_meta( $post_id, 'viswiz_manual_progress', true ) ?: '[]', true ) ?: array(),
@@ -1057,13 +1146,14 @@ function viswiz_render_visualization_block( $attributes ) {
 function viswiz_render_visualization( $post_id ) {
     $meta = viswiz_get_visualization_meta( $post_id );
     $data_attrs = sprintf(
-        'data-type="%s" data-label="%s" data-title="%s" data-target="%s" data-scope="%s" data-period-days="%s" data-product-id="%s" data-category-id="%s"',
+        'data-type="%s" data-label="%s" data-title="%s" data-target="%s" data-scope="%s" data-period-value="%s" data-period-unit="%s" data-product-id="%s" data-category-id="%s"',
         esc_attr( $meta['source'] ),
         esc_attr( $meta['label'] ),
         esc_attr( $meta['label'] ),
         esc_attr( $meta['target'] ),
         esc_attr( $meta['scope'] ),
-        esc_attr( $meta['period_days'] ),
+        esc_attr( $meta['period_value'] ),
+        esc_attr( $meta['period_unit'] ),
         esc_attr( $meta['product_id'] ),
         esc_attr( $meta['category_id'] )
     );
@@ -1114,6 +1204,26 @@ function viswiz_get_visualizations() {
 
 function viswiz_can_access_visualizations() {
     return current_user_can( 'edit_posts' );
+}
+
+function viswiz_get_visualization_shortcode( $post_id ) {
+    return sprintf( '[viswiz_visualization id="%d"]', (int) $post_id );
+}
+
+function viswiz_add_visualization_columns( $columns ) {
+    $columns['viswiz_shortcode'] = 'Shortcode';
+    return $columns;
+}
+
+function viswiz_render_visualization_columns( $column, $post_id ) {
+    if ( $column !== 'viswiz_shortcode' ) {
+        return;
+    }
+
+    printf(
+        '<input type="text" class="viswiz-shortcode-field" readonly value="%s" onclick="this.select();" />',
+        esc_attr( viswiz_get_visualization_shortcode( $post_id ) )
+    );
 }
 
 function viswiz_enqueue_admin_assets( $hook ) {
