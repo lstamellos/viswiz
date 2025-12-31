@@ -536,30 +536,122 @@
     });
   }
 
-  function renderPreviewGraph(container, data) {
+  function getGraphOptions() {
+    return {
+      nodeRadius: parseInt($('#viswiz_graph_node_radius').val(), 10) || 20,
+      linkDistance: parseInt($('#viswiz_graph_link_distance').val(), 10) || 100,
+      chargeStrength: parseInt($('#viswiz_graph_charge').val(), 10) || -300,
+    };
+  }
+
+  function renderPreviewGraph(container, data, options) {
     container.innerHTML = '';
-    const header = document.createElement('h3');
-    header.textContent = 'Graph Connections';
-    container.appendChild(header);
 
-    const nodes = data.nodes || [];
-    const links = data.links || [];
-
-    const nodeMap = new Map();
-    nodes.forEach(function (node) {
-      nodeMap.set(node.id, node.label);
+    const graphOptions = options || getGraphOptions();
+    const nodes = (data.nodes || []).map(function (n) {
+      return { id: n.id, label: n.label || n.id };
+    });
+    const links = (data.links || []).map(function (l) {
+      return { source: l.from, target: l.to, label: l.label || '' };
     });
 
-    const list = document.createElement('ul');
-    list.className = 'viswiz-graph-links';
-    links.forEach(function (link) {
-      const item = document.createElement('li');
-      const from = nodeMap.get(link.from) || link.from;
-      const to = nodeMap.get(link.to) || link.to;
-      item.textContent = from + ' \u2192 ' + (link.label || 'relates to') + ' \u2192 ' + to;
-      list.appendChild(item);
+    if (!nodes.length) {
+      container.textContent = 'No graph data entered.';
+      return;
+    }
+
+    if (typeof d3 === 'undefined') {
+      container.textContent = 'D3.js not loaded. Graph preview unavailable.';
+      return;
+    }
+
+    const width = 400;
+    const height = 300;
+    const nodeRadius = graphOptions.nodeRadius;
+    const linkDistance = graphOptions.linkDistance;
+    const chargeStrength = graphOptions.chargeStrength;
+    const colors = getFormattingColors();
+
+    const svg = d3.create('svg')
+      .attr('viewBox', [0, 0, width, height])
+      .attr('class', 'viswiz-graph-svg')
+      .attr('width', '100%')
+      .attr('height', height);
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(function (d) { return d.id; }).distance(linkDistance))
+      .force('charge', d3.forceManyBody().strength(chargeStrength))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(nodeRadius + 10));
+
+    const defs = svg.append('defs');
+    defs.append('marker')
+      .attr('id', 'viswiz-preview-arrowhead')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 20)
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', colors.secondary);
+
+    const link = svg.append('g')
+      .attr('class', 'viswiz-graph-links-g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', colors.secondary)
+      .attr('stroke-width', 2)
+      .attr('stroke-opacity', 0.6)
+      .attr('marker-end', 'url(#viswiz-preview-arrowhead)');
+
+    const linkLabels = svg.append('g')
+      .attr('class', 'viswiz-graph-link-labels')
+      .selectAll('text')
+      .data(links)
+      .join('text')
+      .attr('font-size', 10)
+      .attr('fill', colors.text)
+      .attr('text-anchor', 'middle')
+      .text(function (d) { return d.label; });
+
+    const node = svg.append('g')
+      .attr('class', 'viswiz-graph-nodes')
+      .selectAll('g')
+      .data(nodes)
+      .join('g');
+
+    node.append('circle')
+      .attr('r', nodeRadius)
+      .attr('fill', colors.primary)
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2);
+
+    node.append('text')
+      .attr('dy', 4)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 11)
+      .attr('fill', '#fff')
+      .attr('pointer-events', 'none')
+      .text(function (d) { return d.label; });
+
+    simulation.on('tick', function () {
+      link
+        .attr('x1', function (d) { return d.source.x; })
+        .attr('y1', function (d) { return d.source.y; })
+        .attr('x2', function (d) { return d.target.x; })
+        .attr('y2', function (d) { return d.target.y; });
+
+      linkLabels
+        .attr('x', function (d) { return (d.source.x + d.target.x) / 2; })
+        .attr('y', function (d) { return (d.source.y + d.target.y) / 2 - 5; });
+
+      node.attr('transform', function (d) { return 'translate(' + d.x + ',' + d.y + ')'; });
     });
-    container.appendChild(list);
+
+    container.appendChild(svg.node());
   }
 
   function refreshPreview() {

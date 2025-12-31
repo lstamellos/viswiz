@@ -215,3 +215,26 @@
 #viswiz-refresh-preview {
   margin-bottom: 12px;
 }
+
+.viswiz-graph-svg {
+  display: block;
+  margin: 0 auto;
+  background: var(--viswiz-background, #fff);
+  border-radius: 8px;
+}
+
+.viswiz-graph-nodes circle {
+  cursor: grab;
+}
+
+.viswiz-graph-nodes circle:active {
+  cursor: grabbing;
+}
+
+.viswiz-graph-links-g line {
+  stroke-opacity: 0.6;
+}
+
+.viswiz-graph-link-labels {
+  pointer-events: none;
+}
