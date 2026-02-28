@@ -202,3 +202,39 @@
   padding: 6px 0;
   border-bottom: 1px dashed #ddd;
 }
+
+.viswiz-preview-wrap {
+  margin-top: 16px;
+  padding: 20px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+#viswiz-refresh-preview {
+  margin-bottom: 12px;
+}
+
+.viswiz-graph-svg {
+  display: block;
+  margin: 0 auto;
+  background: var(--viswiz-background, #fff);
+  border-radius: 8px;
+}
+
+.viswiz-graph-nodes circle {
+  cursor: grab;
+}
+
+.viswiz-graph-nodes circle:active {
+  cursor: grabbing;
+}
+
+.viswiz-graph-links-g line {
+  stroke-opacity: 0.6;
+}
+
+.viswiz-graph-link-labels {
+  pointer-events: none;
+}

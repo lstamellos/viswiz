@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.1.6
+ * Version: 1.1.7
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.1.6';
+const VISWIZ_VERSION = '1.1.7';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -1188,6 +1188,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     <div class="viswiz-meta-tabs">
         <button type="button" class="button viswiz-tab-button is-active" data-viswiz-tab="data">Data</button>
         <button type="button" class="button viswiz-tab-button" data-viswiz-tab="formatting">Formatting</button>
+        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="preview">Preview</button>
     </div>
     <div class="viswiz-tab-panel is-active" data-viswiz-panel="data">
     <p>
@@ -1405,6 +1406,29 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <label for="viswiz_color_text">Text</label>
             <input type="color" name="viswiz_meta[format_colors][text]" id="viswiz_color_text" value="<?php echo esc_attr( $meta['format_colors']['text'] ?? '#333333' ); ?>" />
         </p>
+        <div class="viswiz-field-group" data-viswiz-types="graph">
+            <h4>Graph Options</h4>
+            <p>
+                <label for="viswiz_graph_node_radius">Node Size</label>
+                <input type="number" name="viswiz_meta[format_colors][node_radius]" id="viswiz_graph_node_radius" value="<?php echo esc_attr( $meta['format_colors']['node_radius'] ?? '20' ); ?>" min="10" max="50" step="1" class="small-text" />
+                <span class="description">Radius of graph nodes (10-50 pixels)</span>
+            </p>
+            <p>
+                <label for="viswiz_graph_link_distance">Link Distance</label>
+                <input type="number" name="viswiz_meta[format_colors][link_distance]" id="viswiz_graph_link_distance" value="<?php echo esc_attr( $meta['format_colors']['link_distance'] ?? '100' ); ?>" min="50" max="300" step="10" class="small-text" />
+                <span class="description">Distance between connected nodes (50-300 pixels)</span>
+            </p>
+            <p>
+                <label for="viswiz_graph_charge">Repulsion Strength</label>
+                <input type="number" name="viswiz_meta[format_colors][charge_strength]" id="viswiz_graph_charge" value="<?php echo esc_attr( $meta['format_colors']['charge_strength'] ?? '-300' ); ?>" min="-1000" max="-50" step="50" class="small-text" />
+                <span class="description">How much nodes push apart (-1000 to -50)</span>
+            </p>
+        </div>
+    </div>
+    <div class="viswiz-tab-panel" data-viswiz-panel="preview">
+        <p class="description">This preview shows how your visualization will appear based on current settings. For WooCommerce data sources, sample data is shown.</p>
+        <button type="button" class="button button-secondary" id="viswiz-refresh-preview">Refresh Preview</button>
+        <div id="viswiz-preview-container" class="viswiz-preview-wrap"></div>
     </div>
     <?php
 }
@@ -1546,7 +1570,17 @@ function viswiz_render_visualization( $post_id ) {
 
     if ( $meta['type'] === 'graph' ) {
         $manual_json = esc_attr( viswiz_json_encode( $meta['graph_data'] ) );
-        return sprintf( '<div class="viswiz-graph" data-manual="%s"></div>', $manual_json );
+        $node_radius = esc_attr( $meta['format_colors']['node_radius'] ?? '20' );
+        $link_distance = esc_attr( $meta['format_colors']['link_distance'] ?? '100' );
+        $charge_strength = esc_attr( $meta['format_colors']['charge_strength'] ?? '-300' );
+        return sprintf(
+            '<div class="viswiz-graph" %s data-manual="%s" data-node-radius="%s" data-link-distance="%s" data-charge-strength="%s"></div>',
+            $data_attrs,
+            $manual_json,
+            $node_radius,
+            $link_distance,
+            $charge_strength
+        );
     }
 
     return '<div class="viswiz-message">Unsupported visualization.</div>';

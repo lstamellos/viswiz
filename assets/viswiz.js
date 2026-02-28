@@ -140,26 +140,130 @@
 
   function renderGraph(container, data) {
     container.innerHTML = '';
-    const header = document.createElement('h3');
-    header.textContent = 'Graph Connections';
-    container.appendChild(header);
 
-    const nodes = data.nodes || [];
-    const links = data.links || [];
+    const nodes = (data.nodes || []).map((n) => ({ id: n.id, label: n.label || n.id }));
+    const links = (data.links || []).map((l) => ({ source: l.from, target: l.to, label: l.label || '' }));
 
-    const nodeMap = new Map();
-    nodes.forEach((node) => nodeMap.set(node.id, node.label));
+    if (!nodes.length) {
+      container.textContent = 'No graph data available.';
+      return;
+    }
 
-    const list = document.createElement('ul');
-    list.className = 'viswiz-graph-links';
-    links.forEach((link) => {
-      const item = document.createElement('li');
-      const from = nodeMap.get(link.from) || link.from;
-      const to = nodeMap.get(link.to) || link.to;
-      item.textContent = `${from} → ${link.label || 'relates to'} → ${to}`;
-      list.appendChild(item);
+    const width = container.clientWidth || 400;
+    const height = 300;
+    const nodeRadius = parseInt(container.dataset.nodeRadius, 10) || 20;
+    const linkDistance = parseInt(container.dataset.linkDistance, 10) || 100;
+    const chargeStrength = parseInt(container.dataset.chargeStrength, 10) || -300;
+    const nodeColor = getComputedStyle(container).getPropertyValue('--viswiz-primary').trim() || '#4caf50';
+    const linkColor = getComputedStyle(container).getPropertyValue('--viswiz-secondary').trim() || '#999';
+    const textColor = getComputedStyle(container).getPropertyValue('--viswiz-text').trim() || '#333';
+
+    const svg = d3
+      .create('svg')
+      .attr('viewBox', [0, 0, width, height])
+      .attr('class', 'viswiz-graph-svg')
+      .attr('width', '100%')
+      .attr('height', height);
+
+    const simulation = d3
+      .forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id((d) => d.id).distance(linkDistance))
+      .force('charge', d3.forceManyBody().strength(chargeStrength))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(nodeRadius + 10));
+
+    const defs = svg.append('defs');
+    defs
+      .append('marker')
+      .attr('id', 'viswiz-arrowhead')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 20)
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', linkColor);
+
+    const link = svg
+      .append('g')
+      .attr('class', 'viswiz-graph-links-g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', linkColor)
+      .attr('stroke-width', 2)
+      .attr('marker-end', 'url(#viswiz-arrowhead)');
+
+    const linkLabels = svg
+      .append('g')
+      .attr('class', 'viswiz-graph-link-labels')
+      .selectAll('text')
+      .data(links)
+      .join('text')
+      .attr('font-size', 10)
+      .attr('fill', textColor)
+      .attr('text-anchor', 'middle')
+      .text((d) => d.label);
+
+    const node = svg
+      .append('g')
+      .attr('class', 'viswiz-graph-nodes')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .call(drag(simulation));
+
+    node
+      .append('circle')
+      .attr('r', nodeRadius)
+      .attr('fill', nodeColor)
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2);
+
+    node
+      .append('text')
+      .attr('dy', 4)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 11)
+      .attr('fill', '#fff')
+      .attr('pointer-events', 'none')
+      .text((d) => d.label);
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', (d) => d.source.x)
+        .attr('y1', (d) => d.source.y)
+        .attr('x2', (d) => d.target.x)
+        .attr('y2', (d) => d.target.y);
+
+      linkLabels
+        .attr('x', (d) => (d.source.x + d.target.x) / 2)
+        .attr('y', (d) => (d.source.y + d.target.y) / 2 - 5);
+
+      node.attr('transform', (d) => `translate(${d.x},${d.y})`);
     });
-    container.appendChild(list);
+
+    container.appendChild(svg.node());
+
+    function drag(sim) {
+      function dragstarted(event) {
+        if (!event.active) sim.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+      }
+      function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+      }
+      function dragended(event) {
+        if (!event.active) sim.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+      }
+      return d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended);
+    }
   }
 
   function loadAutoProgress(container) {
