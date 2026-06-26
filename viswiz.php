@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
- * Description: Real-time progress bars, pie charts, diagrams, and graphs based on WooCommerce sales or manual inputs.
- * Version: 1.1.7
+ * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
+ * Version: 1.2.1
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.1.7';
+const VISWIZ_VERSION = '1.2.1';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -26,11 +26,13 @@ const VISWIZ_OPTION_SALES_PRODUCTS = 'viswiz_sales_product_ids';
 const VISWIZ_OPTION_CURRENCY = 'viswiz_currency_code';
 const VISWIZ_OPTION_SALES_CATEGORIES = 'viswiz_sales_category_ids';
 
+register_activation_hook( __FILE__, 'viswiz_activate' );
 add_action( 'init', 'viswiz_register_shortcodes' );
 add_action( 'rest_api_init', 'viswiz_register_rest_routes' );
 add_action( 'wp_enqueue_scripts', 'viswiz_enqueue_assets' );
 add_action( 'admin_menu', 'viswiz_register_admin_menu' );
 add_action( 'admin_init', 'viswiz_register_settings' );
+add_action( 'admin_init', 'viswiz_maybe_upgrade_tables' );
 add_action( 'init', 'viswiz_register_visualizations_cpt' );
 add_action( 'init', 'viswiz_register_block_assets' );
 add_action( 'add_meta_boxes', 'viswiz_register_visualization_meta_box' );
@@ -38,6 +40,127 @@ add_action( 'save_post_viswiz_visualization', 'viswiz_save_visualization_meta' )
 add_action( 'admin_enqueue_scripts', 'viswiz_enqueue_admin_assets' );
 add_filter( 'manage_viswiz_visualization_posts_columns', 'viswiz_add_visualization_columns' );
 add_action( 'manage_viswiz_visualization_posts_custom_column', 'viswiz_render_visualization_columns', 10, 2 );
+
+
+function viswiz_activate() {
+    viswiz_create_custom_tables();
+    viswiz_register_visualizations_cpt();
+    flush_rewrite_rules();
+}
+
+function viswiz_create_custom_tables() {
+    global $wpdb;
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+    $charset_collate = $wpdb->get_charset_collate();
+    $visualizations = $wpdb->prefix . 'viswiz_visualization_data';
+    $datasets = $wpdb->prefix . 'viswiz_datasets';
+    $points = $wpdb->prefix . 'viswiz_data_points';
+    $relations = $wpdb->prefix . 'viswiz_relations';
+
+    dbDelta( "CREATE TABLE $visualizations (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        post_id bigint(20) unsigned NOT NULL,
+        visualization_type varchar(40) NOT NULL DEFAULT 'progress',
+        dataset_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        legend longtext NULL,
+        labels longtext NULL,
+        theme longtext NULL,
+        settings longtext NULL,
+        created_at datetime NOT NULL,
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        UNIQUE KEY post_id (post_id),
+        KEY visualization_type (visualization_type),
+        KEY dataset_id (dataset_id)
+    ) $charset_collate;" );
+
+    dbDelta( "CREATE TABLE $datasets (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        name varchar(190) NOT NULL,
+        description text NULL,
+        data_type varchar(40) NOT NULL DEFAULT 'generic',
+        created_at datetime NOT NULL,
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        KEY data_type (data_type)
+    ) $charset_collate;" );
+
+    dbDelta( "CREATE TABLE $points (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        visualization_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        dataset_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        point_key varchar(190) NOT NULL DEFAULT '',
+        label varchar(190) NOT NULL DEFAULT '',
+        value double NOT NULL DEFAULT 0,
+        color varchar(20) NOT NULL DEFAULT '',
+        meta longtext NULL,
+        sort_order int(11) NOT NULL DEFAULT 0,
+        created_at datetime NOT NULL,
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        KEY visualization_id (visualization_id),
+        KEY dataset_id (dataset_id),
+        KEY point_key (point_key)
+    ) $charset_collate;" );
+
+    dbDelta( "CREATE TABLE $relations (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        visualization_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        dataset_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        from_key varchar(190) NOT NULL DEFAULT '',
+        to_key varchar(190) NOT NULL DEFAULT '',
+        label varchar(190) NOT NULL DEFAULT '',
+        direction varchar(20) NOT NULL DEFAULT 'directed',
+        intensity double NOT NULL DEFAULT 1,
+        relation_type varchar(80) NOT NULL DEFAULT '',
+        meta longtext NULL,
+        sort_order int(11) NOT NULL DEFAULT 0,
+        created_at datetime NOT NULL,
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        KEY visualization_id (visualization_id),
+        KEY dataset_id (dataset_id),
+        KEY from_key (from_key),
+        KEY to_key (to_key)
+    ) $charset_collate;" );
+
+    update_option( 'viswiz_db_version', '1.2.1' );
+}
+
+function viswiz_get_table_name( $table ) {
+    global $wpdb;
+    return $wpdb->prefix . 'viswiz_' . $table;
+}
+
+function viswiz_get_supported_visualization_types() {
+    return array(
+        'pie' => 'Pie',
+        'bar' => 'Bar',
+        'column' => 'Column',
+        'line' => 'Line',
+        'area' => 'Area',
+        'scatter' => 'Scatter',
+        'progress' => 'Progress',
+        'counter' => 'Counter',
+        'timeline' => 'Timeline',
+        'graph' => 'Graph',
+        'flow_diagram' => 'Flow Diagram',
+        'org_chart' => 'Org Chart',
+        'map' => 'Map',
+        'diagram' => 'Diagram (legacy)',
+    );
+}
+
+function viswiz_is_graph_like_type( $type ) {
+    return in_array( $type, array( 'graph', 'flow_diagram', 'org_chart' ), true );
+}
+
+function viswiz_maybe_upgrade_tables() {
+    if ( get_option( 'viswiz_db_version' ) !== '1.2.1' ) {
+        viswiz_create_custom_tables();
+    }
+}
 
 function viswiz_register_shortcodes() {
     add_shortcode( 'viswiz_progress', 'viswiz_progress_shortcode' );
@@ -592,6 +715,13 @@ function viswiz_render_settings_page() {
                                             <input type="text" name="viswiz_graph_data[links][from][]" placeholder="From ID" value="<?php echo esc_attr( $link['from'] ?? '' ); ?>" class="regular-text" />
                                             <input type="text" name="viswiz_graph_data[links][to][]" placeholder="To ID" value="<?php echo esc_attr( $link['to'] ?? '' ); ?>" class="regular-text" />
                                             <input type="text" name="viswiz_graph_data[links][label][]" placeholder="Label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
+                                            <select name="viswiz_graph_data[links][direction][]">
+                                                <option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option>
+                                                <option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option>
+                                                <option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option>
+                                            </select>
+                                            <input type="number" name="viswiz_graph_data[links][intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
+                                            <input type="text" name="viswiz_graph_data[links][relation_type][]" placeholder="Relation type" value="<?php echo esc_attr( $link['relation_type'] ?? '' ); ?>" class="regular-text" />
                                             <button type="button" class="button viswiz-remove-row">Remove</button>
                                         </div>
                                     <?php endforeach; ?>
@@ -776,10 +906,20 @@ function viswiz_sanitize_graph_option( $value ) {
         if ( $from === '' && $to === '' && $label === '' ) {
             continue;
         }
+        $directions = $links['direction'] ?? array();
+        $intensities = $links['intensity'] ?? array();
+        $relation_types = $links['relation_type'] ?? array();
+        $direction = sanitize_key( $directions[ $index ] ?? 'directed' );
+        if ( ! in_array( $direction, array( 'directed', 'undirected', 'bidirectional' ), true ) ) {
+            $direction = 'directed';
+        }
         $sanitized_links[] = array(
             'from' => $from,
             'to' => $to,
             'label' => $label,
+            'direction' => $direction,
+            'intensity' => isset( $intensities[ $index ] ) ? (float) $intensities[ $index ] : 1,
+            'relation_type' => sanitize_text_field( $relation_types[ $index ] ?? '' ),
         );
     }
 
@@ -1199,28 +1339,49 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     <p>
         <label for="viswiz_type">Visualization Type</label>
         <select name="viswiz_meta[type]" id="viswiz_type" data-viswiz-type>
-            <option value="progress" <?php selected( $meta['type'], 'progress' ); ?>>Progress</option>
-            <option value="pie" <?php selected( $meta['type'], 'pie' ); ?>>Pie</option>
-            <option value="diagram" <?php selected( $meta['type'], 'diagram' ); ?>>Diagram</option>
-            <option value="graph" <?php selected( $meta['type'], 'graph' ); ?>>Graph</option>
+            <?php foreach ( viswiz_get_supported_visualization_types() as $type_key => $type_label ) : ?>
+                <option value="<?php echo esc_attr( $type_key ); ?>" <?php selected( $meta['type'], $type_key ); ?>><?php echo esc_html( $type_label ); ?></option>
+            <?php endforeach; ?>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map">
         <label for="viswiz_source">Data Source</label>
         <select name="viswiz_meta[source]" id="viswiz_source" data-viswiz-source>
             <option value="auto" <?php selected( $meta['source'], 'auto' ); ?>>WooCommerce</option>
             <option value="manual" <?php selected( $meta['source'], 'manual' ); ?>>Manual</option>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map">
         <label for="viswiz_label">Label/Title</label>
         <input type="text" name="viswiz_meta[label]" id="viswiz_label" value="<?php echo esc_attr( $meta['label'] ); ?>" class="regular-text" />
+    </p>
+    <p>
+        <label for="viswiz_dataset_id">Reusable Dataset</label>
+        <?php echo viswiz_render_dataset_select( 'viswiz_meta[dataset_id]', $meta['dataset_id'] ); ?>
+        <span class="description">Choose an existing dataset or leave as “Visualization-specific data”.</span>
+    </p>
+    <p>
+        <label for="viswiz_new_dataset_name">Create Reusable Dataset</label>
+        <input type="text" name="viswiz_meta[new_dataset_name]" id="viswiz_new_dataset_name" class="regular-text" placeholder="Optional dataset name" />
+        <span class="description">When filled, the data entered below is also stored as a reusable dataset.</span>
+    </p>
+    <p>
+        <label for="viswiz_legend">Legend</label>
+        <textarea name="viswiz_meta[legend]" id="viswiz_legend" class="large-text" rows="2"><?php echo esc_textarea( $meta['legend'] ); ?></textarea>
+    </p>
+    <p>
+        <label for="viswiz_axis_labels">Labels / Axis Labels</label>
+        <textarea name="viswiz_meta[axis_labels]" id="viswiz_axis_labels" class="large-text" rows="2"><?php echo esc_textarea( $meta['axis_labels'] ); ?></textarea>
+    </p>
+    <p>
+        <label for="viswiz_other_settings">Other Settings</label>
+        <textarea name="viswiz_meta[other_settings]" id="viswiz_other_settings" class="large-text" rows="3"><?php echo esc_textarea( $meta['other_settings'] ); ?></textarea>
     </p>
     <p class="viswiz-field-group" data-viswiz-types="progress">
         <label for="viswiz_target">Target (progress)</label>
         <input type="number" name="viswiz_meta[target]" id="viswiz_target" value="<?php echo esc_attr( $meta['target'] ); ?>" step="0.01" />
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="auto">
         <label for="viswiz_scope">Sales Scope</label>
         <select name="viswiz_meta[scope]" id="viswiz_scope">
             <option value="total" <?php selected( $meta['scope'], 'total' ); ?>>All sales</option>
@@ -1228,14 +1389,14 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <option value="category" <?php selected( $meta['scope'], 'category' ); ?>>By category</option>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="auto">
         <label for="viswiz_period_mode">Period Type</label>
         <select name="viswiz_meta[period_mode]" id="viswiz_period_mode" data-viswiz-period-mode>
             <option value="relative" <?php selected( $meta['period_mode'], 'relative' ); ?>>Period (value + unit)</option>
             <option value="fixed" <?php selected( $meta['period_mode'], 'fixed' ); ?>>From date/time until now</option>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto" data-viswiz-period="relative">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="auto" data-viswiz-period="relative">
         <label for="viswiz_period_value">Period</label>
         <input type="number" name="viswiz_meta[period_value]" id="viswiz_period_value" value="<?php echo esc_attr( $meta['period_value'] ); ?>" min="1" class="small-text" />
         <select name="viswiz_meta[period_unit]" id="viswiz_period_unit">
@@ -1244,15 +1405,15 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <option value="year" <?php selected( $meta['period_unit'], 'year' ); ?>>year(s)</option>
         </select>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto" data-viswiz-period="fixed">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="auto" data-viswiz-period="fixed">
         <label for="viswiz_period_start">Start date/time</label>
         <input type="datetime-local" name="viswiz_meta[period_start]" id="viswiz_period_start" value="<?php echo esc_attr( $meta['period_start'] ); ?>" />
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="auto">
         <label for="viswiz_product_id">Product</label>
         <?php echo viswiz_render_product_search_field( 'viswiz_meta[product_ids][]', $meta['product_ids'], true ); ?>
     </p>
-    <p class="viswiz-field-group" data-viswiz-types="progress,pie" data-viswiz-sources="auto">
+    <p class="viswiz-field-group" data-viswiz-types="progress,pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="auto">
         <label for="viswiz_category_id">Category</label>
         <?php echo viswiz_render_category_select_field( 'viswiz_meta[category_ids][]', $meta['category_ids'], 'viswiz_category_id', true ); ?>
     </p>
@@ -1289,7 +1450,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </div>
         <button type="button" class="button" data-viswiz-add="visual-progress">Add Progress Row</button>
     </div>
-    <div class="viswiz-field-group" data-viswiz-types="pie" data-viswiz-sources="manual">
+    <div class="viswiz-field-group" data-viswiz-types="pie,bar,column,line,area,scatter,counter,timeline,map" data-viswiz-sources="manual">
         <h4>Manual Pie</h4>
         <div id="viswiz-visual-pie" class="viswiz-repeatable">
             <?php if ( empty( $manual_pie ) ) : ?>
@@ -1306,7 +1467,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </div>
         <button type="button" class="button" data-viswiz-add="visual-pie">Add Pie Slice</button>
     </div>
-    <div class="viswiz-field-group" data-viswiz-types="diagram">
+    <div class="viswiz-field-group" data-viswiz-types="diagram,flow_diagram,org_chart,timeline">
         <h4>Manual Diagram</h4>
         <div id="viswiz-visual-diagram" class="viswiz-repeatable">
             <?php if ( empty( $diagram_data ) ) : ?>
@@ -1334,7 +1495,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </div>
         <button type="button" class="button" data-viswiz-add="visual-diagram">Add Diagram Section</button>
     </div>
-    <div class="viswiz-field-group" data-viswiz-types="graph">
+    <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
         <h4>Manual Graph</h4>
         <div class="viswiz-graph">
             <h5>Nodes</h5>
@@ -1363,6 +1524,13 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                     <input type="text" name="viswiz_meta[graph_data][links][from][]" placeholder="From ID" value="<?php echo esc_attr( $link['from'] ?? '' ); ?>" class="regular-text" />
                     <input type="text" name="viswiz_meta[graph_data][links][to][]" placeholder="To ID" value="<?php echo esc_attr( $link['to'] ?? '' ); ?>" class="regular-text" />
                     <input type="text" name="viswiz_meta[graph_data][links][label][]" placeholder="Label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
+                    <select name="viswiz_meta[graph_data][links][direction][]">
+                        <option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option>
+                        <option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option>
+                        <option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option>
+                    </select>
+                    <input type="number" name="viswiz_meta[graph_data][links][intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
+                    <input type="text" name="viswiz_meta[graph_data][links][relation_type][]" placeholder="Relation type" value="<?php echo esc_attr( $link['relation_type'] ?? '' ); ?>" class="regular-text" />
                     <button type="button" class="button viswiz-remove-row">Remove</button>
                 </div>
             <?php endforeach; ?>
@@ -1406,7 +1574,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <label for="viswiz_color_text">Text</label>
             <input type="color" name="viswiz_meta[format_colors][text]" id="viswiz_color_text" value="<?php echo esc_attr( $meta['format_colors']['text'] ?? '#333333' ); ?>" />
         </p>
-        <div class="viswiz-field-group" data-viswiz-types="graph">
+        <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
             <h4>Graph Options</h4>
             <p>
                 <label for="viswiz_graph_node_radius">Node Size</label>
@@ -1477,6 +1645,11 @@ function viswiz_save_visualization_meta( $post_id ) {
         $animation = 'none';
     }
     $category_ids = isset( $meta['category_ids'] ) ? viswiz_sanitize_id_array( $meta['category_ids'] ) : array();
+    $dataset_id = isset( $meta['dataset_id'] ) ? absint( $meta['dataset_id'] ) : 0;
+    $new_dataset_name = sanitize_text_field( $meta['new_dataset_name'] ?? '' );
+    $legend = sanitize_textarea_field( $meta['legend'] ?? '' );
+    $axis_labels = sanitize_textarea_field( $meta['axis_labels'] ?? '' );
+    $other_settings = sanitize_textarea_field( $meta['other_settings'] ?? '' );
 
     update_post_meta( $post_id, 'viswiz_type', $type );
     update_post_meta( $post_id, 'viswiz_source', $source );
@@ -1491,6 +1664,10 @@ function viswiz_save_visualization_meta( $post_id ) {
     update_post_meta( $post_id, 'viswiz_category_ids', $category_ids );
     update_post_meta( $post_id, 'viswiz_animation', $animation );
     update_post_meta( $post_id, 'viswiz_format_colors', viswiz_sanitize_format_colors( $format_colors ) );
+    update_post_meta( $post_id, 'viswiz_dataset_id', $dataset_id );
+    update_post_meta( $post_id, 'viswiz_legend', $legend );
+    update_post_meta( $post_id, 'viswiz_axis_labels', $axis_labels );
+    update_post_meta( $post_id, 'viswiz_other_settings', $other_settings );
 
     $progress_json = viswiz_sanitize_progress_option( $meta['manual_progress'] ?? array() );
     $pie_json = viswiz_sanitize_pie_option( $meta['manual_pie'] ?? array() );
@@ -1501,6 +1678,20 @@ function viswiz_save_visualization_meta( $post_id ) {
     update_post_meta( $post_id, 'viswiz_manual_pie', $pie_json );
     update_post_meta( $post_id, 'viswiz_diagram_data', $diagram_json );
     update_post_meta( $post_id, 'viswiz_graph_data', $graph_json );
+
+    viswiz_save_visualization_tables( $post_id, array(
+        'type' => $type,
+        'dataset_id' => $dataset_id,
+        'new_dataset_name' => $new_dataset_name,
+        'legend' => $legend,
+        'axis_labels' => $axis_labels,
+        'other_settings' => $other_settings,
+        'theme' => viswiz_sanitize_format_colors( $format_colors ),
+        'manual_progress' => json_decode( $progress_json, true ) ?: array(),
+        'manual_pie' => json_decode( $pie_json, true ) ?: array(),
+        'diagram_data' => json_decode( $diagram_json, true ) ?: array(),
+        'graph_data' => json_decode( $graph_json, true ) ?: array(),
+    ) );
 }
 
 function viswiz_get_visualization_meta( $post_id ) {
@@ -1518,6 +1709,10 @@ function viswiz_get_visualization_meta( $post_id ) {
         'category_ids' => viswiz_get_visualization_category_ids( $post_id ),
         'animation' => get_post_meta( $post_id, 'viswiz_animation', true ) ?: 'none',
         'format_colors' => viswiz_get_visualization_format_colors( $post_id ),
+        'dataset_id' => (int) get_post_meta( $post_id, 'viswiz_dataset_id', true ),
+        'legend' => get_post_meta( $post_id, 'viswiz_legend', true ) ?: '',
+        'axis_labels' => get_post_meta( $post_id, 'viswiz_axis_labels', true ) ?: '',
+        'other_settings' => get_post_meta( $post_id, 'viswiz_other_settings', true ) ?: '',
         'manual_progress' => json_decode( get_post_meta( $post_id, 'viswiz_manual_progress', true ) ?: '[]', true ) ?: array(),
         'manual_pie' => json_decode( get_post_meta( $post_id, 'viswiz_manual_pie', true ) ?: '[]', true ) ?: array(),
         'diagram_data' => json_decode( get_post_meta( $post_id, 'viswiz_diagram_data', true ) ?: '[]', true ) ?: array(),
@@ -1534,8 +1729,67 @@ function viswiz_render_visualization_block( $attributes ) {
     return viswiz_render_visualization( $post_id );
 }
 
+
+function viswiz_get_dataset_payload( $dataset_id, $type ) {
+    global $wpdb;
+    $dataset_id = absint( $dataset_id );
+    if ( ! $dataset_id ) {
+        return null;
+    }
+    $points = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM " . viswiz_get_table_name( 'data_points' ) . " WHERE dataset_id = %d ORDER BY sort_order ASC, id ASC", $dataset_id ), ARRAY_A );
+    $relations = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM " . viswiz_get_table_name( 'relations' ) . " WHERE dataset_id = %d ORDER BY sort_order ASC, id ASC", $dataset_id ), ARRAY_A );
+    if ( viswiz_is_graph_like_type( $type ) ) {
+        return array(
+            'nodes' => array_map(
+                function ( $point ) {
+                    return array(
+                        'id' => $point['point_key'],
+                        'label' => $point['label'],
+                    );
+                },
+                $points
+            ),
+            'links' => array_map(
+                function ( $relation ) {
+                    return array(
+                        'from' => $relation['from_key'],
+                        'to' => $relation['to_key'],
+                        'label' => $relation['label'],
+                        'direction' => $relation['direction'],
+                        'intensity' => (float) $relation['intensity'],
+                        'relation_type' => $relation['relation_type'],
+                    );
+                },
+                $relations
+            ),
+        );
+    }
+    return array_map(
+        function ( $point ) {
+            return array(
+                'label' => $point['label'],
+                'value' => (float) $point['value'],
+                'color' => $point['color'],
+            );
+        },
+        $points
+    );
+}
+
 function viswiz_render_visualization( $post_id ) {
     $meta = viswiz_get_visualization_meta( $post_id );
+    $dataset_payload = viswiz_get_dataset_payload( $meta['dataset_id'], $meta['type'] );
+    if ( $dataset_payload ) {
+        if ( $meta['type'] === 'progress' ) {
+            $meta['manual_progress'] = $dataset_payload;
+            $meta['source'] = 'manual';
+        } elseif ( viswiz_is_graph_like_type( $meta['type'] ) ) {
+            $meta['graph_data'] = $dataset_payload;
+        } else {
+            $meta['manual_pie'] = $dataset_payload;
+            $meta['source'] = 'manual';
+        }
+    }
     $data_attrs = sprintf(
         'data-type="%s" data-label="%s" data-title="%s" data-target="%s" data-scope="%s" data-period-mode="%s" data-period-value="%s" data-period-unit="%s" data-period-start="%s" data-product-ids="%s" data-category-ids="%s" data-animation="%s" data-colors="%s"',
         esc_attr( $meta['source'] ),
@@ -1558,17 +1812,17 @@ function viswiz_render_visualization( $post_id ) {
         return sprintf( '<div class="viswiz-progress" %s data-manual="%s"></div>', $data_attrs, $manual_json );
     }
 
-    if ( $meta['type'] === 'pie' ) {
+    if ( in_array( $meta['type'], array( 'pie', 'bar', 'column', 'line', 'area', 'scatter', 'counter', 'timeline', 'map' ), true ) ) {
         $manual_json = $meta['source'] === 'manual' ? esc_attr( viswiz_json_encode( $meta['manual_pie'] ) ) : '';
         return sprintf( '<div class="viswiz-pie" %s data-manual="%s"></div>', $data_attrs, $manual_json );
     }
 
-    if ( $meta['type'] === 'diagram' ) {
+    if ( in_array( $meta['type'], array( 'diagram', ), true ) ) {
         $manual_json = esc_attr( viswiz_json_encode( $meta['diagram_data'] ) );
         return sprintf( '<div class="viswiz-diagram" data-manual="%s"></div>', $manual_json );
     }
 
-    if ( $meta['type'] === 'graph' ) {
+    if ( viswiz_is_graph_like_type( $meta['type'] ) ) {
         $manual_json = esc_attr( viswiz_json_encode( $meta['graph_data'] ) );
         $node_radius = esc_attr( $meta['format_colors']['node_radius'] ?? '20' );
         $link_distance = esc_attr( $meta['format_colors']['link_distance'] ?? '100' );
@@ -1671,6 +1925,138 @@ function viswiz_enqueue_admin_assets( $hook ) {
             'jQuery(function($){$(document.body).trigger("wc-enhanced-select-init");});'
         );
     }
+}
+
+
+function viswiz_render_dataset_select( $name, $selected_id = 0 ) {
+    global $wpdb;
+    $datasets = $wpdb->get_results( "SELECT id, name, data_type FROM " . viswiz_get_table_name( 'datasets' ) . " ORDER BY name ASC LIMIT 200" );
+    $html = sprintf( '<select name="%s" id="viswiz_dataset_id">', esc_attr( $name ) );
+    $html .= '<option value="0">Visualization-specific data</option>';
+    foreach ( $datasets as $dataset ) {
+        $html .= sprintf(
+            '<option value="%d" %s>%s</option>',
+            (int) $dataset->id,
+            selected( (int) $selected_id, (int) $dataset->id, false ),
+            esc_html( sprintf( '%s (%s)', $dataset->name, $dataset->data_type ) )
+        );
+    }
+    $html .= '</select>';
+    return $html;
+}
+
+function viswiz_save_visualization_tables( $post_id, array $meta ) {
+    global $wpdb;
+    viswiz_create_custom_tables();
+    $now = current_time( 'mysql' );
+    $dataset_id = (int) ( $meta['dataset_id'] ?? 0 );
+    if ( ! empty( $meta['new_dataset_name'] ) ) {
+        $wpdb->insert(
+            viswiz_get_table_name( 'datasets' ),
+            array(
+                'name' => $meta['new_dataset_name'],
+                'description' => sprintf( 'Created from visualization #%d.', $post_id ),
+                'data_type' => $meta['type'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ),
+            array( '%s', '%s', '%s', '%s', '%s' )
+        );
+        $dataset_id = (int) $wpdb->insert_id;
+        update_post_meta( $post_id, 'viswiz_dataset_id', $dataset_id );
+    }
+
+    $table = viswiz_get_table_name( 'visualization_data' );
+    $existing_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE post_id = %d", $post_id ) );
+    $row = array(
+        'post_id' => $post_id,
+        'visualization_type' => $meta['type'],
+        'dataset_id' => $dataset_id,
+        'legend' => viswiz_json_encode( array_filter( array_map( 'trim', explode( "\n", $meta['legend'] ?? '' ) ) ) ),
+        'labels' => viswiz_json_encode( array_filter( array_map( 'trim', explode( "\n", $meta['axis_labels'] ?? '' ) ) ) ),
+        'theme' => viswiz_json_encode( $meta['theme'] ?? array() ),
+        'settings' => viswiz_json_encode( array( 'other' => $meta['other_settings'] ?? '' ) ),
+        'updated_at' => $now,
+    );
+    if ( $existing_id ) {
+        $wpdb->update( $table, $row, array( 'id' => $existing_id ) );
+        $visualization_data_id = $existing_id;
+    } else {
+        $row['created_at'] = $now;
+        $wpdb->insert( $table, $row );
+        $visualization_data_id = (int) $wpdb->insert_id;
+    }
+
+    viswiz_replace_table_points( $visualization_data_id, $dataset_id, $meta );
+}
+
+function viswiz_replace_table_points( $visualization_id, $dataset_id, array $meta ) {
+    global $wpdb;
+    $points_table = viswiz_get_table_name( 'data_points' );
+    $relations_table = viswiz_get_table_name( 'relations' );
+    $wpdb->delete( $points_table, array( 'visualization_id' => $visualization_id ) );
+    $wpdb->delete( $relations_table, array( 'visualization_id' => $visualization_id ) );
+    if ( $dataset_id ) {
+        $wpdb->delete( $points_table, array( 'dataset_id' => $dataset_id ) );
+        $wpdb->delete( $relations_table, array( 'dataset_id' => $dataset_id ) );
+    }
+    $type = $meta['type'];
+    if ( $type === 'progress' ) {
+        foreach ( $meta['manual_progress'] as $i => $item ) {
+            viswiz_insert_point( $visualization_id, $dataset_id, 'progress-' . $i, $item['label'] ?? '', $item['value'] ?? 0, '', $item, $i );
+        }
+    } elseif ( in_array( $type, array( 'pie', 'bar', 'column', 'line', 'area', 'scatter', 'counter', 'timeline', 'map' ), true ) ) {
+        foreach ( $meta['manual_pie'] as $i => $item ) {
+            viswiz_insert_point( $visualization_id, $dataset_id, sanitize_title( $item['label'] ?? 'point-' . $i ), $item['label'] ?? '', $item['value'] ?? 0, $item['color'] ?? '', $item, $i );
+        }
+    } elseif ( viswiz_is_graph_like_type( $type ) ) {
+        foreach ( $meta['graph_data']['nodes'] ?? array() as $i => $node ) {
+            viswiz_insert_point( $visualization_id, $dataset_id, $node['id'] ?? '', $node['label'] ?? '', 0, '', $node, $i );
+        }
+        foreach ( $meta['graph_data']['links'] ?? array() as $i => $link ) {
+            viswiz_insert_relation( $visualization_id, $dataset_id, $link, $i );
+        }
+    } else {
+        foreach ( $meta['diagram_data'] as $i => $section ) {
+            viswiz_insert_point( $visualization_id, $dataset_id, sanitize_title( $section['title'] ?? 'section-' . $i ), $section['title'] ?? '', 0, '', $section, $i );
+        }
+    }
+}
+
+function viswiz_insert_point( $visualization_id, $dataset_id, $key, $label, $value, $color, $meta, $order ) {
+    global $wpdb;
+    $now = current_time( 'mysql' );
+    $wpdb->insert( viswiz_get_table_name( 'data_points' ), array(
+        'visualization_id' => $visualization_id,
+        'dataset_id' => $dataset_id,
+        'point_key' => sanitize_text_field( $key ),
+        'label' => sanitize_text_field( $label ),
+        'value' => (float) $value,
+        'color' => sanitize_hex_color( $color ) ?: '',
+        'meta' => viswiz_json_encode( $meta ),
+        'sort_order' => (int) $order,
+        'created_at' => $now,
+        'updated_at' => $now,
+    ) );
+}
+
+function viswiz_insert_relation( $visualization_id, $dataset_id, array $link, $order ) {
+    global $wpdb;
+    $now = current_time( 'mysql' );
+    $wpdb->insert( viswiz_get_table_name( 'relations' ), array(
+        'visualization_id' => $visualization_id,
+        'dataset_id' => $dataset_id,
+        'from_key' => sanitize_text_field( $link['from'] ?? '' ),
+        'to_key' => sanitize_text_field( $link['to'] ?? '' ),
+        'label' => sanitize_text_field( $link['label'] ?? '' ),
+        'direction' => sanitize_key( $link['direction'] ?? 'directed' ),
+        'intensity' => (float) ( $link['intensity'] ?? 1 ),
+        'relation_type' => sanitize_text_field( $link['relation_type'] ?? '' ),
+        'meta' => viswiz_json_encode( $link ),
+        'sort_order' => (int) $order,
+        'created_at' => $now,
+        'updated_at' => $now,
+    ) );
 }
 
 function viswiz_render_product_search_field( $name, $selected_ids, $multiple = false ) {
