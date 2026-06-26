@@ -145,6 +145,63 @@
     return max + 1;
   }
 
+
+  function getNextGraphNodeId(container) {
+    const ids = Array.from(container.querySelectorAll('[data-viswiz-node-id]')).map((input) => input.value);
+    let index = ids.length + 1;
+    while (ids.includes('node-' + index)) {
+      index += 1;
+    }
+    return 'node-' + index;
+  }
+
+  function addGraphNode(containerId, namePrefix) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const index = container.querySelectorAll('[data-viswiz-node-card]').length;
+    const id = getNextGraphNodeId(container);
+    const editorId = 'viswiz_node_desc_dynamic_' + Date.now();
+    const row = document.createElement('details');
+    row.className = 'viswiz-node-card viswiz-sortable-card';
+    row.open = true;
+    row.dataset.viswizNodeCard = '1';
+    row.dataset.nodeIndex = index;
+    row.innerHTML = `
+      <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>New node</strong> <code data-viswiz-node-id-display>${id}</code></summary>
+      <input type="hidden" name="${namePrefix}[id][]" value="${id}" data-viswiz-node-id />
+      <div class="viswiz-node-grid">
+        <label>Title <input type="text" name="${namePrefix}[title][]" placeholder="Node title" class="regular-text" data-viswiz-node-title /></label>
+        <label>Short label <input type="text" name="${namePrefix}[label][]" placeholder="Optional short label" class="regular-text" /></label>
+        <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
+        <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
+      </div>
+      <label class="viswiz-full-field">Formatted description<textarea id="${editorId}" name="${namePrefix}[description][]" rows="4"></textarea></label>
+      <div class="viswiz-custom-labels"><strong>Custom labels</strong><button type="button" class="button viswiz-add-custom-label">Add custom label</button></div>
+      <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
+    container.appendChild(row);
+    if (window.wp && wp.editor && wp.editor.initialize) {
+      wp.editor.initialize(editorId, { tinymce: { wpautop: true }, quicktags: true, mediaButtons: false });
+    }
+  }
+
+  function addGraphLink(containerId, namePrefix) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const row = document.createElement('details');
+    row.className = 'viswiz-relation-card viswiz-sortable-card';
+    row.open = true;
+    row.innerHTML = `<summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>Relation</strong></summary>
+      <div class="viswiz-relation-grid">
+        <input type="text" name="${namePrefix}[from][]" placeholder="From node ID" class="regular-text" />
+        <input type="text" name="${namePrefix}[to][]" placeholder="To node ID" class="regular-text" />
+        <input type="text" name="${namePrefix}[label][]" placeholder="Relation label" class="regular-text" />
+        <select name="${namePrefix}[direction][]"><option value="directed">Directed</option><option value="undirected">Undirected</option><option value="bidirectional">Bidirectional</option></select>
+        <input type="number" name="${namePrefix}[intensity][]" placeholder="Intensity" value="1" min="0" step="0.01" />
+        <input type="text" name="${namePrefix}[relation_type][]" placeholder="Relation type" class="regular-text" />
+      </div><p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove relation</button></p>`;
+    container.appendChild(row);
+  }
+
   const addHandlers = {
     progress() {
       addProgressRow('viswiz-progress-rows', 'viswiz_manual_progress');
@@ -158,10 +215,10 @@
       addDiagramSection('viswiz-diagram-sections', 'viswiz_diagram_data');
     },
     'graph-node': function () {
-      addRow('viswiz-graph-nodes', ['Node ID', 'Label'], 'viswiz_graph_data[nodes]', ['id', 'label']);
+      addGraphNode('viswiz-graph-nodes', 'viswiz_graph_data[nodes]');
     },
     'graph-link': function () {
-      addRow('viswiz-graph-links', ['From ID', 'To ID', 'Label', 'Direction', 'Intensity', 'Relation type'], 'viswiz_graph_data[links]', ['from', 'to', 'label', 'direction', 'intensity', 'relation_type'], { typeMap: { intensity: 'number' } });
+      addGraphLink('viswiz-graph-links', 'viswiz_graph_data[links]');
     },
     'visual-progress': function () {
       addProgressRow('viswiz-visual-progress', 'viswiz_meta[manual_progress]');
@@ -175,10 +232,10 @@
       addDiagramSection('viswiz-visual-diagram', 'viswiz_meta[diagram_data]');
     },
     'visual-graph-node': function () {
-      addRow('viswiz-visual-graph-nodes', ['Node ID', 'Label'], 'viswiz_meta[graph_data][nodes]', ['id', 'label']);
+      addGraphNode('viswiz-visual-graph-nodes', 'viswiz_meta[graph_data][nodes]');
     },
     'visual-graph-link': function () {
-      addRow('viswiz-visual-graph-links', ['From ID', 'To ID', 'Label', 'Direction', 'Intensity', 'Relation type'], 'viswiz_meta[graph_data][links]', ['from', 'to', 'label', 'direction', 'intensity', 'relation_type'], { typeMap: { intensity: 'number' } });
+      addGraphLink('viswiz-visual-graph-links', 'viswiz_meta[graph_data][links]');
     },
   };
 
@@ -191,7 +248,12 @@
 
   $(document).on('click', '.viswiz-remove-row', function () {
     const container = $(this).closest('.viswiz-repeatable');
-    $(this).closest('.viswiz-row').remove();
+    const card = $(this).closest('.viswiz-sortable-card');
+    if (card.length) {
+      card.remove();
+    } else {
+      $(this).closest('.viswiz-row').remove();
+    }
     if (container.length) {
       reindexProgressRows(container.get(0));
     }
@@ -259,6 +321,58 @@
     $('.viswiz-tab-panel').removeClass('is-active');
     $(`[data-viswiz-panel="${tab}"]`).addClass('is-active');
     updateVisualizationFields();
+  });
+
+
+  $(document).on('click', '.viswiz-move-up, .viswiz-move-down', function () {
+    const card = $(this).closest('.viswiz-sortable-card');
+    if ($(this).hasClass('viswiz-move-up')) card.prev('.viswiz-sortable-card').before(card);
+    else card.next('.viswiz-sortable-card').after(card);
+  });
+
+  $(document).on('click', '.viswiz-add-custom-label', function () {
+    const card = $(this).closest('[data-viswiz-node-card]');
+    const name = card.find('[data-viswiz-node-id]').attr('name').replace('[id][]', '');
+    const index = card.index();
+    const html = `<div class="viswiz-custom-label-row"><input type="text" name="${name}[custom_key][${index}][]" placeholder="Label key" pattern="[A-Za-z0-9_-]+" /> <select name="${name}[custom_type][${index}][]"><option value="short">Short text</option><option value="url">Hyperlink</option><option value="long">Long text</option><option value="formatted">Formatted text</option></select> <textarea name="${name}[custom_value][${index}][]" placeholder="Value" rows="2"></textarea> <button type="button" class="button viswiz-remove-custom-label">Remove</button></div>`;
+    $(this).before(html);
+  });
+
+  $(document).on('click', '.viswiz-remove-custom-label', function () { $(this).closest('.viswiz-custom-label-row').remove(); });
+
+  $(document).on('input', '[data-viswiz-node-title]', function () {
+    const card = $(this).closest('[data-viswiz-node-card]');
+    card.find('summary strong').text($(this).val() || 'New node');
+  });
+
+
+  function reindexGraphCustomLabels() {
+    $('[data-viswiz-node-card]').each(function (index) {
+      const prefix = $(this).find('[data-viswiz-node-id]').attr('name').replace('[id][]', '');
+      $(this).find('.viswiz-custom-label-row').each(function () {
+        $(this).find('[name*="[custom_key]"]').attr('name', `${prefix}[custom_key][${index}][]`);
+        $(this).find('[name*="[custom_type]"]').attr('name', `${prefix}[custom_type][${index}][]`);
+        $(this).find('[name*="[custom_value]"]').attr('name', `${prefix}[custom_value][${index}][]`);
+      });
+    });
+  }
+
+  $(document).on('submit', 'form', function () {
+    reindexGraphCustomLabels();
+  });
+
+  $(document).on('click', '[data-viswiz-media-select]', function () {
+    if (!window.wp || !wp.media) return;
+    const button = $(this);
+    const multiple = button.data('viswiz-media-select') === 'multiple';
+    const frame = wp.media({ title: 'Select node image', multiple, library: { type: 'image' } });
+    frame.on('select', function () {
+      const selection = frame.state().get('selection').toJSON();
+      const ids = selection.map((item) => item.id).join(',');
+      button.siblings('[data-viswiz-media-value]').val(ids);
+      button.siblings('[data-viswiz-media-label]').text(ids ? '#' + ids : (multiple ? 'No images selected' : 'No image selected'));
+    });
+    frame.open();
   });
 
   $(document).ready(function () {
@@ -367,14 +481,15 @@
   function gatherGraphData() {
     const nodes = [];
     const links = [];
-    $('#viswiz-visual-graph-nodes .viswiz-row').each(function () {
+    $('#viswiz-visual-graph-nodes .viswiz-node-card').each(function () {
       const id = $(this).find('input[name$="[id][]"]').val() || '';
-      const label = $(this).find('input[name$="[label][]"]').val() || '';
-      if (id || label) {
-        nodes.push({ id, label });
+      const title = $(this).find('input[name$="[title][]"]').val() || '';
+      const label = $(this).find('input[name$="[label][]"]').val() || title;
+      if (id || label || title) {
+        nodes.push({ id, label, title });
       }
     });
-    $('#viswiz-visual-graph-links .viswiz-row').each(function () {
+    $('#viswiz-visual-graph-links .viswiz-relation-card').each(function () {
       const from = $(this).find('input[name$="[from][]"]').val() || '';
       const to = $(this).find('input[name$="[to][]"]').val() || '';
       const label = $(this).find('input[name$="[label][]"]').val() || '';

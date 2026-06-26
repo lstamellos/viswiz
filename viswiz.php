@@ -688,46 +688,31 @@ function viswiz_render_settings_page() {
                         <th scope="row"><label for="viswiz_graph_data">Graph Data</label></th>
                         <td>
                             <div class="viswiz-graph">
-                                <h4>Nodes</h4>
-                                <div id="viswiz-graph-nodes" class="viswiz-repeatable">
+                                <?php $dataset_label = viswiz_get_graph_dataset_label( 0 ); ?>
+                                <h4>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h4>
+                                <div id="viswiz-graph-nodes" class="viswiz-repeatable viswiz-card-list">
                                     <?php $nodes = $graph_data['nodes'] ?? array(); ?>
                                     <?php if ( empty( $nodes ) ) : ?>
-                                        <?php $nodes = array( array( 'id' => '', 'label' => '' ) ); ?>
+                                        <?php $nodes = array( array( 'id' => '', 'label' => '', 'title' => '' ) ); ?>
                                     <?php endif; ?>
-                                    <?php foreach ( $nodes as $node ) : ?>
-                                        <div class="viswiz-row">
-                                            <input type="text" name="viswiz_graph_data[nodes][id][]" placeholder="Node ID" value="<?php echo esc_attr( $node['id'] ?? '' ); ?>" class="regular-text" />
-                                            <input type="text" name="viswiz_graph_data[nodes][label][]" placeholder="Label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" />
-                                            <button type="button" class="button viswiz-remove-row">Remove</button>
-                                        </div>
+                                    <?php foreach ( $nodes as $node_index => $node ) : ?>
+                                        <?php viswiz_render_graph_node_row( 'viswiz_graph_data[nodes]', $node, $node_index, $dataset_label ); ?>
                                     <?php endforeach; ?>
                                 </div>
                                 <button type="button" class="button" data-viswiz-add="graph-node">Add Node</button>
-                                <p class="description">Example node: ID “post-1”, Label “Homepage”.</p>
-                                <h4>Links</h4>
-                                <div id="viswiz-graph-links" class="viswiz-repeatable">
+                                <p class="description">IDs are assigned automatically. Use the title, formatted description, image fields, and custom labels to enrich each node.</p>
+                                <h4>Relations <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h4>
+                                <div id="viswiz-graph-links" class="viswiz-repeatable viswiz-card-list">
                                     <?php $links = $graph_data['links'] ?? array(); ?>
                                     <?php if ( empty( $links ) ) : ?>
                                         <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
                                     <?php endif; ?>
-                                    <?php foreach ( $links as $link ) : ?>
-                                        <div class="viswiz-row">
-                                            <input type="text" name="viswiz_graph_data[links][from][]" placeholder="From ID" value="<?php echo esc_attr( $link['from'] ?? '' ); ?>" class="regular-text" />
-                                            <input type="text" name="viswiz_graph_data[links][to][]" placeholder="To ID" value="<?php echo esc_attr( $link['to'] ?? '' ); ?>" class="regular-text" />
-                                            <input type="text" name="viswiz_graph_data[links][label][]" placeholder="Label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
-                                            <select name="viswiz_graph_data[links][direction][]">
-                                                <option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option>
-                                                <option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option>
-                                                <option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option>
-                                            </select>
-                                            <input type="number" name="viswiz_graph_data[links][intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
-                                            <input type="text" name="viswiz_graph_data[links][relation_type][]" placeholder="Relation type" value="<?php echo esc_attr( $link['relation_type'] ?? '' ); ?>" class="regular-text" />
-                                            <button type="button" class="button viswiz-remove-row">Remove</button>
-                                        </div>
+                                    <?php foreach ( $links as $link_index => $link ) : ?>
+                                        <?php viswiz_render_graph_link_row( 'viswiz_graph_data[links]', $link, $link_index, $dataset_label ); ?>
                                     <?php endforeach; ?>
                                 </div>
-                                <button type="button" class="button" data-viswiz-add="graph-link">Add Link</button>
-                                <p class="description">Example link: From “post-1” To “product-1” Label “references”.</p>
+                                <button type="button" class="button" data-viswiz-add="graph-link">Add Relation</button>
+                                <p class="description">Relations stay grouped in movable cards and display their dataset context.</p>
                             </div>
                             <p class="description">Nodes map to IDs and labels; links connect nodes for graph-style views.</p>
                         </td>
@@ -740,6 +725,85 @@ function viswiz_render_settings_page() {
     <?php
 }
 
+
+function viswiz_get_graph_dataset_label( $dataset_id ) {
+    if ( $dataset_id ) {
+        global $wpdb;
+        $name = $wpdb->get_var( $wpdb->prepare( "SELECT name FROM " . viswiz_get_table_name( 'datasets' ) . " WHERE id = %d", absint( $dataset_id ) ) );
+        if ( $name ) {
+            return sprintf( '%s (#%d)', $name, $dataset_id );
+        }
+    }
+    return 'Visualization-specific data';
+}
+
+function viswiz_get_node_auto_id( $node, $index ) {
+    $id = $node['id'] ?? '';
+    if ( $id === '' ) {
+        $id = 'node-' . ( (int) $index + 1 );
+    }
+    return sanitize_key( $id );
+}
+
+function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0, $dataset_label = '' ) {
+    $id = viswiz_get_node_auto_id( $node, $index );
+    $title = $node['title'] ?? ( $node['label'] ?? '' );
+    $description = $node['description'] ?? '';
+    $main_image = absint( $node['main_image'] ?? 0 );
+    $other_images = is_array( $node['other_images'] ?? null ) ? implode( ',', array_map( 'absint', $node['other_images'] ) ) : sanitize_text_field( $node['other_images'] ?? '' );
+    $custom_labels = is_array( $node['custom_labels'] ?? null ) ? $node['custom_labels'] : array();
+    if ( empty( $custom_labels ) ) {
+        $custom_labels = array( array( 'key' => '', 'type' => 'short', 'value' => '' ) );
+    }
+    ?>
+    <details class="viswiz-node-card viswiz-sortable-card" open data-viswiz-node-card data-node-index="<?php echo esc_attr( $index ); ?>">
+        <summary>
+            <span class="viswiz-drag-handle" aria-hidden="true">↕</span>
+            <strong><?php echo esc_html( $title ?: 'New node' ); ?></strong>
+            <code data-viswiz-node-id-display><?php echo esc_html( $id ); ?></code>
+            <?php if ( $dataset_label ) : ?><span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span><?php endif; ?>
+        </summary>
+        <input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[id][]" value="<?php echo esc_attr( $id ); ?>" data-viswiz-node-id />
+        <div class="viswiz-node-grid">
+            <label>Title <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[title][]" placeholder="Node title" value="<?php echo esc_attr( $title ); ?>" class="regular-text" data-viswiz-node-title /></label>
+            <label>Short label <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Optional short label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" /></label>
+            <label>Main image <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[main_image][]" value="<?php echo esc_attr( $main_image ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label><?php echo $main_image ? esc_html( '#' . $main_image ) : 'No image selected'; ?></span></span></label>
+            <label>Other images <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[other_images][]" value="<?php echo esc_attr( $other_images ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label><?php echo $other_images ? esc_html( $other_images ) : 'No images selected'; ?></span></span></label>
+        </div>
+        <label class="viswiz-full-field">Formatted description<?php wp_editor( wp_kses_post( $description ), 'viswiz_node_desc_' . md5( $name_prefix . $index ), array( 'textarea_name' => $name_prefix . '[description][]', 'textarea_rows' => 4, 'media_buttons' => false, 'teeny' => true ) ); ?></label>
+        <div class="viswiz-custom-labels">
+            <strong>Custom labels</strong>
+            <?php foreach ( $custom_labels as $custom ) : ?>
+                <div class="viswiz-custom-label-row">
+                    <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[custom_key][<?php echo esc_attr( $index ); ?>][]" placeholder="Label key" pattern="[A-Za-z0-9_-]+" value="<?php echo esc_attr( $custom['key'] ?? '' ); ?>" />
+                    <select name="<?php echo esc_attr( $name_prefix ); ?>[custom_type][<?php echo esc_attr( $index ); ?>][]"><option value="short" <?php selected( $custom['type'] ?? '', 'short' ); ?>>Short text</option><option value="url" <?php selected( $custom['type'] ?? '', 'url' ); ?>>Hyperlink</option><option value="long" <?php selected( $custom['type'] ?? '', 'long' ); ?>>Long text</option><option value="formatted" <?php selected( $custom['type'] ?? '', 'formatted' ); ?>>Formatted text</option></select>
+                    <textarea name="<?php echo esc_attr( $name_prefix ); ?>[custom_value][<?php echo esc_attr( $index ); ?>][]" placeholder="Value" rows="2"><?php echo esc_textarea( $custom['value'] ?? '' ); ?></textarea>
+                    <button type="button" class="button viswiz-remove-custom-label">Remove</button>
+                </div>
+            <?php endforeach; ?>
+            <button type="button" class="button viswiz-add-custom-label">Add custom label</button>
+        </div>
+        <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>
+    </details>
+    <?php
+}
+
+function viswiz_render_graph_link_row( $name_prefix, $link = array(), $index = 0, $dataset_label = '' ) {
+    ?>
+    <details class="viswiz-relation-card viswiz-sortable-card" open>
+        <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong><?php echo esc_html( $link['label'] ?? 'Relation' ); ?></strong><?php if ( $dataset_label ) : ?><span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span><?php endif; ?></summary>
+        <div class="viswiz-relation-grid">
+            <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[from][]" placeholder="From node ID" value="<?php echo esc_attr( $link['from'] ?? '' ); ?>" class="regular-text" />
+            <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[to][]" placeholder="To node ID" value="<?php echo esc_attr( $link['to'] ?? '' ); ?>" class="regular-text" />
+            <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Relation label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
+            <select name="<?php echo esc_attr( $name_prefix ); ?>[direction][]"><option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option><option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option><option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option></select>
+            <input type="number" name="<?php echo esc_attr( $name_prefix ); ?>[intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
+            <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[relation_type][]" placeholder="Relation type" value="<?php echo esc_attr( $link['relation_type'] ?? '' ); ?>" class="regular-text" />
+        </div>
+        <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove relation</button></p>
+    </details>
+    <?php
+}
 function viswiz_sanitize_json_option( $value ) {
     $decoded = json_decode( wp_unslash( $value ), true );
     if ( json_last_error() !== JSON_ERROR_NONE ) {
@@ -884,15 +948,52 @@ function viswiz_sanitize_graph_option( $value ) {
 
     $node_ids = $nodes['id'] ?? array();
     $node_labels = $nodes['label'] ?? array();
-    foreach ( $node_ids as $index => $node_id ) {
-        $node_id = sanitize_text_field( $node_id );
+    $node_titles = $nodes['title'] ?? array();
+    $node_descriptions = $nodes['description'] ?? array();
+    $node_main_images = $nodes['main_image'] ?? array();
+    $node_other_images = $nodes['other_images'] ?? array();
+    $custom_keys = $nodes['custom_key'] ?? array();
+    $custom_types = $nodes['custom_type'] ?? array();
+    $custom_values = $nodes['custom_value'] ?? array();
+    $node_count = max( count( $node_ids ), count( $node_titles ), count( $node_labels ) );
+    for ( $index = 0; $index < $node_count; $index++ ) {
+        $title = sanitize_text_field( $node_titles[ $index ] ?? '' );
         $label = sanitize_text_field( $node_labels[ $index ] ?? '' );
-        if ( $node_id === '' && $label === '' ) {
+        $description = wp_kses_post( $node_descriptions[ $index ] ?? '' );
+        if ( $title === '' && $label === '' && $description === '' ) {
             continue;
+        }
+        $node_id = sanitize_key( $node_ids[ $index ] ?? '' );
+        if ( $node_id === '' ) {
+            $node_id = 'node-' . ( count( $sanitized_nodes ) + 1 );
+        }
+        $custom_labels = array();
+        foreach ( $custom_keys[ $index ] ?? array() as $custom_index => $custom_key ) {
+            $custom_key = sanitize_key( $custom_key );
+            $custom_type = sanitize_key( $custom_types[ $index ][ $custom_index ] ?? 'short' );
+            if ( ! in_array( $custom_type, array( 'short', 'url', 'long', 'formatted' ), true ) ) {
+                $custom_type = 'short';
+            }
+            $custom_value = $custom_values[ $index ][ $custom_index ] ?? '';
+            if ( $custom_type === 'url' ) {
+                $custom_value = esc_url_raw( $custom_value );
+            } elseif ( $custom_type === 'formatted' ) {
+                $custom_value = wp_kses_post( $custom_value );
+            } else {
+                $custom_value = sanitize_textarea_field( $custom_value );
+            }
+            if ( $custom_key !== '' || $custom_value !== '' ) {
+                $custom_labels[] = array( 'key' => $custom_key, 'type' => $custom_type, 'value' => $custom_value );
+            }
         }
         $sanitized_nodes[] = array(
             'id' => $node_id,
-            'label' => $label,
+            'label' => $label ?: $title,
+            'title' => $title,
+            'description' => $description,
+            'main_image' => absint( $node_main_images[ $index ] ?? 0 ),
+            'other_images' => array_values( array_filter( array_map( 'absint', explode( ',', (string) ( $node_other_images[ $index ] ?? '' ) ) ) ) ),
+            'custom_labels' => $custom_labels,
         );
     }
 
@@ -1498,44 +1599,29 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
         <h4>Manual Graph</h4>
         <div class="viswiz-graph">
-            <h5>Nodes</h5>
-            <div id="viswiz-visual-graph-nodes" class="viswiz-repeatable">
+            <?php $dataset_label = viswiz_get_graph_dataset_label( $meta['dataset_id'] ); ?>
+            <h5>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h5>
+            <div id="viswiz-visual-graph-nodes" class="viswiz-repeatable viswiz-card-list">
                 <?php $nodes = $graph_data['nodes'] ?? array(); ?>
                 <?php if ( empty( $nodes ) ) : ?>
-                    <?php $nodes = array( array( 'id' => '', 'label' => '' ) ); ?>
+                    <?php $nodes = array( array( 'id' => '', 'label' => '', 'title' => '' ) ); ?>
                 <?php endif; ?>
-                <?php foreach ( $nodes as $node ) : ?>
-                <div class="viswiz-row">
-                    <input type="text" name="viswiz_meta[graph_data][nodes][id][]" placeholder="Node ID" value="<?php echo esc_attr( $node['id'] ?? '' ); ?>" class="regular-text" />
-                    <input type="text" name="viswiz_meta[graph_data][nodes][label][]" placeholder="Label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" />
-                    <button type="button" class="button viswiz-remove-row">Remove</button>
-                </div>
-            <?php endforeach; ?>
+                <?php foreach ( $nodes as $node_index => $node ) : ?>
+                    <?php viswiz_render_graph_node_row( 'viswiz_meta[graph_data][nodes]', $node, $node_index, $dataset_label ); ?>
+                <?php endforeach; ?>
             </div>
             <button type="button" class="button" data-viswiz-add="visual-graph-node">Add Node</button>
-            <h5>Links</h5>
-            <div id="viswiz-visual-graph-links" class="viswiz-repeatable">
+            <h5>Relations <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h5>
+            <div id="viswiz-visual-graph-links" class="viswiz-repeatable viswiz-card-list">
                 <?php $links = $graph_data['links'] ?? array(); ?>
                 <?php if ( empty( $links ) ) : ?>
                     <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
                 <?php endif; ?>
-                <?php foreach ( $links as $link ) : ?>
-                <div class="viswiz-row">
-                    <input type="text" name="viswiz_meta[graph_data][links][from][]" placeholder="From ID" value="<?php echo esc_attr( $link['from'] ?? '' ); ?>" class="regular-text" />
-                    <input type="text" name="viswiz_meta[graph_data][links][to][]" placeholder="To ID" value="<?php echo esc_attr( $link['to'] ?? '' ); ?>" class="regular-text" />
-                    <input type="text" name="viswiz_meta[graph_data][links][label][]" placeholder="Label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
-                    <select name="viswiz_meta[graph_data][links][direction][]">
-                        <option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option>
-                        <option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option>
-                        <option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option>
-                    </select>
-                    <input type="number" name="viswiz_meta[graph_data][links][intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
-                    <input type="text" name="viswiz_meta[graph_data][links][relation_type][]" placeholder="Relation type" value="<?php echo esc_attr( $link['relation_type'] ?? '' ); ?>" class="regular-text" />
-                    <button type="button" class="button viswiz-remove-row">Remove</button>
-                </div>
-            <?php endforeach; ?>
+                <?php foreach ( $links as $link_index => $link ) : ?>
+                    <?php viswiz_render_graph_link_row( 'viswiz_meta[graph_data][links]', $link, $link_index, $dataset_label ); ?>
+                <?php endforeach; ?>
             </div>
-            <button type="button" class="button" data-viswiz-add="visual-graph-link">Add Link</button>
+            <button type="button" class="button" data-viswiz-add="visual-graph-link">Add Relation</button>
         </div>
     </div>
     </div>
@@ -1904,10 +1990,13 @@ function viswiz_enqueue_admin_assets( $hook ) {
         VISWIZ_VERSION
     );
 
+    wp_enqueue_media();
+    wp_enqueue_editor();
+
     wp_enqueue_script(
         'viswiz-admin',
         plugins_url( 'assets/viswiz-admin.js', __FILE__ ),
-        array( 'jquery' ),
+        array( 'jquery', 'wp-editor' ),
         VISWIZ_VERSION,
         true
     );
