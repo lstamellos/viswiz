@@ -1,9 +1,10 @@
 VisWiz is a WordPress plugin for building real-time WooCommerce dashboards and reusable data visualizations.
 
-It provides progress bars, pie charts, diagrams, and graph-style relationships. Visualizations can be driven by live WooCommerce sales data (filtered by product, category, and time period) or by manual data inputs. Administrators can save visualizations as their own posts, then embed them anywhere using the provided shortcode or the Gutenberg block.
+It provides a dedicated Visualization custom post type for building progress bars, pie charts, bar/column/line/area/scatter-style charts, counters, timelines, maps, diagrams, flow diagrams, org charts, and graph-style relationships. Visualizations can be driven by live WooCommerce sales data, visualization-specific manual data, or reusable datasets stored in custom database tables.
 
 Key features include:
 - Real-time WooCommerce sales progress and breakdowns with configurable date ranges.
-- Manual data entry for progress bars, pie slices, diagrams, and graph connections.
-- Saved visualization library with copy-ready shortcodes and a block selector.
-- Admin UI with tabbed settings, product/category selectors, and color pickers.
+- A Visualization CPT with an editing interface for type selection, data entry, legend/label/theme settings, preview, and shortcode embedding.
+- Custom tables for visualization containers, reusable datasets, data points, and graph/flow/org-chart relationships.
+- Relationship attributes for graph-like visualizations including direction, intensity, and relation type.
+- Saved visualization library with copy-ready shortcodes and a Gutenberg block selector.
