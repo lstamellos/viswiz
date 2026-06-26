@@ -142,7 +142,7 @@
     container.innerHTML = '';
 
     const nodes = (data.nodes || []).map((n) => ({ id: n.id, label: n.label || n.id }));
-    const links = (data.links || []).map((l) => ({ source: l.from, target: l.to, label: l.label || '' }));
+    const links = (data.links || []).map((l) => ({ source: l.from, target: l.to, label: l.label || '', direction: l.direction || 'directed', intensity: parseFloat(l.intensity || 1), relation_type: l.relation_type || '' }));
 
     if (!nodes.length) {
       container.textContent = 'No graph data available.';
@@ -193,8 +193,8 @@
       .data(links)
       .join('line')
       .attr('stroke', linkColor)
-      .attr('stroke-width', 2)
-      .attr('marker-end', 'url(#viswiz-arrowhead)');
+      .attr('stroke-width', (d) => Math.max(1, Math.min(8, d.intensity || 1)))
+      .attr('marker-end', (d) => d.direction === 'undirected' ? null : 'url(#viswiz-arrowhead)');
 
     const linkLabels = svg
       .append('g')
@@ -205,7 +205,7 @@
       .attr('font-size', 10)
       .attr('fill', textColor)
       .attr('text-anchor', 'middle')
-      .text((d) => d.label);
+      .text((d) => [d.label, d.relation_type].filter(Boolean).join(' · '));
 
     const node = svg
       .append('g')
@@ -229,7 +229,7 @@
       .attr('font-size', 11)
       .attr('fill', '#fff')
       .attr('pointer-events', 'none')
-      .text((d) => d.label);
+      .text((d) => [d.label, d.relation_type].filter(Boolean).join(' · '));
 
     simulation.on('tick', () => {
       link

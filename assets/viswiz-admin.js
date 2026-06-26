@@ -161,7 +161,7 @@
       addRow('viswiz-graph-nodes', ['Node ID', 'Label'], 'viswiz_graph_data[nodes]', ['id', 'label']);
     },
     'graph-link': function () {
-      addRow('viswiz-graph-links', ['From ID', 'To ID', 'Label'], 'viswiz_graph_data[links]', ['from', 'to', 'label']);
+      addRow('viswiz-graph-links', ['From ID', 'To ID', 'Label', 'Direction', 'Intensity', 'Relation type'], 'viswiz_graph_data[links]', ['from', 'to', 'label', 'direction', 'intensity', 'relation_type'], { typeMap: { intensity: 'number' } });
     },
     'visual-progress': function () {
       addProgressRow('viswiz-visual-progress', 'viswiz_meta[manual_progress]');
@@ -178,7 +178,7 @@
       addRow('viswiz-visual-graph-nodes', ['Node ID', 'Label'], 'viswiz_meta[graph_data][nodes]', ['id', 'label']);
     },
     'visual-graph-link': function () {
-      addRow('viswiz-visual-graph-links', ['From ID', 'To ID', 'Label'], 'viswiz_meta[graph_data][links]', ['from', 'to', 'label']);
+      addRow('viswiz-visual-graph-links', ['From ID', 'To ID', 'Label', 'Direction', 'Intensity', 'Relation type'], 'viswiz_meta[graph_data][links]', ['from', 'to', 'label', 'direction', 'intensity', 'relation_type'], { typeMap: { intensity: 'number' } });
     },
   };
 
@@ -379,7 +379,10 @@
       const to = $(this).find('input[name$="[to][]"]').val() || '';
       const label = $(this).find('input[name$="[label][]"]').val() || '';
       if (from || to) {
-        links.push({ from, to, label });
+        const direction = $(this).find('select[name$="[direction][]"], input[name$="[direction][]"]').val() || 'directed';
+        const intensity = parseFloat($(this).find('input[name$="[intensity][]"]').val()) || 1;
+        const relation_type = $(this).find('input[name$="[relation_type][]"]').val() || '';
+        links.push({ from, to, label, direction, intensity, relation_type });
       }
     });
     return { nodes, links };
@@ -552,7 +555,7 @@
       return { id: n.id, label: n.label || n.id };
     });
     const links = (data.links || []).map(function (l) {
-      return { source: l.from, target: l.to, label: l.label || '' };
+      return { source: l.from, target: l.to, label: l.label || '', direction: l.direction || 'directed', intensity: parseFloat(l.intensity || 1), relation_type: l.relation_type || '' };
     });
 
     if (!nodes.length) {
@@ -603,9 +606,9 @@
       .data(links)
       .join('line')
       .attr('stroke', colors.secondary)
-      .attr('stroke-width', 2)
+      .attr('stroke-width', function (d) { return Math.max(1, Math.min(8, d.intensity || 1)); })
       .attr('stroke-opacity', 0.6)
-      .attr('marker-end', 'url(#viswiz-preview-arrowhead)');
+      .attr('marker-end', function (d) { return d.direction === 'undirected' ? null : 'url(#viswiz-preview-arrowhead)'; });
 
     const linkLabels = svg.append('g')
       .attr('class', 'viswiz-graph-link-labels')
@@ -615,7 +618,7 @@
       .attr('font-size', 10)
       .attr('fill', colors.text)
       .attr('text-anchor', 'middle')
-      .text(function (d) { return d.label; });
+      .text(function (d) { return [d.label, d.relation_type].filter(Boolean).join(' · '); });
 
     const node = svg.append('g')
       .attr('class', 'viswiz-graph-nodes')
@@ -635,7 +638,7 @@
       .attr('font-size', 11)
       .attr('fill', '#fff')
       .attr('pointer-events', 'none')
-      .text(function (d) { return d.label; });
+      .text(function (d) { return [d.label, d.relation_type].filter(Boolean).join(' · '); });
 
     simulation.on('tick', function () {
       link
