@@ -238,3 +238,75 @@
 .viswiz-graph-link-labels {
   pointer-events: none;
 }
+
+.viswiz-card-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.viswiz-node-card,
+.viswiz-relation-card {
+  padding: 12px;
+  border: 1px solid #c3c4c7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.viswiz-node-card summary,
+.viswiz-relation-card summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin: -4px 0 12px;
+}
+
+.viswiz-drag-handle {
+  color: #646970;
+  cursor: move;
+}
+
+.viswiz-dataset-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #135e96;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.viswiz-node-grid,
+.viswiz-relation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.viswiz-node-grid label,
+.viswiz-full-field {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.viswiz-media-field,
+.viswiz-custom-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.viswiz-custom-labels {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.viswiz-custom-label-row textarea {
+  min-width: 260px;
+}
