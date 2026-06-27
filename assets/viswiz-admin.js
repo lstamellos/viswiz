@@ -1,4 +1,90 @@
 (function ($) {
+  const graphNodeSubtypes = (window.VisWizAdmin && VisWizAdmin.nodeSubtypes) || {};
+  let autosaveTimer = null;
+
+  function getSubtypeEntries(nodeType) {
+    const options = graphNodeSubtypes[nodeType] || [];
+    if (Array.isArray(options)) {
+      return options;
+    }
+    return Object.keys(options).map((key) => ({ value: key, label: options[key] }));
+  }
+
+  function updateNodeSubtypeOptions(card) {
+    const typeSelect = card.querySelector('[data-viswiz-node-type]');
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    if (!typeSelect || !subtypeSelect) return;
+    const current = subtypeSelect.value;
+    const options = getSubtypeEntries(typeSelect.value);
+    subtypeSelect.innerHTML = '<option value="">No subtype</option>';
+    options.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.value;
+      option.textContent = item.label;
+      subtypeSelect.appendChild(option);
+    });
+    const proposed = document.createElement('option');
+    proposed.value = 'proposed';
+    proposed.textContent = 'Other / proposed subtype';
+    subtypeSelect.appendChild(proposed);
+    subtypeSelect.value = current && (options.some((item) => item.value === current) || current === 'proposed') ? current : '';
+    updateProposedSubtype(card);
+  }
+
+  function updateProposedSubtype(card) {
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    const proposed = card.querySelector('[data-viswiz-proposed-subtype]');
+    if (!subtypeSelect || !proposed) return;
+    proposed.hidden = subtypeSelect.value !== 'proposed';
+  }
+
+
+  function getNodeTypeAutosavePayload(card) {
+    const formData = new FormData();
+    const typeSelect = card.querySelector('[data-viswiz-node-type]');
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    if (!window.VisWizAdmin || !VisWizAdmin.ajaxUrl || !VisWizAdmin.postId || !typeSelect || !subtypeSelect) {
+      return null;
+    }
+
+    const nodeId = card.querySelector('[data-viswiz-node-id]');
+    const nodeTitle = card.querySelector('[data-viswiz-node-title]');
+    const nodeLabel = card.querySelector('[name$="[label][]"]');
+    formData.append('action', 'viswiz_autosave_node_type');
+    formData.append('nonce', VisWizAdmin.nonce || '');
+    formData.append('post_id', VisWizAdmin.postId);
+    formData.append('node_index', card.dataset.nodeIndex || Array.from(card.parentNode.children).indexOf(card));
+    formData.append('node_id', nodeId ? nodeId.value : '');
+    formData.append('node_title', nodeTitle ? nodeTitle.value : '');
+    formData.append('node_label', nodeLabel ? nodeLabel.value : '');
+    formData.append('node_type', typeSelect.value);
+    formData.append('node_subtype', subtypeSelect.value);
+    ['proposed_subtype_label', 'proposed_subtype_reason', 'proposed_subtype_example', 'proposed_subtype_gap', 'proposed_subtype_status'].forEach((key) => {
+      const field = card.querySelector(`[name$="[${key}][]"]`);
+      formData.append(key, field ? field.value : '');
+    });
+
+    return formData;
+  }
+
+  function autosaveNodeType(card) {
+    const payload = getNodeTypeAutosavePayload(card);
+    if (!payload) return;
+    card.dataset.viswizTypeAutosave = 'saving';
+    window.fetch(VisWizAdmin.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: payload })
+      .then((response) => response.json())
+      .then((response) => {
+        card.dataset.viswizTypeAutosave = response && response.success ? 'saved' : 'error';
+      })
+      .catch(() => { card.dataset.viswizTypeAutosave = 'error'; });
+  }
+
+  function queueNodeTypeAutosave(card) {
+    if (!card) return;
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = window.setTimeout(() => autosaveNodeType(card), 300);
+  }
+
   function updateVisualizationFields() {
     const type = $('[data-viswiz-type]').val();
     const source = $('[data-viswiz-source]').val() || 'auto';
@@ -172,14 +258,26 @@
       <div class="viswiz-node-grid">
         <label>Title <input type="text" name="${namePrefix}[title][]" placeholder="Node title" class="regular-text" data-viswiz-node-title /></label>
         <label>Short label <input type="text" name="${namePrefix}[label][]" placeholder="Optional short label" class="regular-text" /></label>
-        <label>Entity type <select name="${namePrefix}[entity_type][]"><option value="">Select entity type</option><option value="person">Person</option><option value="organization">Organization</option><option value="party">Party</option><option value="movement">Movement</option><option value="media">Media</option><option value="state_body">State body</option><option value="place">Place</option><option value="legal_case">Legal case</option><option value="publication">Publication</option><option value="event">Event</option></select></label>
+        <label>Node type <select name="${namePrefix}[node_type][]" data-viswiz-node-type><option value="">Select node type</option><option value="person">Person</option><option value="organization">Organization</option><option value="event">Event</option><option value="place">Place</option><option value="publication">Publication</option><option value="legal_case">Legal case</option><option value="state_body">State body</option><option value="symbol">Symbol</option><option value="concept">Concept</option><option value="asset">Asset</option></select></label>
+        <label>Node subtype <select name="${namePrefix}[node_subtype][]" data-viswiz-node-subtype><option value="">No subtype</option><option value="proposed">Other / proposed subtype</option></select></label>
         <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
         <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
+      </div>
+
+      <div class="viswiz-proposed-subtype" data-viswiz-proposed-subtype hidden>
+        <strong>Proposed subtype workflow</strong>
+        <p class="description">Editors should propose new subtypes instead of adding top-level node types for routine work.</p>
+        <label>Proposed label <input type="text" name="${namePrefix}[proposed_subtype_label][]" class="regular-text" /></label>
+        <label>Reason <textarea name="${namePrefix}[proposed_subtype_reason][]" rows="2"></textarea></label>
+        <label>Example entity <input type="text" name="${namePrefix}[proposed_subtype_example][]" class="regular-text" /></label>
+        <label>Why existing types do not fit <textarea name="${namePrefix}[proposed_subtype_gap][]" rows="2"></textarea></label>
+        <label>Review status <select name="${namePrefix}[proposed_subtype_status][]"><option value="proposed">Proposed</option><option value="approved">Approved</option><option value="merged">Merged</option><option value="renamed">Renamed</option><option value="rejected">Rejected</option></select></label>
       </div>
       <label class="viswiz-full-field">Formatted description<textarea id="${editorId}" name="${namePrefix}[description][]" rows="4"></textarea></label>
       <div class="viswiz-custom-labels"><strong>Custom labels</strong><button type="button" class="button viswiz-add-custom-label">Add custom label</button></div>
       <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
     container.appendChild(row);
+    updateNodeSubtypeOptions(row);
     if (window.wp && wp.editor && wp.editor.initialize) {
       wp.editor.initialize(editorId, { tinymce: { wpautop: true }, quicktags: true, mediaButtons: false });
     }
@@ -303,16 +401,22 @@
     $(this).closest('.viswiz-target-row').remove();
   });
 
-  $(document).on('change', '[data-viswiz-type]', function () {
-    updateVisualizationFields();
+  $(document).on('change', '[data-viswiz-type], [data-viswiz-source], [data-viswiz-period-mode]', updateVisualizationFields);
+
+  $(document).on('change', '[data-viswiz-node-type]', function () {
+    const card = this.closest('[data-viswiz-node-card]') || document;
+    updateNodeSubtypeOptions(card);
+    queueNodeTypeAutosave(card);
   });
 
-  $(document).on('change', '[data-viswiz-source]', function () {
-    updateVisualizationFields();
+  $(document).on('change', '[data-viswiz-node-subtype]', function () {
+    const card = this.closest('[data-viswiz-node-card]') || document;
+    updateProposedSubtype(card);
+    queueNodeTypeAutosave(card);
   });
 
-  $(document).on('change', '[data-viswiz-period-mode]', function () {
-    updateVisualizationFields();
+  $(document).on('input change', '[name$="[proposed_subtype_label][]"], [name$="[proposed_subtype_reason][]"], [name$="[proposed_subtype_example][]"], [name$="[proposed_subtype_gap][]"], [name$="[proposed_subtype_status][]"]', function () {
+    queueNodeTypeAutosave(this.closest('[data-viswiz-node-card]'));
   });
 
   $(document).on('click', '.viswiz-tab-button', function () {
@@ -377,6 +481,7 @@
   });
 
   $(document).ready(function () {
+    document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => updateProposedSubtype(card));
     updateVisualizationFields();
     updateSalesPeriodVisibility();
     $('.viswiz-tab-button.is-active').trigger('click');

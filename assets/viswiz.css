@@ -410,3 +410,22 @@
   object-fit: cover;
   border-radius: 8px;
 }
+
+.viswiz-proposed-subtype {
+  background: #f6f7f7;
+  border: 1px solid #dcdcde;
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 12px;
+}
+
+.viswiz-proposed-subtype[hidden] {
+  display: none;
+}
+
+.viswiz-proposed-subtype label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
