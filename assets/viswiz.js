@@ -242,11 +242,11 @@
       .attr('tabindex', 0)
       .attr('role', 'button')
       .attr('aria-label', (d) => `View details for ${d.title || d.label || 'node'}`)
-      .on('click', (event, d) => showNodeDetails(container, d))
+      .on('click', (event, d) => showNodeDetails(container, d, nodes, links))
       .on('keydown', (event, d) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          showNodeDetails(container, d);
+          showNodeDetails(container, d, nodes, links);
         }
       })
       .call(drag(simulation));
@@ -363,7 +363,7 @@
     });
   }
 
-  function showNodeDetails(container, node) {
+  function showNodeDetails(container, node, nodes = [], links = []) {
     const existing = container.querySelector('.viswiz-graph-node-modal');
     if (existing) existing.remove();
 
@@ -403,14 +403,14 @@
     }
 
     const title = document.createElement('h3');
-    title.textContent = node.title || node.label || 'Node details';
+    const titleLink = createNodeLink(container, node, nodes, links);
+    titleLink.textContent = node.title || node.label || 'Node details';
+    title.appendChild(titleLink);
     card.appendChild(title);
     const details = document.createElement('dl');
     details.className = 'viswiz-node-detail-list';
-    appendDetail(details, 'Title', node.title);
-    appendDetail(details, 'Short label', node.label);
-    appendDetail(details, 'Node type', node.node_type_label || node.node_type || node.entity_type_label || node.entity_type);
-    appendDetail(details, 'Node subtype', node.node_subtype_label || node.node_subtype);
+    appendTypeDetail(details, 'Node type', node.node_type_label || node.node_type || node.entity_type_label || node.entity_type, node.node_type || node.entity_type, 'type', container, nodes, links);
+    appendTypeDetail(details, 'Node subtype', node.node_subtype_label || node.node_subtype, node.node_subtype, 'subtype', container, nodes, links);
     if (node.node_subtype === 'proposed') {
       appendDetail(details, 'Proposed subtype reason', node.proposed_subtype_reason, 'long');
       appendDetail(details, 'Example entity', node.proposed_subtype_example);
@@ -420,18 +420,21 @@
     appendDetail(details, 'Description', node.description, node.description ? 'formatted' : 'short');
     (node.custom_labels || []).forEach((item) => appendDetail(details, item.key || 'Custom field', item.value, item.type));
     card.appendChild(details);
+    appendRelatedNodes(card, container, node, nodes, links);
     overlay.appendChild(card);
     overlay.addEventListener('click', (event) => { if (event.target === overlay) overlay.remove(); });
     container.appendChild(overlay);
     close.focus();
   }
 
-  function appendDetail(list, label, value, type = 'short') {
+  function appendDetail(list, label, value, type = 'short', meta = {}) {
     if (value === undefined || value === null || value === '') return;
     const dt = document.createElement('dt');
     dt.textContent = label;
     const dd = document.createElement('dd');
-    if (type === 'url') {
+    if (type === 'node-link' && meta.node) {
+      dd.appendChild(createNodeLink(meta.container, meta.node, meta.nodes || [], meta.links || []));
+    } else if (type === 'url') {
       const link = document.createElement('a');
       link.href = value;
       link.textContent = value;
@@ -446,6 +449,112 @@
     list.appendChild(dt);
     list.appendChild(dd);
   }
+
+
+  function createNodeLink(container, node, nodes, links) {
+    const link = document.createElement('a');
+    link.href = `#${encodeURIComponent(node.id || node.title || node.label || 'node')}`;
+    link.textContent = node.title || node.label || 'Node details';
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      showNodeDetails(container, node, nodes, links);
+    });
+    return link;
+  }
+
+  function appendTypeDetail(list, label, value, key, filter, container, nodes, links) {
+    if (!value) return;
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    const link = document.createElement('a');
+    link.href = `#${filter}-${encodeURIComponent(key || value)}`;
+    link.textContent = value;
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      showTypeNodes(container, filter, key, value, nodes, links);
+    });
+    dd.appendChild(link);
+    list.appendChild(dt);
+    list.appendChild(dd);
+  }
+
+  function getRelatedNodes(node, nodes, links) {
+    return links.reduce((related, link) => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+      const isSource = sourceId === node.id;
+      const isTarget = targetId === node.id;
+      if (!isSource && !isTarget) return related;
+      const relatedId = isSource ? targetId : sourceId;
+      const relatedNode = nodes.find((candidate) => candidate.id === relatedId);
+      if (!relatedNode) return related;
+      related.push({
+        node: relatedNode,
+        relation: [link.label, link.relation_type].filter(Boolean).join(' · ') || (isSource ? 'Outgoing relation' : 'Incoming relation'),
+      });
+      return related;
+    }, []);
+  }
+
+  function appendRelatedNodes(card, container, node, nodes, links) {
+    const related = getRelatedNodes(node, nodes, links);
+    if (!related.length) return;
+    const section = document.createElement('section');
+    section.className = 'viswiz-related-nodes';
+    const heading = document.createElement('h4');
+    heading.textContent = 'Related nodes';
+    section.appendChild(heading);
+    const grid = document.createElement('div');
+    grid.className = 'viswiz-related-node-grid';
+    related.forEach((item) => grid.appendChild(createNodePreviewCard(container, item.node, nodes, links, item.relation)));
+    section.appendChild(grid);
+    card.appendChild(section);
+  }
+
+  function createNodePreviewCard(container, node, nodes, links, relationLabel = '') {
+    const item = document.createElement('article');
+    item.className = 'viswiz-related-node-card';
+    if (node.display_image_url) {
+      const image = document.createElement('img');
+      image.src = node.display_image_url;
+      image.alt = node.title || node.label || '';
+      item.appendChild(image);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'viswiz-related-node-placeholder';
+      item.appendChild(placeholder);
+    }
+    const title = document.createElement('h5');
+    title.appendChild(createNodeLink(container, node, nodes, links));
+    item.appendChild(title);
+    if (relationLabel) {
+      const relation = document.createElement('span');
+      relation.className = 'viswiz-related-node-relation';
+      relation.textContent = relationLabel;
+      item.appendChild(relation);
+    }
+    return item;
+  }
+
+  function showTypeNodes(container, filter, key, label, nodes, links) {
+    const matching = nodes.filter((node) => filter === 'subtype' ? node.node_subtype === key : (node.node_type || node.entity_type) === key);
+    const pseudoNode = { title: label || 'Nodes' };
+    showNodeDetails(container, pseudoNode, nodes, links);
+    const card = container.querySelector('.viswiz-graph-node-modal-card');
+    if (!card) return;
+    card.querySelectorAll('.viswiz-node-detail-list, .viswiz-graph-node-modal-image, .viswiz-graph-node-modal-gallery').forEach((el) => el.remove());
+    const heading = card.querySelector('h3');
+    if (heading) heading.textContent = `${label || 'Selected type'} nodes`;
+    const section = document.createElement('section');
+    section.className = 'viswiz-related-nodes';
+    const grid = document.createElement('div');
+    grid.className = 'viswiz-related-node-grid';
+    matching.forEach((node) => grid.appendChild(createNodePreviewCard(container, node, nodes, links)));
+    section.appendChild(grid);
+    card.appendChild(section);
+  }
+
 
   function loadAutoProgress(container) {
     const params = buildSalesParams(container);
