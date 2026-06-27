@@ -232,6 +232,33 @@
   }
 
 
+
+  function getMediaThumbUrl(item) {
+    return item?.sizes?.thumbnail?.url || item?.sizes?.medium?.url || item?.url || '';
+  }
+
+  function updateNodeImageGallery(card, selectedItems = []) {
+    const gallery = card?.querySelector('[data-viswiz-node-image-gallery]');
+    if (!gallery) return;
+    const mainId = card.querySelector('[data-viswiz-main-image-value]')?.value || '';
+    const otherIds = (card.querySelector('[data-viswiz-other-images-value]')?.value || '').split(',').filter(Boolean);
+    const selectedById = new Map(selectedItems.map((item) => [String(item.id), item]));
+    const ids = Array.from(new Set([mainId, ...otherIds].filter(Boolean)));
+    const title = gallery.querySelector('strong')?.outerHTML || '<strong>Node images</strong>';
+    if (!ids.length) {
+      gallery.innerHTML = `${title}<p class="description" data-viswiz-node-image-empty>No images attached to this node.</p>`;
+      return;
+    }
+    const figures = ids.map((id) => {
+      const item = selectedById.get(String(id));
+      const url = getMediaThumbUrl(item);
+      const isFeatured = String(id) === String(mainId);
+      const image = url ? `<img class="viswiz-node-image-thumb-img" src="${escapeAttribute(url)}" alt="" />` : `<span class="viswiz-node-card-image-placeholder" aria-hidden="true">#${escapeAttribute(id)}</span>`;
+      return `<figure class="viswiz-node-image-thumb${isFeatured ? ' is-featured' : ''}" data-viswiz-node-image-id="${escapeAttribute(id)}">${image}<figcaption>${isFeatured ? 'Featured image' : 'Attached image'} <span>#${escapeAttribute(id)}</span></figcaption></figure>`;
+    }).join('');
+    gallery.innerHTML = `${title}<div class="viswiz-node-image-gallery-grid">${figures}</div>`;
+  }
+
   function getNextGraphNodeId(container) {
     const ids = Array.from(container.querySelectorAll('[data-viswiz-node-id]')).map((input) => input.value);
     let index = ids.length + 1;
@@ -264,9 +291,10 @@
         <label>Short label <input type="text" name="${namePrefix}[label][]" placeholder="Optional short label" class="regular-text" /></label>
         <label>Node type <select name="${namePrefix}[node_type][]" data-viswiz-node-type><option value="">Select node type</option><option value="person">Person</option><option value="organization">Organization</option><option value="event">Event</option><option value="place">Place</option><option value="publication">Publication</option><option value="legal_case">Legal case</option><option value="state_body">State body</option><option value="symbol">Symbol</option><option value="concept">Concept</option><option value="asset">Asset</option></select></label>
         <label>Node subtype <select name="${namePrefix}[node_subtype][]" data-viswiz-node-subtype><option value="">No subtype</option><option value="proposed">Other / proposed subtype</option></select></label>
-        <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
-        <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
+        <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value data-viswiz-main-image-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
+        <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value data-viswiz-other-images-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
       </div>
+      <div class="viswiz-node-image-gallery" data-viswiz-node-image-gallery aria-live="polite"><strong>Node images</strong><p class="description" data-viswiz-node-image-empty>No images attached to this node.</p></div>
 
       <div class="viswiz-proposed-subtype" data-viswiz-proposed-subtype hidden>
         <strong>Proposed subtype workflow</strong>
@@ -1181,6 +1209,7 @@
       const ids = selection.map((item) => item.id).join(',');
       button.siblings('[data-viswiz-media-value]').val(ids);
       button.siblings('[data-viswiz-media-label]').text(ids ? '#' + ids : (multiple ? 'No images selected' : 'No image selected'));
+      updateNodeImageGallery(button.closest('[data-viswiz-node-card]')[0], selection);
     });
     frame.open();
   });
