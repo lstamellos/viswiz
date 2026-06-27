@@ -252,8 +252,12 @@
     row.open = true;
     row.dataset.viswizNodeCard = '1';
     row.dataset.nodeIndex = index;
+    row.dataset.viswizNodeSearchText = 'new node';
+    row.dataset.viswizNodeTypeValue = '';
+    row.dataset.viswizNodeSubtypeValue = '';
     row.innerHTML = `
       <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>New node</strong> <code data-viswiz-node-id-display>${id}</code></summary>
+      <div class="viswiz-node-card-media"><span class="viswiz-node-card-image-placeholder" aria-hidden="true">No image</span></div>
       <input type="hidden" name="${namePrefix}[id][]" value="${id}" data-viswiz-node-id />
       <div class="viswiz-node-grid">
         <label>Title <input type="text" name="${namePrefix}[title][]" placeholder="Node title" class="regular-text" data-viswiz-node-title /></label>
@@ -278,9 +282,94 @@
       <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
     container.appendChild(row);
     updateNodeSubtypeOptions(row);
+    buildNodeTypeFilterOptions();
+    filterNodeList();
     if (window.wp && wp.editor && wp.editor.initialize) {
       wp.editor.initialize(editorId, { tinymce: { wpautop: true }, quicktags: true, mediaButtons: false });
     }
+  }
+
+  function getNodeCardText(card) {
+    const values = [
+      card.querySelector('[data-viswiz-node-title]')?.value || '',
+      card.querySelector('[name$="[label][]"]')?.value || '',
+      card.querySelector('[name$="[description][]"]')?.value || '',
+    ];
+    return values.join(' ').toLowerCase();
+  }
+
+  function getNodeTypeLabel(card) {
+    const typeSelect = card.querySelector('[data-viswiz-node-type]');
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    const typeText = typeSelect && typeSelect.selectedIndex >= 0 ? typeSelect.options[typeSelect.selectedIndex].text : '';
+    const subtypeText = subtypeSelect && subtypeSelect.value && subtypeSelect.selectedIndex >= 0 ? subtypeSelect.options[subtypeSelect.selectedIndex].text : '';
+    return subtypeText ? `${typeText} / ${subtypeText}` : (typeText || 'Uncategorized');
+  }
+
+  function getSelectedNodeTypeFilters() {
+    return Array.from(document.querySelectorAll('[data-viswiz-node-type-filter-option]:checked')).map((input) => input.value);
+  }
+
+  function getNodeFilterValue(card) {
+    const type = card.querySelector('[data-viswiz-node-type]')?.value || card.dataset.viswizNodeTypeValue || '';
+    const subtype = card.querySelector('[data-viswiz-node-subtype]')?.value || card.dataset.viswizNodeSubtypeValue || '';
+    return `${type}::${subtype}`;
+  }
+
+  function buildNodeTypeFilterOptions() {
+    const optionsWrap = document.querySelector('[data-viswiz-node-type-filter-options]');
+    if (!optionsWrap) return;
+    const selected = new Set(getSelectedNodeTypeFilters());
+    const entries = new Map();
+    document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => {
+      const value = getNodeFilterValue(card);
+      entries.set(value, getNodeTypeLabel(card));
+    });
+    optionsWrap.innerHTML = '';
+    Array.from(entries.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([value, label]) => {
+      const row = document.createElement('label');
+      row.className = 'viswiz-node-type-filter-option';
+      row.dataset.viswizNodeTypeFilterText = label.toLowerCase();
+      row.innerHTML = `<input type="checkbox" value="${value}" data-viswiz-node-type-filter-option ${selected.has(value) ? 'checked' : ''}> <span>${label}</span>`;
+      optionsWrap.appendChild(row);
+    });
+    updateNodeTypeFilterLabel();
+  }
+
+  function updateNodeTypeFilterLabel() {
+    const button = document.querySelector('[data-viswiz-node-type-filter-toggle]');
+    if (!button) return;
+    const count = getSelectedNodeTypeFilters().length;
+    button.textContent = count ? `${count} type/subtype filter${count === 1 ? '' : 's'} selected` : 'All node types and subtypes';
+  }
+
+  function filterNodeTypeDropdown() {
+    const query = (document.querySelector('[data-viswiz-node-type-filter-search]')?.value || '').toLowerCase();
+    document.querySelectorAll('[data-viswiz-node-type-filter-text]').forEach((row) => {
+      row.hidden = query && !row.dataset.viswizNodeTypeFilterText.includes(query);
+    });
+  }
+
+  function filterNodeList() {
+    const search = (document.querySelector('[data-viswiz-node-search]')?.value || '').toLowerCase();
+    const selectedTypes = getSelectedNodeTypeFilters();
+    let shown = 0;
+    let total = 0;
+    document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => {
+      total += 1;
+      card.dataset.viswizNodeSearchText = getNodeCardText(card);
+      card.dataset.viswizNodeTypeValue = card.querySelector('[data-viswiz-node-type]')?.value || '';
+      card.dataset.viswizNodeSubtypeValue = card.querySelector('[data-viswiz-node-subtype]')?.value || '';
+      const matchesSearch = search.length < 3 || card.dataset.viswizNodeSearchText.includes(search);
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(getNodeFilterValue(card));
+      card.hidden = !(matchesSearch && matchesType);
+      if (!card.hidden) shown += 1;
+    });
+    const status = document.querySelector('[data-viswiz-node-search-status]');
+    if (status) {
+      status.textContent = `${shown} of ${total} nodes shown${search.length > 0 && search.length < 3 ? ' (enter 3+ characters to search)' : ''}.`;
+    }
+    updateNodeTypeFilterLabel();
   }
 
   function addGraphLink(containerId, namePrefix) {
@@ -406,13 +495,17 @@
   $(document).on('change', '[data-viswiz-node-type]', function () {
     const card = this.closest('[data-viswiz-node-card]') || document;
     updateNodeSubtypeOptions(card);
+    buildNodeTypeFilterOptions();
     queueNodeTypeAutosave(card);
+    filterNodeList();
   });
 
   $(document).on('change', '[data-viswiz-node-subtype]', function () {
     const card = this.closest('[data-viswiz-node-card]') || document;
     updateProposedSubtype(card);
+    buildNodeTypeFilterOptions();
     queueNodeTypeAutosave(card);
+    filterNodeList();
   });
 
   $(document).on('input change', '[name$="[proposed_subtype_label][]"], [name$="[proposed_subtype_reason][]"], [name$="[proposed_subtype_example][]"], [name$="[proposed_subtype_gap][]"], [name$="[proposed_subtype_status][]"]', function () {
@@ -448,6 +541,26 @@
   $(document).on('input', '[data-viswiz-node-title]', function () {
     const card = $(this).closest('[data-viswiz-node-card]');
     card.find('summary strong').text($(this).val() || 'New node');
+    filterNodeList();
+  });
+
+  $(document).on('input', '[data-viswiz-node-search]', filterNodeList);
+
+  $(document).on('click', '[data-viswiz-node-type-filter-toggle]', function () {
+    const menu = document.querySelector('[data-viswiz-node-type-filter-menu]');
+    if (menu) {
+      menu.hidden = !menu.hidden;
+    }
+  });
+
+  $(document).on('input', '[data-viswiz-node-type-filter-search]', filterNodeTypeDropdown);
+
+  $(document).on('change', '[data-viswiz-node-type-filter-option]', filterNodeList);
+
+  $(document).on('input', '[name$="[label][]"], [name$="[description][]"]', function () {
+    if ($(this).closest('[data-viswiz-node-card]').length) {
+      filterNodeList();
+    }
   });
 
 
@@ -482,6 +595,8 @@
 
   $(document).ready(function () {
     document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => updateProposedSubtype(card));
+    buildNodeTypeFilterOptions();
+    filterNodeList();
     updateVisualizationFields();
     updateSalesPeriodVisibility();
     $('.viswiz-tab-button.is-active').trigger('click');
