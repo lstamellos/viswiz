@@ -333,6 +333,10 @@
   display: none;
 }
 
+.viswiz-node-card[open]:not(.is-editing) > :not(summary) {
+  display: none;
+}
+
 body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-node-card.is-editing {
   grid-column: 1 / -1;

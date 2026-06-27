@@ -2350,7 +2350,7 @@ function viswiz_enqueue_admin_assets( $hook ) {
         array(
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
             'nonce' => wp_create_nonce( 'viswiz_node_type_autosave' ),
-            'postId' => $is_viswiz_post ? get_the_ID() : 0,
+            'postId' => $is_viswiz_post ? (int) ( get_the_ID() ?: filter_input( INPUT_GET, 'post', FILTER_VALIDATE_INT ) ) : 0,
             'nodeSubtypes' => viswiz_get_graph_node_subtypes_for_script(),
         )
     );
