@@ -402,7 +402,6 @@
     card.appendChild(title);
     const details = document.createElement('dl');
     details.className = 'viswiz-node-detail-list';
-    appendDetail(details, 'ID', node.id);
     appendDetail(details, 'Short label', node.label);
     appendDetail(details, 'Description', node.description, node.description ? 'formatted' : 'short');
     (node.custom_labels || []).forEach((item) => appendDetail(details, item.key || 'Custom field', item.value, item.type));
