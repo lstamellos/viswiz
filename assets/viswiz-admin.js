@@ -285,10 +285,11 @@
         <div class="viswiz-node-relation-editor" data-viswiz-node-relation-editor hidden></div>
         <button type="button" class="button" data-viswiz-node-add-relation>Add relation from this node</button>
       </div>
-      <p class="viswiz-node-actions"><button type="submit" class="button button-primary" data-viswiz-save-node>Save node</button> <button type="button" class="button" data-viswiz-close-node>Close</button> <button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
+      <p class="viswiz-node-actions"><button type="submit" class="button button-primary" data-viswiz-save-node>Save node</button> <button type="button" class="button" data-viswiz-close-node>Close & autosave</button> <span class="description" data-viswiz-node-autosave-status></span> <button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
     container.appendChild(row);
     row.open = true;
     row.classList.add('is-editing');
+    document.body.classList.add('viswiz-node-modal-open');
     updateNodeSubtypeOptions(row);
     refreshNodeDatalist();
     refreshNodeRelationTools();
@@ -404,6 +405,59 @@
     if (titleEl) titleEl.textContent = title;
     const meta = card.querySelector('.viswiz-node-card-summary-meta');
     if (meta) meta.textContent = getNodeTypeLabel(card);
+  }
+
+
+  function setNodeAutosaveStatus(card, message, state) {
+    const status = card?.querySelector('[data-viswiz-node-autosave-status]');
+    if (!status) return;
+    status.textContent = message || '';
+    status.dataset.viswizAutosaveState = state || '';
+  }
+
+  function closeNodeModal(card) {
+    if (!card) return;
+    card.dataset.viswizClosing = '1';
+    card.open = false;
+    card.classList.remove('is-editing');
+    document.body.classList.remove('viswiz-node-modal-open');
+    window.setTimeout(() => {
+      delete card.dataset.viswizClosing;
+    }, 0);
+  }
+
+  function autosaveNodeAndClose(card) {
+    if (!card) return;
+    const form = card.closest('form');
+    if (!form || !window.fetch) {
+      if (form) {
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+      }
+      return;
+    }
+    if (window.tinyMCE && tinyMCE.triggerSave) {
+      tinyMCE.triggerSave();
+    }
+    setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
+    const formData = new FormData(form);
+    if (!formData.has('save')) {
+      formData.append('save', 'Update');
+    }
+    window.fetch(form.action || window.location.href, {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Autosave failed');
+        }
+        setNodeAutosaveStatus(card, 'Autosaved.', 'saved');
+        closeNodeModal(card);
+      })
+      .catch(() => {
+        setNodeAutosaveStatus(card, 'Autosave failed. Use Save node to retry.', 'error');
+      });
   }
 
   function getRelationNodeIds(relationCard) {
@@ -681,15 +735,22 @@
   $(document).on('toggle', '[data-viswiz-node-card]', function () {
     this.classList.toggle('is-editing', this.open);
     if (this.open) {
+      document.body.classList.add('viswiz-node-modal-open');
       refreshNodeRelationTools();
+    } else {
+      document.body.classList.remove('viswiz-node-modal-open');
     }
+  });
+
+  $(document).on('click', '[data-viswiz-node-card][open] > summary', function (event) {
+    event.preventDefault();
+    autosaveNodeAndClose(this.closest('[data-viswiz-node-card]'));
   });
 
   $(document).on('click', '[data-viswiz-close-node]', function () {
     const card = this.closest('[data-viswiz-node-card]');
     if (card) {
-      card.open = false;
-      card.classList.remove('is-editing');
+      autosaveNodeAndClose(card);
     }
   });
 

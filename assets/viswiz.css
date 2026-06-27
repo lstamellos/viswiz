@@ -335,6 +335,26 @@
 
 .viswiz-node-card.is-editing {
   grid-column: 1 / -1;
+  position: fixed;
+  inset: 32px;
+  z-index: 100000;
+  display: block;
+  overflow: auto;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+}
+
+body.viswiz-node-modal-open {
+  overflow: hidden;
+}
+
+body.viswiz-node-modal-open::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .viswiz-node-card-media {
@@ -369,6 +389,41 @@
   cursor: pointer;
   margin: -4px 0 12px;
   flex-wrap: wrap;
+}
+
+.viswiz-node-card.is-editing summary {
+  position: sticky;
+  top: -24px;
+  z-index: 1;
+  margin: -24px -24px 18px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #dcdcde;
+}
+
+.viswiz-node-actions [data-viswiz-autosave-state="saving"] {
+  color: #646970;
+}
+
+.viswiz-node-actions [data-viswiz-autosave-state="saved"] {
+  color: #008a20;
+}
+
+.viswiz-node-actions [data-viswiz-autosave-state="error"] {
+  color: #d63638;
+}
+
+@media (max-width: 782px) {
+  .viswiz-node-card.is-editing {
+    inset: 12px;
+    padding: 18px;
+  }
+
+  .viswiz-node-card.is-editing summary {
+    top: -18px;
+    margin: -18px -18px 18px;
+    padding: 14px 18px;
+  }
 }
 
 .viswiz-node-card:not([open]) summary {
