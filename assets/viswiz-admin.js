@@ -1,29 +1,33 @@
 (function ($) {
-  const graphNodeSubtypes = {
-    organization: { political_party: 'Political party', informal_group: 'Informal group', street_group: 'Street group', publishing_house: 'Publishing house', paramilitary_group: 'Paramilitary group' },
-    event: { rally: 'Rally', attack: 'Attack', trial_session: 'Trial session', trial: 'Trial', election: 'Election', founding_event: 'Founding event' },
-    publication: { article: 'Article', video: 'Video', book: 'Book', manifesto: 'Manifesto', court_document: 'Court document' },
-    asset: { website: 'Website', social_media_account: 'Social media account', domain: 'Domain', venue: 'Venue' },
-  };
+  const graphNodeSubtypes = (window.VisWizAdmin && VisWizAdmin.nodeSubtypes) || {};
+  let autosaveTimer = null;
+
+  function getSubtypeEntries(nodeType) {
+    const options = graphNodeSubtypes[nodeType] || [];
+    if (Array.isArray(options)) {
+      return options;
+    }
+    return Object.keys(options).map((key) => ({ value: key, label: options[key] }));
+  }
 
   function updateNodeSubtypeOptions(card) {
     const typeSelect = card.querySelector('[data-viswiz-node-type]');
     const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
     if (!typeSelect || !subtypeSelect) return;
     const current = subtypeSelect.value;
-    const options = graphNodeSubtypes[typeSelect.value] || {};
+    const options = getSubtypeEntries(typeSelect.value);
     subtypeSelect.innerHTML = '<option value="">No subtype</option>';
-    Object.keys(options).forEach((key) => {
+    options.forEach((item) => {
       const option = document.createElement('option');
-      option.value = key;
-      option.textContent = options[key];
+      option.value = item.value;
+      option.textContent = item.label;
       subtypeSelect.appendChild(option);
     });
     const proposed = document.createElement('option');
     proposed.value = 'proposed';
     proposed.textContent = 'Other / proposed subtype';
     subtypeSelect.appendChild(proposed);
-    subtypeSelect.value = current && (options[current] || current === 'proposed') ? current : '';
+    subtypeSelect.value = current && (options.some((item) => item.value === current) || current === 'proposed') ? current : '';
     updateProposedSubtype(card);
   }
 
@@ -32,6 +36,53 @@
     const proposed = card.querySelector('[data-viswiz-proposed-subtype]');
     if (!subtypeSelect || !proposed) return;
     proposed.hidden = subtypeSelect.value !== 'proposed';
+  }
+
+
+  function getNodeTypeAutosavePayload(card) {
+    const formData = new FormData();
+    const typeSelect = card.querySelector('[data-viswiz-node-type]');
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    if (!window.VisWizAdmin || !VisWizAdmin.ajaxUrl || !VisWizAdmin.postId || !typeSelect || !subtypeSelect) {
+      return null;
+    }
+
+    const nodeId = card.querySelector('[data-viswiz-node-id]');
+    const nodeTitle = card.querySelector('[data-viswiz-node-title]');
+    const nodeLabel = card.querySelector('[name$="[label][]"]');
+    formData.append('action', 'viswiz_autosave_node_type');
+    formData.append('nonce', VisWizAdmin.nonce || '');
+    formData.append('post_id', VisWizAdmin.postId);
+    formData.append('node_index', card.dataset.nodeIndex || Array.from(card.parentNode.children).indexOf(card));
+    formData.append('node_id', nodeId ? nodeId.value : '');
+    formData.append('node_title', nodeTitle ? nodeTitle.value : '');
+    formData.append('node_label', nodeLabel ? nodeLabel.value : '');
+    formData.append('node_type', typeSelect.value);
+    formData.append('node_subtype', subtypeSelect.value);
+    ['proposed_subtype_label', 'proposed_subtype_reason', 'proposed_subtype_example', 'proposed_subtype_gap', 'proposed_subtype_status'].forEach((key) => {
+      const field = card.querySelector(`[name$="[${key}][]"]`);
+      formData.append(key, field ? field.value : '');
+    });
+
+    return formData;
+  }
+
+  function autosaveNodeType(card) {
+    const payload = getNodeTypeAutosavePayload(card);
+    if (!payload) return;
+    card.dataset.viswizTypeAutosave = 'saving';
+    window.fetch(VisWizAdmin.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: payload })
+      .then((response) => response.json())
+      .then((response) => {
+        card.dataset.viswizTypeAutosave = response && response.success ? 'saved' : 'error';
+      })
+      .catch(() => { card.dataset.viswizTypeAutosave = 'error'; });
+  }
+
+  function queueNodeTypeAutosave(card) {
+    if (!card) return;
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = window.setTimeout(() => autosaveNodeType(card), 300);
   }
 
   function updateVisualizationFields() {
@@ -353,11 +404,19 @@
   $(document).on('change', '[data-viswiz-type], [data-viswiz-source], [data-viswiz-period-mode]', updateVisualizationFields);
 
   $(document).on('change', '[data-viswiz-node-type]', function () {
-    updateNodeSubtypeOptions(this.closest('[data-viswiz-node-card]') || document);
+    const card = this.closest('[data-viswiz-node-card]') || document;
+    updateNodeSubtypeOptions(card);
+    queueNodeTypeAutosave(card);
   });
 
   $(document).on('change', '[data-viswiz-node-subtype]', function () {
-    updateProposedSubtype(this.closest('[data-viswiz-node-card]') || document);
+    const card = this.closest('[data-viswiz-node-card]') || document;
+    updateProposedSubtype(card);
+    queueNodeTypeAutosave(card);
+  });
+
+  $(document).on('input change', '[name$="[proposed_subtype_label][]"], [name$="[proposed_subtype_reason][]"], [name$="[proposed_subtype_example][]"], [name$="[proposed_subtype_gap][]"], [name$="[proposed_subtype_status][]"]', function () {
+    queueNodeTypeAutosave(this.closest('[data-viswiz-node-card]'));
   });
 
   $(document).on('click', '.viswiz-tab-button', function () {

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.2.5
+ * Version: 1.2.6
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.2.5';
+const VISWIZ_VERSION = '1.2.6';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -38,6 +38,7 @@ add_action( 'init', 'viswiz_register_block_assets' );
 add_action( 'add_meta_boxes', 'viswiz_register_visualization_meta_box' );
 add_action( 'save_post_viswiz_visualization', 'viswiz_save_visualization_meta' );
 add_action( 'admin_enqueue_scripts', 'viswiz_enqueue_admin_assets' );
+add_action( 'wp_ajax_viswiz_autosave_node_type', 'viswiz_ajax_autosave_node_type' );
 add_filter( 'manage_viswiz_visualization_posts_columns', 'viswiz_add_visualization_columns' );
 add_action( 'manage_viswiz_visualization_posts_custom_column', 'viswiz_render_visualization_columns', 10, 2 );
 
@@ -125,7 +126,7 @@ function viswiz_create_custom_tables() {
         KEY to_key (to_key)
     ) $charset_collate;" );
 
-    update_option( 'viswiz_db_version', '1.2.5' );
+    update_option( 'viswiz_db_version', '1.2.6' );
 }
 
 function viswiz_get_table_name( $table ) {
@@ -157,7 +158,7 @@ function viswiz_is_graph_like_type( $type ) {
 }
 
 function viswiz_maybe_upgrade_tables() {
-    if ( get_option( 'viswiz_db_version' ) !== '1.2.5' ) {
+    if ( get_option( 'viswiz_db_version' ) !== VISWIZ_VERSION ) {
         viswiz_create_custom_tables();
     }
 }
@@ -1046,8 +1047,6 @@ function viswiz_sanitize_graph_option( $value ) {
     $node_descriptions = $nodes['description'] ?? array();
     $node_types = $nodes['node_type'] ?? ( $nodes['entity_type'] ?? array() );
     $node_subtypes = $nodes['node_subtype'] ?? array();
-    $allowed_node_types = array_keys( viswiz_get_graph_node_types() );
-    $known_node_subtypes = viswiz_get_graph_node_subtypes();
     $proposed_labels = $nodes['proposed_subtype_label'] ?? array();
     $proposed_reasons = $nodes['proposed_subtype_reason'] ?? array();
     $proposed_examples = $nodes['proposed_subtype_example'] ?? array();
@@ -1072,14 +1071,7 @@ function viswiz_sanitize_graph_option( $value ) {
                 $node_subtype = $mapped_subtype;
             }
         }
-        if ( ! in_array( $node_type, $allowed_node_types, true ) ) {
-            $node_type = '';
-            $node_subtype = '';
-        }
-        $allowed_subtypes = $known_node_subtypes[ $node_type ] ?? array();
-        if ( $node_subtype !== 'proposed' && ! isset( $allowed_subtypes[ $node_subtype ] ) ) {
-            $node_subtype = '';
-        }
+        list( $node_type, $node_subtype ) = viswiz_sanitize_node_type_payload( $node_type, $node_subtype );
         $proposed_status = sanitize_key( $proposed_statuses[ $index ] ?? 'proposed' );
         if ( ! in_array( $proposed_status, array( 'proposed', 'approved', 'merged', 'renamed', 'rejected' ), true ) ) {
             $proposed_status = 'proposed';
@@ -1182,6 +1174,40 @@ function viswiz_get_diagram_data() {
 function viswiz_get_graph_data() {
     $raw = get_option( VISWIZ_OPTION_GRAPH, '[]' );
     return json_decode( $raw, true ) ?: array();
+}
+
+
+function viswiz_get_graph_node_subtypes_for_script() {
+    $subtypes = array();
+    foreach ( viswiz_get_graph_node_subtypes() as $node_type => $options ) {
+        $subtypes[ $node_type ] = array();
+        foreach ( $options as $subtype_key => $subtype_label ) {
+            $subtypes[ $node_type ][] = array(
+                'value' => $subtype_key,
+                'label' => $subtype_label,
+            );
+        }
+    }
+
+    return $subtypes;
+}
+
+function viswiz_sanitize_node_type_payload( $node_type, $node_subtype ) {
+    $node_type = sanitize_key( $node_type );
+    $node_subtype = sanitize_key( $node_subtype );
+    $allowed_node_types = array_keys( viswiz_get_graph_node_types() );
+    $known_node_subtypes = viswiz_get_graph_node_subtypes();
+
+    if ( ! in_array( $node_type, $allowed_node_types, true ) ) {
+        return array( '', '' );
+    }
+
+    $allowed_subtypes = $known_node_subtypes[ $node_type ] ?? array();
+    if ( $node_subtype !== 'proposed' && ! isset( $allowed_subtypes[ $node_subtype ] ) ) {
+        $node_subtype = '';
+    }
+
+    return array( $node_type, $node_subtype );
 }
 
 function viswiz_prepare_graph_data_for_display( $graph_data ) {
@@ -2136,6 +2162,85 @@ function viswiz_render_visualization_columns( $column, $post_id ) {
     );
 }
 
+
+function viswiz_ajax_autosave_node_type() {
+    check_ajax_referer( 'viswiz_node_type_autosave', 'nonce' );
+
+    $post_id = absint( $_POST['post_id'] ?? 0 );
+    if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+        wp_send_json_error( array( 'message' => 'You are not allowed to edit this visualization.' ), 403 );
+    }
+
+    list( $node_type, $node_subtype ) = viswiz_sanitize_node_type_payload( $_POST['node_type'] ?? '', $_POST['node_subtype'] ?? '' );
+    $node_id = sanitize_key( $_POST['node_id'] ?? '' );
+    $node_index = isset( $_POST['node_index'] ) ? absint( $_POST['node_index'] ) : null;
+    if ( $node_id === '' && $node_index === null ) {
+        wp_send_json_error( array( 'message' => 'Missing node identifier.' ), 400 );
+    }
+
+    $graph_data = json_decode( get_post_meta( $post_id, 'viswiz_graph_data', true ) ?: '[]', true );
+    if ( ! is_array( $graph_data ) ) {
+        $graph_data = array();
+    }
+    if ( ! isset( $graph_data['nodes'] ) || ! is_array( $graph_data['nodes'] ) ) {
+        $graph_data['nodes'] = array();
+    }
+    if ( ! isset( $graph_data['links'] ) || ! is_array( $graph_data['links'] ) ) {
+        $graph_data['links'] = array();
+    }
+
+    $target_index = null;
+    foreach ( $graph_data['nodes'] as $index => $node ) {
+        if ( $node_id !== '' && sanitize_key( $node['id'] ?? '' ) === $node_id ) {
+            $target_index = $index;
+            break;
+        }
+    }
+    if ( $target_index === null && $node_index !== null && isset( $graph_data['nodes'][ $node_index ] ) ) {
+        $target_index = $node_index;
+    }
+    if ( $target_index === null ) {
+        $target_index = count( $graph_data['nodes'] );
+        $graph_data['nodes'][ $target_index ] = array(
+            'id' => $node_id ?: 'node-' . ( $target_index + 1 ),
+            'label' => sanitize_text_field( $_POST['node_label'] ?? '' ),
+            'title' => sanitize_text_field( $_POST['node_title'] ?? '' ),
+            'description' => '',
+            'custom_labels' => array(),
+        );
+    }
+
+    $graph_data['nodes'][ $target_index ]['node_type'] = $node_type;
+    $graph_data['nodes'][ $target_index ]['node_subtype'] = $node_subtype;
+    $graph_data['nodes'][ $target_index ]['entity_type'] = $node_type;
+    if ( isset( $_POST['node_title'] ) ) {
+        $graph_data['nodes'][ $target_index ]['title'] = sanitize_text_field( $_POST['node_title'] );
+    }
+    if ( isset( $_POST['node_label'] ) ) {
+        $graph_data['nodes'][ $target_index ]['label'] = sanitize_text_field( $_POST['node_label'] );
+    }
+
+    $proposed_status = sanitize_key( $_POST['proposed_subtype_status'] ?? 'proposed' );
+    if ( ! in_array( $proposed_status, array( 'proposed', 'approved', 'merged', 'renamed', 'rejected' ), true ) ) {
+        $proposed_status = 'proposed';
+    }
+    $graph_data['nodes'][ $target_index ]['proposed_subtype_label'] = sanitize_text_field( $_POST['proposed_subtype_label'] ?? '' );
+    $graph_data['nodes'][ $target_index ]['proposed_subtype_reason'] = sanitize_textarea_field( $_POST['proposed_subtype_reason'] ?? '' );
+    $graph_data['nodes'][ $target_index ]['proposed_subtype_example'] = sanitize_text_field( $_POST['proposed_subtype_example'] ?? '' );
+    $graph_data['nodes'][ $target_index ]['proposed_subtype_gap'] = sanitize_textarea_field( $_POST['proposed_subtype_gap'] ?? '' );
+    $graph_data['nodes'][ $target_index ]['proposed_subtype_status'] = $proposed_status;
+
+    update_post_meta( $post_id, 'viswiz_graph_data', viswiz_json_encode( $graph_data ) );
+
+    wp_send_json_success(
+        array(
+            'node_type' => $node_type,
+            'node_subtype' => $node_subtype,
+            'node_subtypes' => viswiz_get_graph_node_subtype_options( $node_type ),
+        )
+    );
+}
+
 function viswiz_enqueue_admin_assets( $hook ) {
     $screen = get_current_screen();
     if ( ! $screen ) {
@@ -2165,6 +2270,17 @@ function viswiz_enqueue_admin_assets( $hook ) {
         array( 'jquery', 'wp-editor' ),
         VISWIZ_VERSION,
         true
+    );
+
+    wp_localize_script(
+        'viswiz-admin',
+        'VisWizAdmin',
+        array(
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce' => wp_create_nonce( 'viswiz_node_type_autosave' ),
+            'postId' => $is_viswiz_post ? get_the_ID() : 0,
+            'nodeSubtypes' => viswiz_get_graph_node_subtypes_for_script(),
+        )
     );
 
     if ( class_exists( 'WooCommerce' ) ) {
