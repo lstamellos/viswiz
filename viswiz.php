@@ -893,7 +893,7 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
             <div class="viswiz-node-relation-editor" data-viswiz-node-relation-editor hidden></div>
             <button type="button" class="button" data-viswiz-node-add-relation>Add relation from this node</button>
         </div>
-        <p class="viswiz-node-actions"><button type="submit" class="button button-primary" data-viswiz-save-node>Save node</button> <button type="button" class="button" data-viswiz-close-node>Close &amp; autosave</button> <span class="description" data-viswiz-node-autosave-status></span> <button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>
+        <p class="viswiz-node-actions"><button type="submit" class="button button-primary" data-viswiz-save-node>Save node</button> <button type="button" class="button" data-viswiz-close-node>Close modal &amp; autosave</button> <span class="description" data-viswiz-node-autosave-status></span> <button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>
     </details>
     <?php
 }
@@ -1847,7 +1847,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                     <?php viswiz_render_graph_node_row( 'viswiz_meta[graph_data][nodes]', $node, $node_index, $dataset_label ); ?>
                 <?php endforeach; ?>
                 </div>
-                <p class="description">Click a node card to open the full editor. Use the Save node button inside the editor to save immediately.</p>
+                <p class="description">The editor shows a compact node list here. Click any listed node to open its full-screen editor with all node details.</p>
             </div>
         </div>
     </div>

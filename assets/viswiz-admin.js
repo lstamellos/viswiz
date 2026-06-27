@@ -768,16 +768,11 @@
 
   document.addEventListener('click', function (event) {
     const card = event.target.closest && event.target.closest('[data-viswiz-node-card]');
-    if (!card) return;
-    const summary = Array.from(card.children).find((child) => child.tagName === 'SUMMARY');
-    if (!summary || !summary.contains(event.target)) return;
+    if (!card || card.classList.contains('is-editing')) return;
+    if (event.target.closest('button, a, input, select, textarea, label')) return;
     event.preventDefault();
     event.stopPropagation();
-    if (card.classList.contains('is-editing')) {
-      autosaveNodeAndClose(card);
-    } else {
-      openNodeModal(card);
-    }
+    openNodeModal(card);
   }, true);
 
   $(document).on('toggle', '[data-viswiz-node-card]', function () {
