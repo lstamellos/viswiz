@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.04
+ * Version: 1.3.05
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.04';
+const VISWIZ_VERSION = '1.3.05';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -710,7 +710,7 @@ function viswiz_render_settings_page() {
                                         <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
                                     <?php endif; ?>
                                     <?php foreach ( $links as $link_index => $link ) : ?>
-                                        <?php viswiz_render_graph_link_row( 'viswiz_graph_data[links]', $link, $link_index, $dataset_label ); ?>
+                                        <?php viswiz_render_graph_link_row( 'viswiz_graph_data[links]', $link, $link_index, $dataset_label, '', $nodes ); ?>
                                     <?php endforeach; ?>
                                 </div>
                                 <button type="button" class="button" data-viswiz-add="graph-link">Add Relation</button>
@@ -904,27 +904,40 @@ function viswiz_render_graph_node_datalist( $nodes, $datalist_id ) {
         <?php foreach ( $nodes as $node_index => $node ) : ?>
             <?php $node_id = viswiz_get_node_auto_id( $node, $node_index ); ?>
             <?php $node_title = $node['title'] ?? ( $node['label'] ?? $node_id ); ?>
-            <option value="<?php echo esc_attr( $node_id ); ?>"><?php echo esc_html( $node_title ); ?></option>
+            <option value="<?php echo esc_attr( $node_title ); ?>" label="<?php echo esc_attr( $node_id ); ?>" data-node-id="<?php echo esc_attr( $node_id ); ?>" data-node-search="<?php echo esc_attr( strtolower( wp_strip_all_tags( implode( ' ', array( $node_title, $node['label'] ?? '', $node_id ) ) ) ) ); ?>"><?php echo esc_html( $node_id ); ?></option>
         <?php endforeach; ?>
     </datalist>
     <?php
 }
 
-function viswiz_render_graph_link_row( $name_prefix, $link = array(), $index = 0, $dataset_label = '', $node_datalist_id = '' ) {
+function viswiz_get_graph_node_display_name( $node_key, $nodes = array() ) {
+    $node_key = (string) $node_key;
+    foreach ( $nodes as $node_index => $node ) {
+        $node_id = viswiz_get_node_auto_id( $node, $node_index );
+        if ( $node_key === $node_id ) {
+            return $node['title'] ?? ( $node['label'] ?? $node_id );
+        }
+    }
+    return $node_key;
+}
+
+function viswiz_render_graph_link_row( $name_prefix, $link = array(), $index = 0, $dataset_label = '', $node_datalist_id = '', $nodes = array() ) {
     $from = $link['from'] ?? '';
     $to = $link['to'] ?? '';
+    $from_display = viswiz_get_graph_node_display_name( $from, $nodes );
+    $to_display = viswiz_get_graph_node_display_name( $to, $nodes );
     ?>
-    <details class="viswiz-relation-card viswiz-sortable-card" open data-viswiz-relation-card data-relation-index="<?php echo esc_attr( $index ); ?>" data-relation-from="<?php echo esc_attr( $from ); ?>" data-relation-to="<?php echo esc_attr( $to ); ?>">
-        <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong><?php echo esc_html( $link['label'] ?? 'Relation' ); ?></strong><?php if ( $dataset_label ) : ?><span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span><?php endif; ?></summary>
+    <details class="viswiz-relation-card viswiz-sortable-card" data-viswiz-relation-card data-relation-index="<?php echo esc_attr( $index ); ?>" data-relation-from="<?php echo esc_attr( $from ); ?>" data-relation-to="<?php echo esc_attr( $to ); ?>">
+        <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong><?php echo esc_html( $link['label'] ?? 'Relation' ); ?></strong><span class="viswiz-relation-card-summary-meta"><?php echo esc_html( trim( $from_display . ' → ' . $to_display, ' →' ) ?: 'No endpoints' ); ?></span><?php if ( $dataset_label ) : ?><span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span><?php endif; ?></summary>
         <div class="viswiz-relation-grid">
-            <label>From <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[from][]" placeholder="Search/select source node" value="<?php echo esc_attr( $from ); ?>" class="regular-text" data-viswiz-relation-from <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
-            <label>To <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[to][]" placeholder="Search/select target node" value="<?php echo esc_attr( $to ); ?>" class="regular-text" data-viswiz-relation-to <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
+            <label>From <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[from][]" placeholder="Search/select source node" value="<?php echo esc_attr( $from_display ); ?>" class="regular-text" data-viswiz-relation-from <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
+            <label>To <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[to][]" placeholder="Search/select target node" value="<?php echo esc_attr( $to_display ); ?>" class="regular-text" data-viswiz-relation-to <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
             <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Relation label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
             <select name="<?php echo esc_attr( $name_prefix ); ?>[direction][]"><option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option><option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option><option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option></select>
             <input type="number" name="<?php echo esc_attr( $name_prefix ); ?>[intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
             <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[relation_type][]" placeholder="Relation type" value="<?php echo esc_attr( $link['relation_type'] ?? '' ); ?>" class="regular-text" />
         </div>
-        <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove relation</button></p>
+        <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove relation</button> <button type="button" class="button" data-viswiz-close-relation>Close modal</button></p>
     </details>
     <?php
 }
@@ -1150,12 +1163,21 @@ function viswiz_sanitize_graph_option( $value ) {
         );
     }
 
+    $node_lookup = array();
+    foreach ( $sanitized_nodes as $node ) {
+        $node_lookup[ strtolower( $node['id'] ) ] = $node['id'];
+        $node_lookup[ strtolower( $node['title'] ) ] = $node['id'];
+        $node_lookup[ strtolower( $node['label'] ) ] = $node['id'];
+    }
+
     $link_from = $links['from'] ?? array();
     $link_to = $links['to'] ?? array();
     $link_label = $links['label'] ?? array();
     foreach ( $link_from as $index => $from ) {
         $from = sanitize_text_field( $from );
         $to = sanitize_text_field( $link_to[ $index ] ?? '' );
+        $from = $node_lookup[ strtolower( $from ) ] ?? sanitize_key( $from );
+        $to = $node_lookup[ strtolower( $to ) ] ?? sanitize_key( $to );
         $label = sanitize_text_field( $link_label[ $index ] ?? '' );
         if ( $from === '' && $to === '' && $label === '' ) {
             continue;
@@ -1867,13 +1889,13 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
             <h4>Relations <span class="viswiz-dataset-badge"><?php echo esc_html( viswiz_get_graph_dataset_label( $meta['dataset_id'] ) ); ?></span></h4>
             <?php viswiz_render_graph_node_datalist( $graph_data['nodes'] ?? array(), 'viswiz_visual_relation_nodes' ); ?>
-            <div id="viswiz-visual-graph-links" class="viswiz-repeatable viswiz-card-list" data-viswiz-relation-list>
+            <div id="viswiz-visual-graph-links" class="viswiz-repeatable viswiz-card-list viswiz-relation-box-grid" data-viswiz-relation-list>
                 <?php $links = $graph_data['links'] ?? array(); ?>
                 <?php if ( empty( $links ) ) : ?>
                     <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
                 <?php endif; ?>
                 <?php foreach ( $links as $link_index => $link ) : ?>
-                    <?php viswiz_render_graph_link_row( 'viswiz_meta[graph_data][links]', $link, $link_index, viswiz_get_graph_dataset_label( $meta['dataset_id'] ), 'viswiz_visual_relation_nodes' ); ?>
+                    <?php viswiz_render_graph_link_row( 'viswiz_meta[graph_data][links]', $link, $link_index, viswiz_get_graph_dataset_label( $meta['dataset_id'] ), 'viswiz_visual_relation_nodes', $graph_data['nodes'] ?? array() ); ?>
                 <?php endforeach; ?>
             </div>
             <button type="button" class="button" data-viswiz-add="visual-graph-link">Add Relation</button>

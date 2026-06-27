@@ -390,8 +390,12 @@
       const title = card.querySelector('[data-viswiz-node-title]')?.value || card.querySelector('[name$="[label][]"]')?.value || id;
       if (!id) return;
       const option = document.createElement('option');
-      option.value = id;
-      option.textContent = title;
+      const label = card.querySelector('[name$="[label][]"]')?.value || '';
+      option.value = title;
+      option.label = id;
+      option.dataset.nodeId = id;
+      option.dataset.nodeSearch = [title, label, id].join(' ').toLowerCase();
+      option.textContent = id;
       datalist.appendChild(option);
     });
   }
@@ -411,6 +415,16 @@
     if (!status) return;
     status.textContent = message || '';
     status.dataset.viswizAutosaveState = state || '';
+  }
+
+  function addModalAutosaveCloseButton(modal, label = 'Close modal and autosave') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button viswiz-modal-close-button';
+    button.dataset.viswizModalAutosaveClose = '1';
+    button.setAttribute('aria-label', label);
+    button.textContent = '×';
+    modal.appendChild(button);
   }
 
   function openNodeModal(card) {
@@ -435,6 +449,7 @@
     modal.dataset.viswizNodeEditorModal = '1';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
+    addModalAutosaveCloseButton(modal);
     const modalContent = document.createElement('div');
     modalContent.className = 'viswiz-node-editor-modal-content';
     modal.appendChild(modalContent);
@@ -472,7 +487,7 @@
     }, 0);
   }
 
-  function autosaveNodeAndClose(card) {
+  function autosaveGraphDataAndClose(card, closeCallback, options = {}) {
     if (!card) return;
     const form = card.closest('form');
     const postId = (window.VisWizAdmin && VisWizAdmin.postId) || document.getElementById('post_ID')?.value || 0;
@@ -485,7 +500,7 @@
     if (window.tinyMCE && tinyMCE.triggerSave) {
       tinyMCE.triggerSave();
     }
-    setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
+    if (options.setStatus) options.setStatus('Autosaving…', 'saving');
     const formData = new FormData();
     formData.set('action', 'viswiz_autosave_graph_node');
     formData.set('nonce', VisWizAdmin.nonce || '');
@@ -509,12 +524,22 @@
         if (!response || !response.success) {
           throw new Error('Autosave failed');
         }
-        setNodeAutosaveStatus(card, 'Autosaved.', 'saved');
-        closeNodeModal(card);
+        if (options.setStatus) options.setStatus('Autosaved.', 'saved');
+        closeCallback(card);
       })
       .catch(() => {
-        setNodeAutosaveStatus(card, 'Autosave failed. Use Save node to retry.', 'error');
+        if (options.setStatus) options.setStatus('Autosave failed. Use Save to retry.', 'error');
       });
+  }
+
+  function autosaveNodeAndClose(card) {
+    autosaveGraphDataAndClose(card, closeNodeModal, {
+      setStatus: (message, state) => setNodeAutosaveStatus(card, message, state),
+    });
+  }
+
+  function autosaveRelationAndClose(card) {
+    autosaveGraphDataAndClose(card, closeRelationModal);
   }
 
   function getRelationNodeIds(relationCard) {
@@ -524,12 +549,113 @@
     };
   }
 
-  function updateRelationCardDataset(relationCard) {
-    const ids = getRelationNodeIds(relationCard);
-    relationCard.dataset.relationFrom = ids.from;
-    relationCard.dataset.relationTo = ids.to;
+  function getNodeOptions() {
+    const datalist = document.querySelector('[data-viswiz-node-options]');
+    return datalist ? Array.from(datalist.options) : [];
   }
 
+  function findNodeOptionByText(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+    const options = getNodeOptions();
+    return options.find((item) => (item.value || '').toLowerCase() === raw || (item.dataset.nodeId || '').toLowerCase() === raw) || null;
+  }
+
+  function findAutocompleteNodeOption(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+    const exact = findNodeOptionByText(value);
+    if (exact) return exact;
+    const options = getNodeOptions();
+    const startsWith = options.filter((item) => (item.value || '').toLowerCase().startsWith(raw));
+    if (startsWith.length === 1) return startsWith[0];
+    const contains = options.filter((item) => (item.dataset.nodeSearch || item.value || '').toLowerCase().includes(raw));
+    return contains.length === 1 ? contains[0] : null;
+  }
+
+  function autocompleteRelationNodeInput(input) {
+    if (!input || !input.matches('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick]')) return;
+    const option = findAutocompleteNodeOption(input.value);
+    if (option) {
+      input.value = option.value;
+    }
+  }
+
+  function getNodeIdForDisplay(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const option = findNodeOptionByText(raw);
+    return option?.dataset.nodeId || raw;
+  }
+
+  function getNodeDisplayForId(id) {
+    const raw = String(id || '').trim();
+    if (!raw) return '';
+    const option = findNodeOptionByText(raw);
+    return option?.value || raw;
+  }
+
+  function updateRelationSummary(relationCard) {
+    if (!relationCard) return;
+    const label = relationCard.querySelector('input[name$="[label][]"]')?.value || 'Relation';
+    const from = relationCard.querySelector('[data-viswiz-relation-from]')?.value || '';
+    const to = relationCard.querySelector('[data-viswiz-relation-to]')?.value || '';
+    const title = relationCard.querySelector('summary strong');
+    const meta = relationCard.querySelector('.viswiz-relation-card-summary-meta');
+    if (title) title.textContent = label;
+    if (meta) meta.textContent = `${from || '…'} → ${to || '…'}`;
+  }
+
+  function updateRelationCardDataset(relationCard) {
+    const ids = getRelationNodeIds(relationCard);
+    relationCard.dataset.relationFrom = getNodeIdForDisplay(ids.from);
+    relationCard.dataset.relationTo = getNodeIdForDisplay(ids.to);
+    updateRelationSummary(relationCard);
+  }
+
+  function openRelationModal(card) {
+    if (!card || card.classList.contains('is-editing')) return;
+    const form = card.closest('form');
+    if (!form) return;
+    document.querySelectorAll('[data-viswiz-relation-card].is-editing').forEach((openCard) => {
+      if (openCard !== card) closeRelationModal(openCard);
+    });
+    const placeholder = document.createElement('div');
+    placeholder.className = 'viswiz-relation-card viswiz-relation-card-placeholder';
+    placeholder.dataset.viswizRelationPlaceholder = '1';
+    placeholder.setAttribute('aria-hidden', 'true');
+    const summary = card.querySelector('summary');
+    placeholder.innerHTML = summary ? summary.outerHTML : '<summary><strong>Editing relation…</strong></summary>';
+    card.parentNode.insertBefore(placeholder, card);
+    const modal = document.createElement('div');
+    modal.className = 'viswiz-node-editor-modal';
+    modal.dataset.viswizRelationEditorModal = '1';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    addModalAutosaveCloseButton(modal);
+    const modalContent = document.createElement('div');
+    modalContent.className = 'viswiz-node-editor-modal-content';
+    modal.appendChild(modalContent);
+    form.appendChild(modal);
+    modalContent.appendChild(card);
+    card.open = true;
+    card.classList.add('is-editing');
+    document.body.classList.add('viswiz-node-modal-open');
+  }
+
+  function closeRelationModal(card) {
+    if (!card) return;
+    const modal = card.closest('[data-viswiz-relation-editor-modal]');
+    const placeholder = document.querySelector('[data-viswiz-relation-placeholder]');
+    card.open = false;
+    card.classList.remove('is-editing');
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(card, placeholder);
+      placeholder.remove();
+    }
+    if (modal) modal.remove();
+    if (!document.querySelector('.is-editing')) document.body.classList.remove('viswiz-node-modal-open');
+  }
 
 
   function escapeAttribute(value) {
@@ -554,8 +680,8 @@
     editor.dataset.relationIndex = index;
     editor.innerHTML = `
       <strong>Edit relation</strong>
-      <label>From <input type="text" value="${escapeAttribute(ids.from)}" data-viswiz-node-relation-quick="from" list="viswiz_visual_relation_nodes" /></label>
-      <label>To <input type="text" value="${escapeAttribute(ids.to)}" data-viswiz-node-relation-quick="to" list="viswiz_visual_relation_nodes" /></label>
+      <label>From <input type="text" value="${escapeAttribute(getNodeDisplayForId(ids.from))}" data-viswiz-node-relation-quick="from" list="viswiz_visual_relation_nodes" /></label>
+      <label>To <input type="text" value="${escapeAttribute(getNodeDisplayForId(ids.to))}" data-viswiz-node-relation-quick="to" list="viswiz_visual_relation_nodes" /></label>
       <label>Label <input type="text" value="${escapeAttribute(label)}" data-viswiz-node-relation-quick="label" /></label>
       <label>Relation type <input type="text" value="${escapeAttribute(relationType)}" data-viswiz-node-relation-quick="relation_type" /></label>
       <p class="viswiz-node-relation-editor-actions">
@@ -577,8 +703,8 @@
 
   function getRelationFromNodeSide(relationCard, nodeId) {
     const ids = getRelationNodeIds(relationCard);
-    if (ids.from === nodeId) return 'from';
-    if (ids.to === nodeId) return 'to';
+    if (getNodeIdForDisplay(ids.from) === nodeId) return 'from';
+    if (getNodeIdForDisplay(ids.to) === nodeId) return 'to';
     return '';
   }
 
@@ -632,7 +758,9 @@
       list.innerHTML = '';
       document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]').forEach((relationCard, index) => {
         const ids = getRelationNodeIds(relationCard);
-        if (ids.from !== nodeId && ids.to !== nodeId) return;
+        const fromId = getNodeIdForDisplay(ids.from);
+        const toId = getNodeIdForDisplay(ids.to);
+        if (fromId !== nodeId && toId !== nodeId) return;
         const label = relationCard.querySelector('input[name$="[label][]"]')?.value || 'Untitled relation';
         const button = document.createElement('button');
         button.type = 'button';
@@ -655,10 +783,9 @@
     if (!container) return;
     const row = document.createElement('details');
     row.className = 'viswiz-relation-card viswiz-sortable-card';
-    row.open = true;
     row.dataset.viswizRelationCard = '1';
     row.dataset.relationIndex = container.querySelectorAll('[data-viswiz-relation-card]').length;
-    row.innerHTML = `<summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>Relation</strong></summary>
+    row.innerHTML = `<summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>Relation</strong><span class="viswiz-relation-card-summary-meta">No endpoints</span></summary>
       <div class="viswiz-relation-grid">
         <label>From <input type="text" name="${namePrefix}[from][]" placeholder="Search/select source node" class="regular-text" data-viswiz-relation-from list="viswiz_visual_relation_nodes" /></label>
         <label>To <input type="text" name="${namePrefix}[to][]" placeholder="Search/select target node" class="regular-text" data-viswiz-relation-to list="viswiz_visual_relation_nodes" /></label>
@@ -968,6 +1095,46 @@
   });
 
 
+  $(document).on('click', '[data-viswiz-modal-autosave-close]', function () {
+    const modal = this.closest('[data-viswiz-node-editor-modal], [data-viswiz-relation-editor-modal]');
+    const nodeCard = modal?.querySelector('[data-viswiz-node-card].is-editing');
+    const relationCard = modal?.querySelector('[data-viswiz-relation-card].is-editing');
+    if (nodeCard) autosaveNodeAndClose(nodeCard);
+    else if (relationCard) autosaveRelationAndClose(relationCard);
+  });
+
+  $(document).on('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const relationCard = document.querySelector('[data-viswiz-relation-card].is-editing');
+    const nodeCard = document.querySelector('[data-viswiz-node-card].is-editing');
+    if (!relationCard && !nodeCard) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (relationCard) closeRelationModal(relationCard);
+    else closeNodeModal(nodeCard);
+  });
+
+  document.addEventListener('click', function (event) {
+    const card = event.target.closest && event.target.closest('[data-viswiz-relation-card]');
+    if (!card || card.classList.contains('is-editing')) return;
+    if (event.target.closest('button, a, input, select, textarea, label')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openRelationModal(card);
+  }, true);
+
+  $(document).on('toggle', '[data-viswiz-relation-card]', function () {
+    if (this.open && !this.classList.contains('is-editing')) {
+      openRelationModal(this);
+    } else if (!this.open) {
+      closeRelationModal(this);
+    }
+  });
+
+  $(document).on('click', '[data-viswiz-close-relation]', function () {
+    closeRelationModal(this.closest('[data-viswiz-relation-card]'));
+  });
+
   document.addEventListener('click', function (event) {
     const card = event.target.closest && event.target.closest('[data-viswiz-node-card]');
     if (!card || card.classList.contains('is-editing')) return;
@@ -1001,7 +1168,7 @@
     const relation = document.querySelector('#viswiz-visual-graph-links [data-viswiz-relation-card]:last-child');
     if (relation) {
       const from = relation.querySelector('[data-viswiz-relation-from]');
-      if (from) from.value = nodeId;
+      if (from) from.value = getNodeDisplayForId(nodeId);
       updateRelationCardDataset(relation);
       openNodeRelationEditor(card, relation);
     }
@@ -1015,7 +1182,12 @@
     openNodeRelationEditor(this.closest('[data-viswiz-node-card]'), relation);
   });
 
-  $(document).on('input change', '[data-viswiz-node-relation-quick]', function () {
+  $(document).on('change blur', '[data-viswiz-node-relation-quick]', function () {
+    autocompleteRelationNodeInput(this);
+    syncQuickRelationEditor(this);
+  });
+
+  $(document).on('input', '[data-viswiz-node-relation-quick]', function () {
     syncQuickRelationEditor(this);
   });
 
@@ -1029,6 +1201,13 @@
 
   $(document).on('click', '[data-viswiz-close-node-relation-editor]', function () {
     closeNodeRelationEditor(this.closest('[data-viswiz-node-relation-editor]'));
+  });
+
+  $(document).on('change blur', '[data-viswiz-relation-from], [data-viswiz-relation-to]', function () {
+    autocompleteRelationNodeInput(this);
+    const relation = this.closest('[data-viswiz-relation-card]');
+    if (relation) updateRelationCardDataset(relation);
+    refreshNodeRelationTools();
   });
 
   $(document).on('input change', '[data-viswiz-relation-from], [data-viswiz-relation-to], .viswiz-relation-card input[name$="[label][]"]', function () {
