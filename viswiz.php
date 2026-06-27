@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.2.2
+ * Version: 1.2.3
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.2.2';
+const VISWIZ_VERSION = '1.2.3';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -125,7 +125,7 @@ function viswiz_create_custom_tables() {
         KEY to_key (to_key)
     ) $charset_collate;" );
 
-    update_option( 'viswiz_db_version', '1.2.2' );
+    update_option( 'viswiz_db_version', '1.2.3' );
 }
 
 function viswiz_get_table_name( $table ) {
@@ -157,7 +157,7 @@ function viswiz_is_graph_like_type( $type ) {
 }
 
 function viswiz_maybe_upgrade_tables() {
-    if ( get_option( 'viswiz_db_version' ) !== '1.2.2' ) {
+    if ( get_option( 'viswiz_db_version' ) !== '1.2.3' ) {
         viswiz_create_custom_tables();
     }
 }
@@ -205,7 +205,7 @@ function viswiz_enqueue_assets() {
             'manualProgress' => viswiz_get_manual_progress(),
             'manualPie' => viswiz_get_manual_pie(),
             'diagramData' => viswiz_get_diagram_data(),
-            'graphData' => viswiz_get_graph_data(),
+            'graphData' => viswiz_prepare_graph_data_for_display( viswiz_get_graph_data() ),
             'salesScope' => get_option( VISWIZ_OPTION_SALES_SCOPE, 'total' ),
             'salesPeriodValue' => (int) get_option( VISWIZ_OPTION_SALES_PERIOD_VALUE, 30 ),
             'salesPeriodUnit' => viswiz_get_period_unit_option(),
@@ -1050,6 +1050,30 @@ function viswiz_get_diagram_data() {
 function viswiz_get_graph_data() {
     $raw = get_option( VISWIZ_OPTION_GRAPH, '[]' );
     return json_decode( $raw, true ) ?: array();
+}
+
+function viswiz_prepare_graph_data_for_display( $graph_data ) {
+    if ( ! is_array( $graph_data ) ) {
+        return array();
+    }
+
+    foreach ( $graph_data['nodes'] ?? array() as $index => $node ) {
+        $main_image_id = absint( $node['main_image'] ?? 0 );
+        if ( $main_image_id ) {
+            $graph_data['nodes'][ $index ]['main_image_url'] = wp_get_attachment_image_url( $main_image_id, 'medium_large' ) ?: '';
+        }
+
+        $other_image_urls = array();
+        foreach ( $node['other_images'] ?? array() as $image_id ) {
+            $image_url = wp_get_attachment_image_url( absint( $image_id ), 'medium' );
+            if ( $image_url ) {
+                $other_image_urls[] = $image_url;
+            }
+        }
+        $graph_data['nodes'][ $index ]['other_image_urls'] = $other_image_urls;
+    }
+
+    return $graph_data;
 }
 
 function viswiz_get_sales_product_ids() {
@@ -1909,7 +1933,7 @@ function viswiz_render_visualization( $post_id ) {
     }
 
     if ( viswiz_is_graph_like_type( $meta['type'] ) ) {
-        $manual_json = esc_attr( viswiz_json_encode( $meta['graph_data'] ) );
+        $manual_json = esc_attr( viswiz_json_encode( viswiz_prepare_graph_data_for_display( $meta['graph_data'] ) ) );
         $node_radius = esc_attr( $meta['format_colors']['node_radius'] ?? '20' );
         $link_distance = esc_attr( $meta['format_colors']['link_distance'] ?? '100' );
         $charge_strength = esc_attr( $meta['format_colors']['charge_strength'] ?? '-300' );
