@@ -1070,6 +1070,12 @@
   });
 
 
+  $(document).on('submit', 'form', function () {
+    this.querySelectorAll('[data-viswiz-relation-from], [data-viswiz-relation-to]').forEach((input) => {
+      input.value = getNodeIdForDisplay(input.value);
+    });
+  });
+
   $(document).on('click', '.viswiz-move-up, .viswiz-move-down', function () {
     const card = $(this).closest('.viswiz-sortable-card');
     if ($(this).hasClass('viswiz-move-up')) card.prev('.viswiz-sortable-card').before(card);
@@ -1112,6 +1118,27 @@
     event.stopPropagation();
     if (relationCard) closeRelationModal(relationCard);
     else closeNodeModal(nodeCard);
+  });
+
+  document.addEventListener('click', function (event) {
+    const card = event.target.closest && event.target.closest('[data-viswiz-relation-card]');
+    if (!card || card.classList.contains('is-editing')) return;
+    if (event.target.closest('button, a, input, select, textarea, label')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openRelationModal(card);
+  }, true);
+
+  $(document).on('toggle', '[data-viswiz-relation-card]', function () {
+    if (this.open && !this.classList.contains('is-editing')) {
+      openRelationModal(this);
+    } else if (!this.open) {
+      closeRelationModal(this);
+    }
+  });
+
+  $(document).on('click', '[data-viswiz-close-relation]', function () {
+    closeRelationModal(this.closest('[data-viswiz-relation-card]'));
   });
 
   document.addEventListener('click', function (event) {
