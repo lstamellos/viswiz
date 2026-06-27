@@ -237,6 +237,31 @@
     return item?.sizes?.thumbnail?.url || item?.sizes?.medium?.url || item?.url || '';
   }
 
+  function getMediaAttachmentData(id, selectedById) {
+    const selected = selectedById.get(String(id));
+    if (selected) {
+      return Promise.resolve(selected);
+    }
+    if (!window.wp || !wp.media || !wp.media.attachment) {
+      return Promise.resolve({ id });
+    }
+    const attachment = wp.media.attachment(id);
+    return attachment.fetch().then(() => attachment.toJSON(), () => ({ id }));
+  }
+
+  function renderNodeImageGallery(gallery, ids, mainId, selectedById) {
+    Promise.all(ids.map((id) => getMediaAttachmentData(id, selectedById))).then((items) => {
+      const title = gallery.querySelector('strong')?.outerHTML || '<strong>Node images</strong>';
+      const figures = ids.map((id, index) => {
+        const url = getMediaThumbUrl(items[index]);
+        const isFeatured = String(id) === String(mainId);
+        const image = url ? `<img class="viswiz-node-image-thumb-img" src="${escapeAttribute(url)}" alt="" />` : `<span class="viswiz-node-card-image-placeholder" aria-hidden="true">#${escapeAttribute(id)}</span>`;
+        return `<figure class="viswiz-node-image-thumb${isFeatured ? ' is-featured' : ''}" data-viswiz-node-image-id="${escapeAttribute(id)}">${image}<figcaption>${isFeatured ? 'Featured image' : 'Attached image'} <span>#${escapeAttribute(id)}</span></figcaption></figure>`;
+      }).join('');
+      gallery.innerHTML = `${title}<div class="viswiz-node-image-gallery-grid">${figures}</div>`;
+    });
+  }
+
   function updateNodeImageGallery(card, selectedItems = []) {
     const gallery = card?.querySelector('[data-viswiz-node-image-gallery]');
     if (!gallery) return;
@@ -249,14 +274,8 @@
       gallery.innerHTML = `${title}<p class="description" data-viswiz-node-image-empty>No images attached to this node.</p>`;
       return;
     }
-    const figures = ids.map((id) => {
-      const item = selectedById.get(String(id));
-      const url = getMediaThumbUrl(item);
-      const isFeatured = String(id) === String(mainId);
-      const image = url ? `<img class="viswiz-node-image-thumb-img" src="${escapeAttribute(url)}" alt="" />` : `<span class="viswiz-node-card-image-placeholder" aria-hidden="true">#${escapeAttribute(id)}</span>`;
-      return `<figure class="viswiz-node-image-thumb${isFeatured ? ' is-featured' : ''}" data-viswiz-node-image-id="${escapeAttribute(id)}">${image}<figcaption>${isFeatured ? 'Featured image' : 'Attached image'} <span>#${escapeAttribute(id)}</span></figcaption></figure>`;
-    }).join('');
-    gallery.innerHTML = `${title}<div class="viswiz-node-image-gallery-grid">${figures}</div>`;
+    gallery.innerHTML = `${title}<p class="description" data-viswiz-node-image-empty>Loading node images…</p>`;
+    renderNodeImageGallery(gallery, ids, mainId, selectedById);
   }
 
   function getNextGraphNodeId(container) {
