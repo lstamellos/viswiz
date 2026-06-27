@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.03
+ * Version: 1.3.04
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.03';
+const VISWIZ_VERSION = '1.3.04';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -1647,6 +1647,8 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
     ?>
     <div class="viswiz-meta-tabs">
         <button type="button" class="button viswiz-tab-button is-active" data-viswiz-tab="data">Data</button>
+        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="nodes">Nodes</button>
+        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="node-types">Node Types</button>
         <button type="button" class="button viswiz-tab-button" data-viswiz-tab="relations">Relations</button>
         <button type="button" class="button viswiz-tab-button" data-viswiz-tab="formatting">Formatting</button>
         <button type="button" class="button viswiz-tab-button" data-viswiz-tab="preview">Preview</button>
@@ -1816,12 +1818,14 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </div>
         <button type="button" class="button" data-viswiz-add="visual-diagram">Add Diagram Section</button>
     </div>
+    </div>
+    <div class="viswiz-tab-panel" data-viswiz-panel="nodes">
     <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
-        <h4>Manual Graph</h4>
+        <h4>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( viswiz_get_graph_dataset_label( $meta['dataset_id'] ) ); ?></span></h4>
         <div class="viswiz-graph">
             <?php $dataset_label = viswiz_get_graph_dataset_label( $meta['dataset_id'] ); ?>
             <div class="viswiz-node-list-frame" data-viswiz-node-list-frame>
-                <h5>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h5>
+                <h5>Node list and editor</h5>
                 <div class="viswiz-node-list-controls">
                     <div class="viswiz-node-type-filter" data-viswiz-node-type-filter>
                         <button type="button" class="button viswiz-node-type-filter-toggle" data-viswiz-node-type-filter-toggle>All node types and subtypes</button>
@@ -1851,6 +1855,13 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             </div>
         </div>
     </div>
+    </div>
+    <div class="viswiz-tab-panel" data-viswiz-panel="node-types">
+        <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
+            <h4>Node Types &amp; Subtypes</h4>
+            <p class="description">Review node type usage, edit node assignments, approve or reject author-proposed subtypes, and delete type/subtype assignments. Actions warn when linked nodes are affected.</p>
+            <div id="viswiz-node-type-manager" class="viswiz-node-type-manager" data-viswiz-node-type-manager></div>
+        </div>
     </div>
     <div class="viswiz-tab-panel" data-viswiz-panel="relations">
         <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">

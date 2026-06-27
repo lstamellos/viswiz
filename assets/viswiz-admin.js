@@ -671,6 +671,123 @@
     refreshNodeRelationTools();
   }
 
+  function slugifyNodeTypeLabel(label) {
+    return String(label || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'custom_subtype';
+  }
+
+  function getLinkedNodeCount(type, subtype = null) {
+    return Array.from(document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]')).filter((card) => {
+      const cardType = card.querySelector('[data-viswiz-node-type]')?.value || '';
+      const cardSubtype = card.querySelector('[data-viswiz-node-subtype]')?.value || '';
+      return cardType === type && (subtype === null || cardSubtype === subtype);
+    }).length;
+  }
+
+  function warnLinkedNodes(action, type, subtype = null) {
+    const count = getLinkedNodeCount(type, subtype);
+    if (!count) return true;
+    const label = subtype ? `${type} / ${subtype}` : type;
+    return window.confirm(`${count} linked node${count === 1 ? '' : 's'} use ${label}. ${action} will update those node assignments. Continue?`);
+  }
+
+  function setNodeSubtypeOption(type, subtype, label) {
+    if (!type || !subtype || !label) return;
+    if (!graphNodeSubtypes[type]) graphNodeSubtypes[type] = [];
+    const entries = getSubtypeEntries(type);
+    const existing = entries.find((item) => item.value === subtype);
+    if (existing) existing.label = label;
+    else entries.push({ value: subtype, label });
+    graphNodeSubtypes[type] = entries;
+    document.querySelectorAll('[data-viswiz-node-card]').forEach(updateNodeSubtypeOptions);
+  }
+
+  function deleteNodeTypeAssignment(type) {
+    if (!warnLinkedNodes('Deleting this type', type, null)) return;
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+      const typeSelect = card.querySelector('[data-viswiz-node-type]');
+      const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+      if (typeSelect && typeSelect.value === type) {
+        typeSelect.value = '';
+        if (subtypeSelect) subtypeSelect.value = '';
+        updateNodeSummary(card);
+      }
+    });
+    refreshNodeTypeManager();
+    buildNodeTypeFilterOptions();
+    filterNodeList();
+  }
+
+  function deleteNodeSubtypeAssignment(type, subtype) {
+    if (!warnLinkedNodes('Deleting this subtype', type, subtype)) return;
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+      const typeSelect = card.querySelector('[data-viswiz-node-type]');
+      const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+      if (typeSelect?.value === type && subtypeSelect?.value === subtype) {
+        subtypeSelect.value = '';
+        updateNodeSummary(card);
+      }
+    });
+    refreshNodeTypeManager();
+    buildNodeTypeFilterOptions();
+    filterNodeList();
+  }
+
+  function reviewProposedSubtype(button, status) {
+    const card = document.querySelector(`#viswiz-visual-graph-nodes [data-viswiz-node-card][data-node-index="${button.dataset.nodeIndex}"]`);
+    if (!card) return;
+    const type = card.querySelector('[data-viswiz-node-type]')?.value || '';
+    const labelInput = card.querySelector('[name$="[proposed_subtype_label][]"]');
+    const statusSelect = card.querySelector('[name$="[proposed_subtype_status][]"]');
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    const label = labelInput?.value || 'Approved subtype';
+    if (status === 'approved') {
+      if (subtypeSelect) subtypeSelect.value = 'proposed';
+    } else if (subtypeSelect && subtypeSelect.value === 'proposed') {
+      subtypeSelect.value = '';
+    }
+    if (statusSelect) statusSelect.value = status;
+    updateProposedSubtype(card);
+    updateNodeSummary(card);
+    refreshNodeTypeManager();
+    buildNodeTypeFilterOptions();
+    filterNodeList();
+  }
+
+  function refreshNodeTypeManager() {
+    const wrap = document.querySelector('[data-viswiz-node-type-manager]');
+    if (!wrap) return;
+    const typeMap = new Map();
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+      const typeSelect = card.querySelector('[data-viswiz-node-type]');
+      const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+      const type = typeSelect?.value || '';
+      if (!type) return;
+      const typeLabel = typeSelect.options[typeSelect.selectedIndex]?.text || type;
+      if (!typeMap.has(type)) typeMap.set(type, { label: typeLabel, count: 0, subtypes: new Map(), proposals: [] });
+      const entry = typeMap.get(type); entry.count += 1;
+      const subtype = subtypeSelect?.value || '';
+      if (subtype) {
+        const subtypeLabel = subtypeSelect.options[subtypeSelect.selectedIndex]?.text || subtype;
+        const sub = entry.subtypes.get(subtype) || { label: subtypeLabel, count: 0 };
+        sub.count += 1; entry.subtypes.set(subtype, sub);
+      }
+      if (subtype === 'proposed') {
+        entry.proposals.push({ index: card.dataset.nodeIndex, label: card.querySelector('[name$="[proposed_subtype_label][]"]')?.value || 'Untitled proposal', status: card.querySelector('[name$="[proposed_subtype_status][]"]')?.value || 'proposed' });
+      }
+    });
+    wrap.innerHTML = '';
+    if (!typeMap.size) { wrap.innerHTML = '<p class="description">No node types are linked to nodes yet.</p>'; return; }
+    Array.from(typeMap.entries()).sort((a,b)=>a[1].label.localeCompare(b[1].label)).forEach(([type, entry]) => {
+      const section = document.createElement('details'); section.open = true; section.className = 'viswiz-node-type-card';
+      section.innerHTML = `<summary><strong>${escapeAttribute(entry.label)}</strong> <span class="description">${entry.count} linked node${entry.count === 1 ? '' : 's'}</span> <button type="button" class="button button-small button-link-delete" data-viswiz-delete-node-type="${escapeAttribute(type)}">Delete type assignment</button></summary>`;
+      const list = document.createElement('div'); list.className = 'viswiz-node-type-subtype-list';
+      entry.subtypes.forEach((sub, subtype) => { const row = document.createElement('p'); row.innerHTML = `<strong>${escapeAttribute(sub.label)}</strong> <span class="description">${sub.count} linked node${sub.count === 1 ? '' : 's'}</span> <button type="button" class="button button-small button-link-delete" data-viswiz-delete-node-subtype="${escapeAttribute(subtype)}" data-node-type="${escapeAttribute(type)}">Delete subtype assignment</button>`; list.appendChild(row); });
+      if (entry.proposals.length) { const h = document.createElement('h5'); h.textContent = 'Author-proposed subtypes'; list.appendChild(h); entry.proposals.forEach((proposal) => { const row = document.createElement('p'); row.innerHTML = `<strong>${escapeAttribute(proposal.label)}</strong> <span class="description">Status: ${escapeAttribute(proposal.status)}</span> <button type="button" class="button button-small" data-viswiz-review-proposal="approved" data-node-index="${escapeAttribute(proposal.index)}">Approve</button> <button type="button" class="button button-small" data-viswiz-review-proposal="rejected" data-node-index="${escapeAttribute(proposal.index)}">Reject</button>`; list.appendChild(row); }); }
+      section.appendChild(list); wrap.appendChild(section);
+    });
+  }
+
+
   const addHandlers = {
     progress() {
       addProgressRow('viswiz-progress-rows', 'viswiz_manual_progress');
@@ -708,6 +825,21 @@
     },
   };
 
+  $(document).on('click', '[data-viswiz-delete-node-type]', function (event) {
+    event.preventDefault();
+    deleteNodeTypeAssignment(this.dataset.viswizDeleteNodeType);
+  });
+
+  $(document).on('click', '[data-viswiz-delete-node-subtype]', function (event) {
+    event.preventDefault();
+    deleteNodeSubtypeAssignment(this.dataset.nodeType, this.dataset.viswizDeleteNodeSubtype);
+  });
+
+  $(document).on('click', '[data-viswiz-review-proposal]', function (event) {
+    event.preventDefault();
+    reviewProposedSubtype(this, this.dataset.viswizReviewProposal);
+  });
+
   $(document).on('click', '[data-viswiz-add]', function () {
     const key = $(this).data('viswiz-add');
     if (addHandlers[key]) {
@@ -730,6 +862,7 @@
     refreshNodeRelationTools();
     buildNodeTypeFilterOptions();
     filterNodeList();
+    refreshNodeTypeManager();
   });
 
   $(document).on('click', '.viswiz-remove-section', function () {
@@ -806,6 +939,7 @@
     $('.viswiz-tab-panel').removeClass('is-active');
     $(`[data-viswiz-panel="${tab}"]`).addClass('is-active');
     updateVisualizationFields();
+    refreshNodeTypeManager();
   });
 
 
@@ -830,6 +964,7 @@
     updateNodeSummary(card.get(0));
     refreshNodeDatalist();
     filterNodeList();
+    refreshNodeTypeManager();
   });
 
 
