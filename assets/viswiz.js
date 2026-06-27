@@ -409,7 +409,14 @@
     details.className = 'viswiz-node-detail-list';
     appendDetail(details, 'Title', node.title);
     appendDetail(details, 'Short label', node.label);
-    appendDetail(details, 'Entity type', node.entity_type_label || node.entity_type);
+    appendDetail(details, 'Node type', node.node_type_label || node.node_type || node.entity_type_label || node.entity_type);
+    appendDetail(details, 'Node subtype', node.node_subtype_label || node.node_subtype);
+    if (node.node_subtype === 'proposed') {
+      appendDetail(details, 'Proposed subtype reason', node.proposed_subtype_reason, 'long');
+      appendDetail(details, 'Example entity', node.proposed_subtype_example);
+      appendDetail(details, 'Why existing types do not fit', node.proposed_subtype_gap, 'long');
+      appendDetail(details, 'Proposal status', node.proposed_subtype_status);
+    }
     appendDetail(details, 'Description', node.description, node.description ? 'formatted' : 'short');
     (node.custom_labels || []).forEach((item) => appendDetail(details, item.key || 'Custom field', item.value, item.type));
     card.appendChild(details);
