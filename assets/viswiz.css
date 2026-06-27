@@ -429,3 +429,70 @@
   gap: 4px;
   font-weight: 600;
 }
+
+.viswiz-related-nodes {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.viswiz-related-nodes h4 {
+  margin: 0 0 12px;
+}
+
+.viswiz-related-node-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.viswiz-related-node-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 2px solid var(--viswiz-primary, #4caf50);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.viswiz-related-node-card img,
+.viswiz-related-node-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.viswiz-related-node-placeholder {
+  background: color-mix(in srgb, var(--viswiz-primary, #4caf50) 12%, transparent);
+}
+
+.viswiz-related-node-card h5 {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.viswiz-related-node-relation {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--viswiz-secondary, #999) 14%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .viswiz-related-node-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .viswiz-related-node-grid {
+    grid-template-columns: 1fr;
+  }
+}
