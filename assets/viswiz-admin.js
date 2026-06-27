@@ -418,8 +418,11 @@
       const title = card.querySelector('[data-viswiz-node-title]')?.value || card.querySelector('[name$="[label][]"]')?.value || id;
       if (!id) return;
       const option = document.createElement('option');
+      const label = card.querySelector('[name$="[label][]"]')?.value || '';
       option.value = title;
+      option.label = id;
       option.dataset.nodeId = id;
+      option.dataset.nodeSearch = [title, label, id].join(' ').toLowerCase();
       option.textContent = id;
       datalist.appendChild(option);
     });
@@ -440,6 +443,16 @@
     if (!status) return;
     status.textContent = message || '';
     status.dataset.viswizAutosaveState = state || '';
+  }
+
+  function addModalAutosaveCloseButton(modal, label = 'Close modal and autosave') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button viswiz-modal-close-button';
+    button.dataset.viswizModalAutosaveClose = '1';
+    button.setAttribute('aria-label', label);
+    button.textContent = '×';
+    modal.appendChild(button);
   }
 
   function openNodeModal(card) {
@@ -464,6 +477,7 @@
     modal.dataset.viswizNodeEditorModal = '1';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
+    addModalAutosaveCloseButton(modal);
     const modalContent = document.createElement('div');
     modalContent.className = 'viswiz-node-editor-modal-content';
     modal.appendChild(modalContent);
@@ -501,7 +515,7 @@
     }, 0);
   }
 
-  function autosaveNodeAndClose(card) {
+  function autosaveGraphDataAndClose(card, closeCallback, options = {}) {
     if (!card) return;
     const form = card.closest('form');
     const postId = (window.VisWizAdmin && VisWizAdmin.postId) || document.getElementById('post_ID')?.value || 0;
@@ -514,7 +528,7 @@
     if (window.tinyMCE && tinyMCE.triggerSave) {
       tinyMCE.triggerSave();
     }
-    setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
+    if (options.setStatus) options.setStatus('Autosaving…', 'saving');
     const formData = new FormData();
     formData.set('action', 'viswiz_autosave_graph_node');
     formData.set('nonce', VisWizAdmin.nonce || '');
@@ -538,12 +552,22 @@
         if (!response || !response.success) {
           throw new Error('Autosave failed');
         }
-        setNodeAutosaveStatus(card, 'Autosaved.', 'saved');
-        closeNodeModal(card);
+        if (options.setStatus) options.setStatus('Autosaved.', 'saved');
+        closeCallback(card);
       })
       .catch(() => {
-        setNodeAutosaveStatus(card, 'Autosave failed. Use Save node to retry.', 'error');
+        if (options.setStatus) options.setStatus('Autosave failed. Use Save to retry.', 'error');
       });
+  }
+
+  function autosaveNodeAndClose(card) {
+    autosaveGraphDataAndClose(card, closeNodeModal, {
+      setStatus: (message, state) => setNodeAutosaveStatus(card, message, state),
+    });
+  }
+
+  function autosaveRelationAndClose(card) {
+    autosaveGraphDataAndClose(card, closeRelationModal);
   }
 
   function getRelationNodeIds(relationCard) {
@@ -553,19 +577,49 @@
     };
   }
 
+  function getNodeOptions() {
+    const datalist = document.querySelector('[data-viswiz-node-options]');
+    return datalist ? Array.from(datalist.options) : [];
+  }
+
+  function findNodeOptionByText(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+    const options = getNodeOptions();
+    return options.find((item) => (item.value || '').toLowerCase() === raw || (item.dataset.nodeId || '').toLowerCase() === raw) || null;
+  }
+
+  function findAutocompleteNodeOption(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+    const exact = findNodeOptionByText(value);
+    if (exact) return exact;
+    const options = getNodeOptions();
+    const startsWith = options.filter((item) => (item.value || '').toLowerCase().startsWith(raw));
+    if (startsWith.length === 1) return startsWith[0];
+    const contains = options.filter((item) => (item.dataset.nodeSearch || item.value || '').toLowerCase().includes(raw));
+    return contains.length === 1 ? contains[0] : null;
+  }
+
+  function autocompleteRelationNodeInput(input) {
+    if (!input || !input.matches('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick]')) return;
+    const option = findAutocompleteNodeOption(input.value);
+    if (option) {
+      input.value = option.value;
+    }
+  }
+
   function getNodeIdForDisplay(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
-    const datalist = document.querySelector('[data-viswiz-node-options]');
-    const option = datalist ? Array.from(datalist.options).find((item) => item.value === raw) : null;
+    const option = findNodeOptionByText(raw);
     return option?.dataset.nodeId || raw;
   }
 
   function getNodeDisplayForId(id) {
     const raw = String(id || '').trim();
     if (!raw) return '';
-    const datalist = document.querySelector('[data-viswiz-node-options]');
-    const option = datalist ? Array.from(datalist.options).find((item) => item.dataset.nodeId === raw || item.value === raw) : null;
+    const option = findNodeOptionByText(raw);
     return option?.value || raw;
   }
 
@@ -606,6 +660,7 @@
     modal.dataset.viswizRelationEditorModal = '1';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
+    addModalAutosaveCloseButton(modal);
     const modalContent = document.createElement('div');
     modalContent.className = 'viswiz-node-editor-modal-content';
     modal.appendChild(modalContent);
@@ -1074,6 +1129,46 @@
   });
 
 
+  $(document).on('click', '[data-viswiz-modal-autosave-close]', function () {
+    const modal = this.closest('[data-viswiz-node-editor-modal], [data-viswiz-relation-editor-modal]');
+    const nodeCard = modal?.querySelector('[data-viswiz-node-card].is-editing');
+    const relationCard = modal?.querySelector('[data-viswiz-relation-card].is-editing');
+    if (nodeCard) autosaveNodeAndClose(nodeCard);
+    else if (relationCard) autosaveRelationAndClose(relationCard);
+  });
+
+  $(document).on('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const relationCard = document.querySelector('[data-viswiz-relation-card].is-editing');
+    const nodeCard = document.querySelector('[data-viswiz-node-card].is-editing');
+    if (!relationCard && !nodeCard) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (relationCard) closeRelationModal(relationCard);
+    else closeNodeModal(nodeCard);
+  });
+
+  document.addEventListener('click', function (event) {
+    const card = event.target.closest && event.target.closest('[data-viswiz-relation-card]');
+    if (!card || card.classList.contains('is-editing')) return;
+    if (event.target.closest('button, a, input, select, textarea, label')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openRelationModal(card);
+  }, true);
+
+  $(document).on('toggle', '[data-viswiz-relation-card]', function () {
+    if (this.open && !this.classList.contains('is-editing')) {
+      openRelationModal(this);
+    } else if (!this.open) {
+      closeRelationModal(this);
+    }
+  });
+
+  $(document).on('click', '[data-viswiz-close-relation]', function () {
+    closeRelationModal(this.closest('[data-viswiz-relation-card]'));
+  });
+
   document.addEventListener('click', function (event) {
     const card = event.target.closest && event.target.closest('[data-viswiz-relation-card]');
     if (!card || card.classList.contains('is-editing')) return;
@@ -1142,7 +1237,12 @@
     openNodeRelationEditor(this.closest('[data-viswiz-node-card]'), relation);
   });
 
-  $(document).on('input change', '[data-viswiz-node-relation-quick]', function () {
+  $(document).on('change blur', '[data-viswiz-node-relation-quick]', function () {
+    autocompleteRelationNodeInput(this);
+    syncQuickRelationEditor(this);
+  });
+
+  $(document).on('input', '[data-viswiz-node-relation-quick]', function () {
     syncQuickRelationEditor(this);
   });
 
@@ -1156,6 +1256,13 @@
 
   $(document).on('click', '[data-viswiz-close-node-relation-editor]', function () {
     closeNodeRelationEditor(this.closest('[data-viswiz-node-relation-editor]'));
+  });
+
+  $(document).on('change blur', '[data-viswiz-relation-from], [data-viswiz-relation-to]', function () {
+    autocompleteRelationNodeInput(this);
+    const relation = this.closest('[data-viswiz-relation-card]');
+    if (relation) updateRelationCardDataset(relation);
+    refreshNodeRelationTools();
   });
 
   $(document).on('input change', '[data-viswiz-relation-from], [data-viswiz-relation-to], .viswiz-relation-card input[name$="[label][]"]', function () {
