@@ -546,6 +546,7 @@
     const editor = nodeCard?.querySelector('[data-viswiz-node-relation-editor]');
     if (!editor || !relationCard) return;
     const index = Array.from(document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]')).indexOf(relationCard);
+    const nodeId = nodeCard?.querySelector('[data-viswiz-node-id]')?.value || '';
     const ids = getRelationNodeIds(relationCard);
     const label = relationCard.querySelector('input[name$="[label][]"]')?.value || '';
     const relationType = relationCard.querySelector('input[name$="[relation_type][]"]')?.value || '';
@@ -557,8 +558,50 @@
       <label>To <input type="text" value="${escapeAttribute(ids.to)}" data-viswiz-node-relation-quick="to" list="viswiz_visual_relation_nodes" /></label>
       <label>Label <input type="text" value="${escapeAttribute(label)}" data-viswiz-node-relation-quick="label" /></label>
       <label>Relation type <input type="text" value="${escapeAttribute(relationType)}" data-viswiz-node-relation-quick="relation_type" /></label>
-      <button type="button" class="button" data-viswiz-close-node-relation-editor>Done editing relation</button>
+      <p class="viswiz-node-relation-editor-actions">
+        <button type="button" class="button" data-viswiz-close-node-relation-editor>Done editing relation</button>
+        <button type="button" class="button" data-viswiz-remove-relation-from-node="${escapeAttribute(nodeId)}">Remove from this node</button>
+        <button type="button" class="button button-link-delete" data-viswiz-delete-node-relation>Delete relation from dataset</button>
+      </p>
     `;
+  }
+
+
+
+  function closeNodeRelationEditor(editor) {
+    if (!editor) return;
+    editor.hidden = true;
+    editor.innerHTML = '';
+    delete editor.dataset.relationIndex;
+  }
+
+  function getRelationFromNodeSide(relationCard, nodeId) {
+    const ids = getRelationNodeIds(relationCard);
+    if (ids.from === nodeId) return 'from';
+    if (ids.to === nodeId) return 'to';
+    return '';
+  }
+
+  function removeRelationFromNode(editor, nodeId) {
+    const relationIndex = parseInt(editor?.dataset.relationIndex, 10);
+    const relation = document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]')[relationIndex];
+    if (!relation || !nodeId) return;
+    const side = getRelationFromNodeSide(relation, nodeId);
+    const target = side ? relation.querySelector(side === 'from' ? '[data-viswiz-relation-from]' : '[data-viswiz-relation-to]') : null;
+    if (target) {
+      target.value = '';
+      updateRelationCardDataset(relation);
+    }
+    closeNodeRelationEditor(editor);
+    refreshNodeRelationTools();
+  }
+
+  function deleteNodeRelation(editor) {
+    const relationIndex = parseInt(editor?.dataset.relationIndex, 10);
+    const relation = document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]')[relationIndex];
+    if (relation) relation.remove();
+    closeNodeRelationEditor(editor);
+    refreshNodeRelationTools();
   }
 
   function syncQuickRelationEditor(input) {
@@ -841,12 +884,16 @@
     syncQuickRelationEditor(this);
   });
 
+  $(document).on('click', '[data-viswiz-remove-relation-from-node]', function () {
+    removeRelationFromNode(this.closest('[data-viswiz-node-relation-editor]'), this.dataset.viswizRemoveRelationFromNode || '');
+  });
+
+  $(document).on('click', '[data-viswiz-delete-node-relation]', function () {
+    deleteNodeRelation(this.closest('[data-viswiz-node-relation-editor]'));
+  });
+
   $(document).on('click', '[data-viswiz-close-node-relation-editor]', function () {
-    const editor = this.closest('[data-viswiz-node-relation-editor]');
-    if (editor) {
-      editor.hidden = true;
-      editor.innerHTML = '';
-    }
+    closeNodeRelationEditor(this.closest('[data-viswiz-node-relation-editor]'));
   });
 
   $(document).on('input change', '[data-viswiz-relation-from], [data-viswiz-relation-to], .viswiz-relation-card input[name$="[label][]"]', function () {
