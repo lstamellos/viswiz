@@ -333,10 +333,14 @@
   display: none;
 }
 
+.viswiz-node-card[open]:not(.is-editing) > :not(summary) {
+  display: none;
+}
+
 body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-node-card.is-editing {
   grid-column: 1 / -1;
-  position: fixed;
+  position: fixed !important;
   top: var(--wp-admin--admin-bar--height, 32px);
   right: 0;
   bottom: 0;
@@ -358,7 +362,7 @@ body.viswiz-node-modal-open {
 
 body.viswiz-node-modal-open::before {
   content: "";
-  position: fixed;
+  position: fixed !important;
   top: var(--wp-admin--admin-bar--height, 32px);
   right: 0;
   bottom: 0;
