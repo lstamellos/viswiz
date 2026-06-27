@@ -144,12 +144,17 @@
     const nodes = (data.nodes || []).map((n) => ({
       ...n,
       id: n.id,
-      label: n.label || n.title || n.id,
-      title: n.title || n.label || n.id,
+      label: n.label || n.title || '',
+      title: n.title || n.label || '',
       main_image_url: n.main_image_url || n.mainImageUrl || '',
+      default_image_url: n.default_image_url || n.defaultImageUrl || n.image_url || n.imageUrl || n.thumbnail_url || n.thumbnailUrl || '',
       other_image_urls: n.other_image_urls || [],
       custom_labels: n.custom_labels || [],
     }));
+    nodes.forEach((node) => {
+      node.display_image_url = node.main_image_url || node.default_image_url || '';
+    });
+
     const links = (data.links || []).map((l) => ({
       source: l.from,
       target: l.to,
@@ -236,7 +241,7 @@
       .attr('class', 'viswiz-graph-node-card')
       .attr('tabindex', 0)
       .attr('role', 'button')
-      .attr('aria-label', (d) => `View details for ${d.title}`)
+      .attr('aria-label', (d) => `View details for ${d.title || d.label || 'node'}`)
       .on('click', (event, d) => showNodeDetails(container, d))
       .on('keydown', (event, d) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -256,16 +261,16 @@
       .attr('stroke', nodeColor)
       .attr('stroke-width', 2);
 
-    node.filter((d) => !!d.main_image_url)
+    node.filter((d) => !!d.display_image_url)
       .append('image')
-      .attr('href', (d) => d.main_image_url)
+      .attr('href', (d) => d.display_image_url)
       .attr('x', -cardWidth / 2 + 8)
       .attr('y', -cardHeight / 2 + 8)
       .attr('width', cardWidth - 16)
       .attr('height', imageHeight)
       .attr('preserveAspectRatio', 'xMidYMid slice');
 
-    node.filter((d) => !d.main_image_url)
+    node.filter((d) => !d.display_image_url)
       .append('rect')
       .attr('x', -cardWidth / 2 + 8)
       .attr('y', -cardHeight / 2 + 8)
@@ -282,7 +287,7 @@
       .attr('font-weight', 700)
       .attr('fill', textColor)
       .attr('pointer-events', 'none')
-      .each(function (d) { wrapSvgText(d3.select(this), d.title, cardWidth - 18, 2); });
+      .each(function (d) { wrapSvgText(d3.select(this), d.title || d.label, cardWidth - 18, 2); });
 
     simulation.on('tick', () => {
       nodes.forEach((d) => {
@@ -377,10 +382,10 @@
     close.addEventListener('click', () => overlay.remove());
     card.appendChild(close);
 
-    if (node.main_image_url) {
+    if (node.display_image_url) {
       const image = document.createElement('img');
       image.className = 'viswiz-graph-node-modal-image';
-      image.src = node.main_image_url;
+      image.src = node.display_image_url;
       image.alt = node.title || node.label || '';
       card.appendChild(image);
     }
@@ -398,10 +403,11 @@
     }
 
     const title = document.createElement('h3');
-    title.textContent = node.title || node.label || node.id;
+    title.textContent = node.title || node.label || 'Node details';
     card.appendChild(title);
     const details = document.createElement('dl');
     details.className = 'viswiz-node-detail-list';
+    appendDetail(details, 'Title', node.title);
     appendDetail(details, 'Short label', node.label);
     appendDetail(details, 'Description', node.description, node.description ? 'formatted' : 'short');
     (node.custom_labels || []).forEach((item) => appendDetail(details, item.key || 'Custom field', item.value, item.type));

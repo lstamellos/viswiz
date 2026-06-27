@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.2.3
+ * Version: 1.2.4
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.2.3';
+const VISWIZ_VERSION = '1.2.4';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -125,7 +125,7 @@ function viswiz_create_custom_tables() {
         KEY to_key (to_key)
     ) $charset_collate;" );
 
-    update_option( 'viswiz_db_version', '1.2.3' );
+    update_option( 'viswiz_db_version', '1.2.4' );
 }
 
 function viswiz_get_table_name( $table ) {
@@ -157,7 +157,7 @@ function viswiz_is_graph_like_type( $type ) {
 }
 
 function viswiz_maybe_upgrade_tables() {
-    if ( get_option( 'viswiz_db_version' ) !== '1.2.3' ) {
+    if ( get_option( 'viswiz_db_version' ) !== '1.2.4' ) {
         viswiz_create_custom_tables();
     }
 }
@@ -1852,10 +1852,12 @@ function viswiz_get_dataset_payload( $dataset_id, $type ) {
         return array(
             'nodes' => array_map(
                 function ( $point ) {
-                    return array(
-                        'id' => $point['point_key'],
-                        'label' => $point['label'],
-                    );
+                    $meta = json_decode( $point['meta'] ?? '[]', true );
+                    $node = is_array( $meta ) ? $meta : array();
+                    $node['id'] = $point['point_key'];
+                    $node['label'] = $node['label'] ?? $point['label'];
+
+                    return $node;
                 },
                 $points
             ),
