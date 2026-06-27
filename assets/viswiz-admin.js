@@ -249,11 +249,15 @@
     const editorId = 'viswiz_node_desc_dynamic_' + Date.now();
     const row = document.createElement('details');
     row.className = 'viswiz-node-card viswiz-sortable-card';
-    row.open = true;
+    row.open = false;
     row.dataset.viswizNodeCard = '1';
     row.dataset.nodeIndex = index;
+    row.dataset.viswizNodeSearchText = 'new node';
+    row.dataset.viswizNodeTypeValue = '';
+    row.dataset.viswizNodeSubtypeValue = '';
     row.innerHTML = `
-      <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>New node</strong> <code data-viswiz-node-id-display>${id}</code></summary>
+      <summary><strong>New node</strong> <span class="viswiz-node-card-summary-meta">No type</span> <code data-viswiz-node-id-display>${id}</code></summary>
+      <div class="viswiz-node-card-media"><span class="viswiz-node-card-image-placeholder" aria-hidden="true">No image</span></div>
       <input type="hidden" name="${namePrefix}[id][]" value="${id}" data-viswiz-node-id />
       <div class="viswiz-node-grid">
         <label>Title <input type="text" name="${namePrefix}[title][]" placeholder="Node title" class="regular-text" data-viswiz-node-title /></label>
@@ -275,12 +279,275 @@
       </div>
       <label class="viswiz-full-field">Formatted description<textarea id="${editorId}" name="${namePrefix}[description][]" rows="4"></textarea></label>
       <div class="viswiz-custom-labels"><strong>Custom labels</strong><button type="button" class="button viswiz-add-custom-label">Add custom label</button></div>
-      <p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
+      <div class="viswiz-node-relation-tools" data-viswiz-node-relation-tools>
+        <strong>Relations for this node</strong>
+        <div class="viswiz-node-relation-list" data-viswiz-node-relation-list></div>
+        <div class="viswiz-node-relation-editor" data-viswiz-node-relation-editor hidden></div>
+        <button type="button" class="button" data-viswiz-node-add-relation>Add relation from this node</button>
+      </div>
+      <p class="viswiz-node-actions"><button type="submit" class="button button-primary" data-viswiz-save-node>Save node</button> <button type="button" class="button" data-viswiz-close-node>Close & autosave</button> <span class="description" data-viswiz-node-autosave-status></span> <button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
     container.appendChild(row);
+    row.open = true;
+    row.classList.add('is-editing');
+    document.body.classList.add('viswiz-node-modal-open');
     updateNodeSubtypeOptions(row);
+    refreshNodeDatalist();
+    refreshNodeRelationTools();
+    buildNodeTypeFilterOptions();
+    filterNodeList();
     if (window.wp && wp.editor && wp.editor.initialize) {
       wp.editor.initialize(editorId, { tinymce: { wpautop: true }, quicktags: true, mediaButtons: false });
     }
+  }
+
+  function getNodeCardText(card) {
+    const values = [
+      card.querySelector('[data-viswiz-node-title]')?.value || '',
+      card.querySelector('[name$="[label][]"]')?.value || '',
+      card.querySelector('[name$="[description][]"]')?.value || '',
+    ];
+    return values.join(' ').toLowerCase();
+  }
+
+  function getNodeTypeLabel(card) {
+    const typeSelect = card.querySelector('[data-viswiz-node-type]');
+    const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
+    const typeText = typeSelect && typeSelect.selectedIndex >= 0 ? typeSelect.options[typeSelect.selectedIndex].text : '';
+    const subtypeText = subtypeSelect && subtypeSelect.value && subtypeSelect.selectedIndex >= 0 ? subtypeSelect.options[subtypeSelect.selectedIndex].text : '';
+    return subtypeText ? `${typeText} / ${subtypeText}` : (typeText || 'Uncategorized');
+  }
+
+  function getSelectedNodeTypeFilters() {
+    return Array.from(document.querySelectorAll('[data-viswiz-node-type-filter-option]:checked')).map((input) => input.value);
+  }
+
+  function getNodeFilterValue(card) {
+    const type = card.querySelector('[data-viswiz-node-type]')?.value || card.dataset.viswizNodeTypeValue || '';
+    const subtype = card.querySelector('[data-viswiz-node-subtype]')?.value || card.dataset.viswizNodeSubtypeValue || '';
+    return `${type}::${subtype}`;
+  }
+
+  function buildNodeTypeFilterOptions() {
+    const optionsWrap = document.querySelector('[data-viswiz-node-type-filter-options]');
+    if (!optionsWrap) return;
+    const selected = new Set(getSelectedNodeTypeFilters());
+    const entries = new Map();
+    document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => {
+      const value = getNodeFilterValue(card);
+      entries.set(value, getNodeTypeLabel(card));
+    });
+    optionsWrap.innerHTML = '';
+    Array.from(entries.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([value, label]) => {
+      const row = document.createElement('label');
+      row.className = 'viswiz-node-type-filter-option';
+      row.dataset.viswizNodeTypeFilterText = label.toLowerCase();
+      row.innerHTML = `<input type="checkbox" value="${value}" data-viswiz-node-type-filter-option ${selected.has(value) ? 'checked' : ''}> <span>${label}</span>`;
+      optionsWrap.appendChild(row);
+    });
+    updateNodeTypeFilterLabel();
+  }
+
+  function updateNodeTypeFilterLabel() {
+    const button = document.querySelector('[data-viswiz-node-type-filter-toggle]');
+    if (!button) return;
+    const count = getSelectedNodeTypeFilters().length;
+    button.textContent = count ? `${count} type/subtype filter${count === 1 ? '' : 's'} selected` : 'All node types and subtypes';
+  }
+
+  function filterNodeTypeDropdown() {
+    const query = (document.querySelector('[data-viswiz-node-type-filter-search]')?.value || '').toLowerCase();
+    document.querySelectorAll('[data-viswiz-node-type-filter-text]').forEach((row) => {
+      row.hidden = query && !row.dataset.viswizNodeTypeFilterText.includes(query);
+    });
+  }
+
+  function filterNodeList() {
+    const search = (document.querySelector('[data-viswiz-node-search]')?.value || '').toLowerCase();
+    const selectedTypes = getSelectedNodeTypeFilters();
+    let shown = 0;
+    let total = 0;
+    document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => {
+      total += 1;
+      card.dataset.viswizNodeSearchText = getNodeCardText(card);
+      card.dataset.viswizNodeTypeValue = card.querySelector('[data-viswiz-node-type]')?.value || '';
+      card.dataset.viswizNodeSubtypeValue = card.querySelector('[data-viswiz-node-subtype]')?.value || '';
+      const matchesSearch = search.length < 3 || card.dataset.viswizNodeSearchText.includes(search);
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(getNodeFilterValue(card));
+      card.hidden = !(matchesSearch && matchesType);
+      if (!card.hidden) shown += 1;
+    });
+    const status = document.querySelector('[data-viswiz-node-search-status]');
+    if (status) {
+      status.textContent = `${shown} of ${total} nodes shown${search.length > 0 && search.length < 3 ? ' (enter 3+ characters to search)' : ''}.`;
+    }
+    updateNodeTypeFilterLabel();
+  }
+
+  function refreshNodeDatalist() {
+    const datalist = document.querySelector('[data-viswiz-node-options]');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+      const id = card.querySelector('[data-viswiz-node-id]')?.value || '';
+      const title = card.querySelector('[data-viswiz-node-title]')?.value || card.querySelector('[name$="[label][]"]')?.value || id;
+      if (!id) return;
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = title;
+      datalist.appendChild(option);
+    });
+  }
+
+  function updateNodeSummary(card) {
+    if (!card) return;
+    const title = card.querySelector('[data-viswiz-node-title]')?.value || 'New node';
+    const titleEl = card.querySelector('summary strong');
+    if (titleEl) titleEl.textContent = title;
+    const meta = card.querySelector('.viswiz-node-card-summary-meta');
+    if (meta) meta.textContent = getNodeTypeLabel(card);
+  }
+
+
+  function setNodeAutosaveStatus(card, message, state) {
+    const status = card?.querySelector('[data-viswiz-node-autosave-status]');
+    if (!status) return;
+    status.textContent = message || '';
+    status.dataset.viswizAutosaveState = state || '';
+  }
+
+  function closeNodeModal(card) {
+    if (!card) return;
+    card.dataset.viswizClosing = '1';
+    card.open = false;
+    card.classList.remove('is-editing');
+    document.body.classList.remove('viswiz-node-modal-open');
+    window.setTimeout(() => {
+      delete card.dataset.viswizClosing;
+    }, 0);
+  }
+
+  function autosaveNodeAndClose(card) {
+    if (!card) return;
+    const form = card.closest('form');
+    if (!form || !window.fetch) {
+      if (form) {
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+      }
+      return;
+    }
+    if (window.tinyMCE && tinyMCE.triggerSave) {
+      tinyMCE.triggerSave();
+    }
+    setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
+    const formData = new FormData(form);
+    if (!formData.has('save')) {
+      formData.append('save', 'Update');
+    }
+    window.fetch(form.action || window.location.href, {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Autosave failed');
+        }
+        setNodeAutosaveStatus(card, 'Autosaved.', 'saved');
+        closeNodeModal(card);
+      })
+      .catch(() => {
+        setNodeAutosaveStatus(card, 'Autosave failed. Use Save node to retry.', 'error');
+      });
+  }
+
+  function getRelationNodeIds(relationCard) {
+    return {
+      from: relationCard.querySelector('[data-viswiz-relation-from]')?.value || '',
+      to: relationCard.querySelector('[data-viswiz-relation-to]')?.value || '',
+    };
+  }
+
+  function updateRelationCardDataset(relationCard) {
+    const ids = getRelationNodeIds(relationCard);
+    relationCard.dataset.relationFrom = ids.from;
+    relationCard.dataset.relationTo = ids.to;
+  }
+
+
+
+  function escapeAttribute(value) {
+    return String(value || '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }[char]));
+  }
+
+  function openNodeRelationEditor(nodeCard, relationCard) {
+    const editor = nodeCard?.querySelector('[data-viswiz-node-relation-editor]');
+    if (!editor || !relationCard) return;
+    const index = Array.from(document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]')).indexOf(relationCard);
+    const ids = getRelationNodeIds(relationCard);
+    const label = relationCard.querySelector('input[name$="[label][]"]')?.value || '';
+    const relationType = relationCard.querySelector('input[name$="[relation_type][]"]')?.value || '';
+    editor.hidden = false;
+    editor.dataset.relationIndex = index;
+    editor.innerHTML = `
+      <strong>Edit relation</strong>
+      <label>From <input type="text" value="${escapeAttribute(ids.from)}" data-viswiz-node-relation-quick="from" list="viswiz_visual_relation_nodes" /></label>
+      <label>To <input type="text" value="${escapeAttribute(ids.to)}" data-viswiz-node-relation-quick="to" list="viswiz_visual_relation_nodes" /></label>
+      <label>Label <input type="text" value="${escapeAttribute(label)}" data-viswiz-node-relation-quick="label" /></label>
+      <label>Relation type <input type="text" value="${escapeAttribute(relationType)}" data-viswiz-node-relation-quick="relation_type" /></label>
+      <button type="button" class="button" data-viswiz-close-node-relation-editor>Done editing relation</button>
+    `;
+  }
+
+  function syncQuickRelationEditor(input) {
+    const editor = input.closest('[data-viswiz-node-relation-editor]');
+    const relationIndex = parseInt(editor?.dataset.relationIndex, 10);
+    const relation = document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]')[relationIndex];
+    if (!relation) return;
+    const selectors = {
+      from: '[data-viswiz-relation-from]',
+      to: '[data-viswiz-relation-to]',
+      label: 'input[name$="[label][]"]',
+      relation_type: 'input[name$="[relation_type][]"]',
+    };
+    const target = relation.querySelector(selectors[input.dataset.viswizNodeRelationQuick]);
+    if (target) {
+      target.value = input.value;
+      updateRelationCardDataset(relation);
+      refreshNodeRelationTools();
+    }
+  }
+
+  function refreshNodeRelationTools() {
+    document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]').forEach(updateRelationCardDataset);
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((nodeCard) => {
+      const nodeId = nodeCard.querySelector('[data-viswiz-node-id]')?.value || '';
+      const list = nodeCard.querySelector('[data-viswiz-node-relation-list]');
+      if (!list) return;
+      list.innerHTML = '';
+      document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]').forEach((relationCard, index) => {
+        const ids = getRelationNodeIds(relationCard);
+        if (ids.from !== nodeId && ids.to !== nodeId) return;
+        const label = relationCard.querySelector('input[name$="[label][]"]')?.value || 'Untitled relation';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'button button-small';
+        button.dataset.viswizEditRelation = index;
+        button.textContent = `${ids.from || '…'} → ${ids.to || '…'}: ${label}`;
+        list.appendChild(button);
+      });
+      if (!list.children.length) {
+        const empty = document.createElement('span');
+        empty.className = 'description';
+        empty.textContent = 'No relations yet.';
+        list.appendChild(empty);
+      }
+    });
   }
 
   function addGraphLink(containerId, namePrefix) {
@@ -289,16 +556,19 @@
     const row = document.createElement('details');
     row.className = 'viswiz-relation-card viswiz-sortable-card';
     row.open = true;
+    row.dataset.viswizRelationCard = '1';
+    row.dataset.relationIndex = container.querySelectorAll('[data-viswiz-relation-card]').length;
     row.innerHTML = `<summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>Relation</strong></summary>
       <div class="viswiz-relation-grid">
-        <input type="text" name="${namePrefix}[from][]" placeholder="From node ID" class="regular-text" />
-        <input type="text" name="${namePrefix}[to][]" placeholder="To node ID" class="regular-text" />
+        <label>From <input type="text" name="${namePrefix}[from][]" placeholder="Search/select source node" class="regular-text" data-viswiz-relation-from list="viswiz_visual_relation_nodes" /></label>
+        <label>To <input type="text" name="${namePrefix}[to][]" placeholder="Search/select target node" class="regular-text" data-viswiz-relation-to list="viswiz_visual_relation_nodes" /></label>
         <input type="text" name="${namePrefix}[label][]" placeholder="Relation label" class="regular-text" />
         <select name="${namePrefix}[direction][]"><option value="directed">Directed</option><option value="undirected">Undirected</option><option value="bidirectional">Bidirectional</option></select>
         <input type="number" name="${namePrefix}[intensity][]" placeholder="Intensity" value="1" min="0" step="0.01" />
         <input type="text" name="${namePrefix}[relation_type][]" placeholder="Relation type" class="regular-text" />
       </div><p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove relation</button></p>`;
     container.appendChild(row);
+    refreshNodeRelationTools();
   }
 
   const addHandlers = {
@@ -356,6 +626,10 @@
     if (container.length) {
       reindexProgressRows(container.get(0));
     }
+    refreshNodeDatalist();
+    refreshNodeRelationTools();
+    buildNodeTypeFilterOptions();
+    filterNodeList();
   });
 
   $(document).on('click', '.viswiz-remove-section', function () {
@@ -406,13 +680,19 @@
   $(document).on('change', '[data-viswiz-node-type]', function () {
     const card = this.closest('[data-viswiz-node-card]') || document;
     updateNodeSubtypeOptions(card);
+    updateNodeSummary(card);
+    buildNodeTypeFilterOptions();
     queueNodeTypeAutosave(card);
+    filterNodeList();
   });
 
   $(document).on('change', '[data-viswiz-node-subtype]', function () {
     const card = this.closest('[data-viswiz-node-card]') || document;
     updateProposedSubtype(card);
+    updateNodeSummary(card);
+    buildNodeTypeFilterOptions();
     queueNodeTypeAutosave(card);
+    filterNodeList();
   });
 
   $(document).on('input change', '[name$="[proposed_subtype_label][]"], [name$="[proposed_subtype_reason][]"], [name$="[proposed_subtype_example][]"], [name$="[proposed_subtype_gap][]"], [name$="[proposed_subtype_status][]"]', function () {
@@ -447,7 +727,89 @@
 
   $(document).on('input', '[data-viswiz-node-title]', function () {
     const card = $(this).closest('[data-viswiz-node-card]');
-    card.find('summary strong').text($(this).val() || 'New node');
+    updateNodeSummary(card.get(0));
+    refreshNodeDatalist();
+    filterNodeList();
+  });
+
+  $(document).on('toggle', '[data-viswiz-node-card]', function () {
+    this.classList.toggle('is-editing', this.open);
+    if (this.open) {
+      document.body.classList.add('viswiz-node-modal-open');
+      refreshNodeRelationTools();
+    } else {
+      document.body.classList.remove('viswiz-node-modal-open');
+    }
+  });
+
+  $(document).on('click', '[data-viswiz-node-card][open] > summary', function (event) {
+    event.preventDefault();
+    autosaveNodeAndClose(this.closest('[data-viswiz-node-card]'));
+  });
+
+  $(document).on('click', '[data-viswiz-close-node]', function () {
+    const card = this.closest('[data-viswiz-node-card]');
+    if (card) {
+      autosaveNodeAndClose(card);
+    }
+  });
+
+  $(document).on('click', '[data-viswiz-node-add-relation]', function () {
+    const card = this.closest('[data-viswiz-node-card]');
+    const nodeId = card?.querySelector('[data-viswiz-node-id]')?.value || '';
+    addGraphLink('viswiz-visual-graph-links', 'viswiz_meta[graph_data][links]');
+    const relation = document.querySelector('#viswiz-visual-graph-links [data-viswiz-relation-card]:last-child');
+    if (relation) {
+      const from = relation.querySelector('[data-viswiz-relation-from]');
+      if (from) from.value = nodeId;
+      updateRelationCardDataset(relation);
+      openNodeRelationEditor(card, relation);
+    }
+    refreshNodeRelationTools();
+  });
+
+  $(document).on('click', '[data-viswiz-edit-relation]', function () {
+    const index = parseInt(this.dataset.viswizEditRelation, 10);
+    const relation = document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]')[index];
+    if (!relation) return;
+    openNodeRelationEditor(this.closest('[data-viswiz-node-card]'), relation);
+  });
+
+  $(document).on('input change', '[data-viswiz-node-relation-quick]', function () {
+    syncQuickRelationEditor(this);
+  });
+
+  $(document).on('click', '[data-viswiz-close-node-relation-editor]', function () {
+    const editor = this.closest('[data-viswiz-node-relation-editor]');
+    if (editor) {
+      editor.hidden = true;
+      editor.innerHTML = '';
+    }
+  });
+
+  $(document).on('input change', '[data-viswiz-relation-from], [data-viswiz-relation-to], .viswiz-relation-card input[name$="[label][]"]', function () {
+    const relation = this.closest('[data-viswiz-relation-card]');
+    if (relation) updateRelationCardDataset(relation);
+    refreshNodeRelationTools();
+  });
+
+  $(document).on('input', '[data-viswiz-node-search]', filterNodeList);
+
+  $(document).on('click', '[data-viswiz-node-type-filter-toggle]', function () {
+    const menu = document.querySelector('[data-viswiz-node-type-filter-menu]');
+    if (menu) {
+      menu.hidden = !menu.hidden;
+    }
+  });
+
+  $(document).on('input', '[data-viswiz-node-type-filter-search]', filterNodeTypeDropdown);
+
+  $(document).on('change', '[data-viswiz-node-type-filter-option]', filterNodeList);
+
+  $(document).on('input', '[name$="[label][]"], [name$="[description][]"]', function () {
+    if ($(this).closest('[data-viswiz-node-card]').length) {
+      filterNodeList();
+    }
   });
 
 
@@ -482,6 +844,11 @@
 
   $(document).ready(function () {
     document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => updateProposedSubtype(card));
+    document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => updateNodeSummary(card));
+    refreshNodeDatalist();
+    refreshNodeRelationTools();
+    buildNodeTypeFilterOptions();
+    filterNodeList();
     updateVisualizationFields();
     updateSalesPeriodVisibility();
     $('.viswiz-tab-button.is-active').trigger('click');
