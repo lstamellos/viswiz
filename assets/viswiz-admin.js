@@ -414,18 +414,36 @@
   }
 
   function openNodeModal(card) {
-    if (!card) return;
+    if (!card || card.classList.contains('is-editing')) return;
+    const form = card.closest('form');
+    if (!form) return;
     card.dataset.viswizOpening = '1';
     document.querySelectorAll('[data-viswiz-node-card].is-editing').forEach((openCard) => {
-      if (openCard !== card) {
-        openCard.open = false;
-        openCard.classList.remove('is-editing');
-      }
+      if (openCard !== card) closeNodeModal(openCard);
     });
+
+    const placeholder = document.createElement('div');
+    placeholder.className = 'viswiz-node-card viswiz-node-card-placeholder';
+    placeholder.dataset.viswizNodePlaceholder = '1';
+    placeholder.setAttribute('aria-hidden', 'true');
+    const summary = card.querySelector('summary');
+    placeholder.innerHTML = summary ? summary.outerHTML : '<summary><strong>Editing node…</strong></summary>';
+    card.parentNode.insertBefore(placeholder, card);
+
+    const modal = document.createElement('div');
+    modal.className = 'viswiz-node-editor-modal';
+    modal.dataset.viswizNodeEditorModal = '1';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    const modalContent = document.createElement('div');
+    modalContent.className = 'viswiz-node-editor-modal-content';
+    modal.appendChild(modalContent);
+    form.appendChild(modal);
+    modalContent.appendChild(card);
+
     card.open = true;
     card.classList.add('is-editing');
-    card.setAttribute('role', 'dialog');
-    card.setAttribute('aria-modal', 'true');
+    card.dataset.viswizModalPlaceholder = '1';
     document.body.classList.add('viswiz-node-modal-open');
     refreshNodeRelationTools();
     window.setTimeout(() => {
@@ -436,10 +454,16 @@
   function closeNodeModal(card) {
     if (!card) return;
     card.dataset.viswizClosing = '1';
+    const modal = card.closest('[data-viswiz-node-editor-modal]');
+    const placeholder = document.querySelector('[data-viswiz-node-placeholder]');
     card.open = false;
     card.classList.remove('is-editing');
-    card.removeAttribute('role');
-    card.removeAttribute('aria-modal');
+    delete card.dataset.viswizModalPlaceholder;
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(card, placeholder);
+      placeholder.remove();
+    }
+    if (modal) modal.remove();
     if (!document.querySelector('[data-viswiz-node-card].is-editing')) {
       document.body.classList.remove('viswiz-node-modal-open');
     }
@@ -466,7 +490,7 @@
     formData.set('action', 'viswiz_autosave_graph_node');
     formData.set('nonce', VisWizAdmin.nonce || '');
     formData.set('post_id', postId);
-    document.querySelectorAll('#viswiz-visual-graph-nodes [name^="viswiz_meta[graph_data]"], #viswiz-visual-graph-links [name^="viswiz_meta[graph_data]"]').forEach((field) => {
+    form.querySelectorAll('[name^="viswiz_meta[graph_data]"]').forEach((field) => {
       if (field.disabled || ((field.type === 'checkbox' || field.type === 'radio') && !field.checked)) return;
       formData.append(field.name, field.value);
     });

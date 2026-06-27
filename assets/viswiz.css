@@ -347,39 +347,46 @@
   box-shadow: 0 0 0 1px #2271b1;
 }
 
-body.viswiz-node-modal-open .viswiz-node-card.is-editing,
-.viswiz-node-card.is-editing {
-  cursor: default;
-  grid-column: 1 / -1;
-  position: fixed !important;
+body.viswiz-node-modal-open {
+  overflow: hidden;
+}
+
+.viswiz-node-editor-modal {
+  position: fixed;
   top: var(--wp-admin--admin-bar--height, 32px);
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 100000;
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 24px;
   overflow: auto;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.viswiz-node-editor-modal-content {
+  width: min(1200px, 100%);
+  min-height: 100%;
+}
+
+body.viswiz-node-modal-open .viswiz-node-card.is-editing,
+.viswiz-node-card.is-editing {
+  cursor: default;
+  display: block;
+  width: 100%;
+  min-height: 100%;
+  max-width: none;
+  overflow: visible;
   padding: 24px;
   background: #fff;
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
 }
 
-body.viswiz-node-modal-open {
-  overflow: hidden;
-}
-
-body.viswiz-node-modal-open::before {
-  content: "";
-  position: fixed !important;
-  top: var(--wp-admin--admin-bar--height, 32px);
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 99999;
-  background: rgba(0, 0, 0, 0.55);
+.viswiz-node-card-placeholder {
+  opacity: 0.65;
+  pointer-events: none;
 }
 
 .viswiz-node-card-media {
@@ -439,12 +446,13 @@ body.viswiz-node-modal-open::before {
 }
 
 @media (max-width: 782px) {
+  .viswiz-node-editor-modal {
+    top: 0;
+    padding: 0;
+  }
+
   body.viswiz-node-modal-open .viswiz-node-card.is-editing,
   .viswiz-node-card.is-editing {
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
     padding: 18px;
   }
 
