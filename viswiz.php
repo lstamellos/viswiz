@@ -737,19 +737,83 @@ function viswiz_get_graph_dataset_label( $dataset_id ) {
     return 'Visualization-specific data';
 }
 
-function viswiz_get_graph_entity_types() {
+function viswiz_get_graph_node_types() {
     return array(
         'person' => 'Person',
         'organization' => 'Organization',
-        'party' => 'Party',
-        'movement' => 'Movement',
-        'media' => 'Media',
-        'state_body' => 'State body',
-        'place' => 'Place',
-        'legal_case' => 'Legal case',
-        'publication' => 'Publication',
         'event' => 'Event',
+        'place' => 'Place',
+        'publication' => 'Publication',
+        'legal_case' => 'Legal case',
+        'state_body' => 'State body',
+        'symbol' => 'Symbol',
+        'concept' => 'Concept',
+        'asset' => 'Asset',
     );
+}
+
+function viswiz_get_graph_node_subtypes() {
+    return array(
+        'organization' => array(
+            'political_party' => 'Political party',
+            'informal_group' => 'Informal group',
+            'street_group' => 'Street group',
+            'publishing_house' => 'Publishing house',
+            'paramilitary_group' => 'Paramilitary group',
+        ),
+        'event' => array(
+            'rally' => 'Rally',
+            'attack' => 'Attack',
+            'trial_session' => 'Trial session',
+            'trial' => 'Trial',
+            'election' => 'Election',
+            'founding_event' => 'Founding event',
+        ),
+        'publication' => array(
+            'article' => 'Article',
+            'video' => 'Video',
+            'book' => 'Book',
+            'manifesto' => 'Manifesto',
+            'court_document' => 'Court document',
+        ),
+        'asset' => array(
+            'website' => 'Website',
+            'social_media_account' => 'Social media account',
+            'domain' => 'Domain',
+            'venue' => 'Venue',
+        ),
+    );
+}
+
+function viswiz_get_graph_entity_types() {
+    return viswiz_get_graph_node_types();
+}
+
+function viswiz_get_legacy_graph_node_type_mapping() {
+    return array(
+        'party' => array( 'organization', 'political_party' ),
+        'movement' => array( 'organization', 'informal_group' ),
+        'media' => array( 'organization', 'publishing_house' ),
+    );
+}
+
+function viswiz_get_graph_node_subtype_options( $node_type ) {
+    $subtypes = viswiz_get_graph_node_subtypes();
+    return $subtypes[ $node_type ] ?? array();
+}
+
+function viswiz_normalize_graph_node_type( $node ) {
+    $node_type = sanitize_key( $node['node_type'] ?? ( $node['entity_type'] ?? '' ) );
+    $node_subtype = sanitize_key( $node['node_subtype'] ?? '' );
+    $legacy_mapping = viswiz_get_legacy_graph_node_type_mapping();
+    if ( isset( $legacy_mapping[ $node_type ] ) ) {
+        list( $node_type, $mapped_subtype ) = $legacy_mapping[ $node_type ];
+        if ( $node_subtype === '' ) {
+            $node_subtype = $mapped_subtype;
+        }
+    }
+
+    return array( $node_type, $node_subtype );
 }
 
 function viswiz_get_node_auto_id( $node, $index ) {
@@ -764,8 +828,10 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
     $id = viswiz_get_node_auto_id( $node, $index );
     $title = $node['title'] ?? ( $node['label'] ?? '' );
     $description = $node['description'] ?? '';
-    $entity_type = sanitize_key( $node['entity_type'] ?? '' );
-    $entity_types = viswiz_get_graph_entity_types();
+    list( $node_type, $node_subtype ) = viswiz_normalize_graph_node_type( $node );
+    $node_types = viswiz_get_graph_node_types();
+    $node_subtypes = viswiz_get_graph_node_subtype_options( $node_type );
+    $is_proposed_subtype = ( $node_subtype === 'proposed' );
     $main_image = absint( $node['main_image'] ?? 0 );
     $other_images = is_array( $node['other_images'] ?? null ) ? implode( ',', array_map( 'absint', $node['other_images'] ) ) : sanitize_text_field( $node['other_images'] ?? '' );
     $custom_labels = is_array( $node['custom_labels'] ?? null ) ? $node['custom_labels'] : array();
@@ -784,9 +850,19 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
         <div class="viswiz-node-grid">
             <label>Title <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[title][]" placeholder="Node title" value="<?php echo esc_attr( $title ); ?>" class="regular-text" data-viswiz-node-title /></label>
             <label>Short label <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Optional short label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" /></label>
-            <label>Entity type <select name="<?php echo esc_attr( $name_prefix ); ?>[entity_type][]"><option value="">Select entity type</option><?php foreach ( $entity_types as $type_key => $type_label ) : ?><option value="<?php echo esc_attr( $type_key ); ?>" <?php selected( $entity_type, $type_key ); ?>><?php echo esc_html( $type_label ); ?></option><?php endforeach; ?></select></label>
+            <label>Node type <select name="<?php echo esc_attr( $name_prefix ); ?>[node_type][]" data-viswiz-node-type><option value="">Select node type</option><?php foreach ( $node_types as $type_key => $type_label ) : ?><option value="<?php echo esc_attr( $type_key ); ?>" <?php selected( $node_type, $type_key ); ?>><?php echo esc_html( $type_label ); ?></option><?php endforeach; ?></select></label>
+            <label>Node subtype <select name="<?php echo esc_attr( $name_prefix ); ?>[node_subtype][]" data-viswiz-node-subtype><option value="">No subtype</option><?php foreach ( $node_subtypes as $subtype_key => $subtype_label ) : ?><option value="<?php echo esc_attr( $subtype_key ); ?>" <?php selected( $node_subtype, $subtype_key ); ?>><?php echo esc_html( $subtype_label ); ?></option><?php endforeach; ?><option value="proposed" <?php selected( $node_subtype, 'proposed' ); ?>>Other / proposed subtype</option></select></label>
             <label>Main image <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[main_image][]" value="<?php echo esc_attr( $main_image ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label><?php echo $main_image ? esc_html( '#' . $main_image ) : 'No image selected'; ?></span></span></label>
             <label>Other images <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[other_images][]" value="<?php echo esc_attr( $other_images ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label><?php echo $other_images ? esc_html( $other_images ) : 'No images selected'; ?></span></span></label>
+        </div>
+        <div class="viswiz-proposed-subtype" data-viswiz-proposed-subtype <?php echo $is_proposed_subtype ? '' : 'hidden'; ?>>
+            <strong>Proposed subtype workflow</strong>
+            <p class="description">Editors should propose new subtypes instead of adding top-level node types for routine work. Admins and superadmins can approve, merge, rename, or reject proposals.</p>
+            <label>Proposed label <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[proposed_subtype_label][]" value="<?php echo esc_attr( $node['proposed_subtype_label'] ?? '' ); ?>" class="regular-text" /></label>
+            <label>Reason <textarea name="<?php echo esc_attr( $name_prefix ); ?>[proposed_subtype_reason][]" rows="2"><?php echo esc_textarea( $node['proposed_subtype_reason'] ?? '' ); ?></textarea></label>
+            <label>Example entity <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[proposed_subtype_example][]" value="<?php echo esc_attr( $node['proposed_subtype_example'] ?? '' ); ?>" class="regular-text" /></label>
+            <label>Why existing types do not fit <textarea name="<?php echo esc_attr( $name_prefix ); ?>[proposed_subtype_gap][]" rows="2"><?php echo esc_textarea( $node['proposed_subtype_gap'] ?? '' ); ?></textarea></label>
+            <label>Review status <select name="<?php echo esc_attr( $name_prefix ); ?>[proposed_subtype_status][]"><option value="proposed" <?php selected( $node['proposed_subtype_status'] ?? 'proposed', 'proposed' ); ?>>Proposed</option><option value="approved" <?php selected( $node['proposed_subtype_status'] ?? '', 'approved' ); ?>>Approved</option><option value="merged" <?php selected( $node['proposed_subtype_status'] ?? '', 'merged' ); ?>>Merged</option><option value="renamed" <?php selected( $node['proposed_subtype_status'] ?? '', 'renamed' ); ?>>Renamed</option><option value="rejected" <?php selected( $node['proposed_subtype_status'] ?? '', 'rejected' ); ?>>Rejected</option></select></label>
         </div>
         <label class="viswiz-full-field">Formatted description<?php wp_editor( wp_kses_post( $description ), 'viswiz_node_desc_' . md5( $name_prefix . $index ), array( 'textarea_name' => $name_prefix . '[description][]', 'textarea_rows' => 4, 'media_buttons' => false, 'teeny' => true ) ); ?></label>
         <div class="viswiz-custom-labels">
@@ -968,8 +1044,15 @@ function viswiz_sanitize_graph_option( $value ) {
     $node_labels = $nodes['label'] ?? array();
     $node_titles = $nodes['title'] ?? array();
     $node_descriptions = $nodes['description'] ?? array();
-    $node_entity_types = $nodes['entity_type'] ?? array();
-    $allowed_entity_types = array_keys( viswiz_get_graph_entity_types() );
+    $node_types = $nodes['node_type'] ?? ( $nodes['entity_type'] ?? array() );
+    $node_subtypes = $nodes['node_subtype'] ?? array();
+    $allowed_node_types = array_keys( viswiz_get_graph_node_types() );
+    $known_node_subtypes = viswiz_get_graph_node_subtypes();
+    $proposed_labels = $nodes['proposed_subtype_label'] ?? array();
+    $proposed_reasons = $nodes['proposed_subtype_reason'] ?? array();
+    $proposed_examples = $nodes['proposed_subtype_example'] ?? array();
+    $proposed_gaps = $nodes['proposed_subtype_gap'] ?? array();
+    $proposed_statuses = $nodes['proposed_subtype_status'] ?? array();
     $node_main_images = $nodes['main_image'] ?? array();
     $node_other_images = $nodes['other_images'] ?? array();
     $custom_keys = $nodes['custom_key'] ?? array();
@@ -980,9 +1063,26 @@ function viswiz_sanitize_graph_option( $value ) {
         $title = sanitize_text_field( $node_titles[ $index ] ?? '' );
         $label = sanitize_text_field( $node_labels[ $index ] ?? '' );
         $description = wp_kses_post( $node_descriptions[ $index ] ?? '' );
-        $entity_type = sanitize_key( $node_entity_types[ $index ] ?? '' );
-        if ( ! in_array( $entity_type, $allowed_entity_types, true ) ) {
-            $entity_type = '';
+        $node_type = sanitize_key( $node_types[ $index ] ?? '' );
+        $node_subtype = sanitize_key( $node_subtypes[ $index ] ?? '' );
+        $legacy_mapping = viswiz_get_legacy_graph_node_type_mapping();
+        if ( isset( $legacy_mapping[ $node_type ] ) ) {
+            list( $node_type, $mapped_subtype ) = $legacy_mapping[ $node_type ];
+            if ( $node_subtype === '' ) {
+                $node_subtype = $mapped_subtype;
+            }
+        }
+        if ( ! in_array( $node_type, $allowed_node_types, true ) ) {
+            $node_type = '';
+            $node_subtype = '';
+        }
+        $allowed_subtypes = $known_node_subtypes[ $node_type ] ?? array();
+        if ( $node_subtype !== 'proposed' && ! isset( $allowed_subtypes[ $node_subtype ] ) ) {
+            $node_subtype = '';
+        }
+        $proposed_status = sanitize_key( $proposed_statuses[ $index ] ?? 'proposed' );
+        if ( ! in_array( $proposed_status, array( 'proposed', 'approved', 'merged', 'renamed', 'rejected' ), true ) ) {
+            $proposed_status = 'proposed';
         }
         if ( $title === '' && $label === '' && $description === '' ) {
             continue;
@@ -1015,7 +1115,14 @@ function viswiz_sanitize_graph_option( $value ) {
             'label' => $label ?: $title,
             'title' => $title,
             'description' => $description,
-            'entity_type' => $entity_type,
+            'node_type' => $node_type,
+            'node_subtype' => $node_subtype,
+            'entity_type' => $node_type,
+            'proposed_subtype_label' => sanitize_text_field( $proposed_labels[ $index ] ?? '' ),
+            'proposed_subtype_reason' => sanitize_textarea_field( $proposed_reasons[ $index ] ?? '' ),
+            'proposed_subtype_example' => sanitize_text_field( $proposed_examples[ $index ] ?? '' ),
+            'proposed_subtype_gap' => sanitize_textarea_field( $proposed_gaps[ $index ] ?? '' ),
+            'proposed_subtype_status' => $proposed_status,
             'main_image' => absint( $node_main_images[ $index ] ?? 0 ),
             'other_images' => array_values( array_filter( array_map( 'absint', explode( ',', (string) ( $node_other_images[ $index ] ?? '' ) ) ) ) ),
             'custom_labels' => $custom_labels,
@@ -1082,10 +1189,15 @@ function viswiz_prepare_graph_data_for_display( $graph_data ) {
         return array();
     }
 
-    $entity_types = viswiz_get_graph_entity_types();
+    $node_types = viswiz_get_graph_node_types();
+    $node_subtypes = viswiz_get_graph_node_subtypes();
     foreach ( $graph_data['nodes'] ?? array() as $index => $node ) {
-        $entity_type = sanitize_key( $node['entity_type'] ?? '' );
-        $graph_data['nodes'][ $index ]['entity_type_label'] = $entity_types[ $entity_type ] ?? '';
+        list( $node_type, $node_subtype ) = viswiz_normalize_graph_node_type( $node );
+        $graph_data['nodes'][ $index ]['node_type'] = $node_type;
+        $graph_data['nodes'][ $index ]['node_subtype'] = $node_subtype;
+        $graph_data['nodes'][ $index ]['node_type_label'] = $node_types[ $node_type ] ?? '';
+        $graph_data['nodes'][ $index ]['node_subtype_label'] = $node_subtype === 'proposed' ? ( $node['proposed_subtype_label'] ?? 'Proposed subtype' ) : ( $node_subtypes[ $node_type ][ $node_subtype ] ?? '' );
+        $graph_data['nodes'][ $index ]['entity_type_label'] = $graph_data['nodes'][ $index ]['node_type_label'];
         $main_image_id = absint( $node['main_image'] ?? 0 );
         if ( $main_image_id ) {
             $graph_data['nodes'][ $index ]['main_image_url'] = wp_get_attachment_image_url( $main_image_id, 'medium_large' ) ?: '';
