@@ -179,6 +179,7 @@
     const nodeColor = getComputedStyle(container).getPropertyValue('--viswiz-primary').trim() || '#4caf50';
     const linkColor = getComputedStyle(container).getPropertyValue('--viswiz-secondary').trim() || '#999';
     const textColor = getComputedStyle(container).getPropertyValue('--viswiz-text').trim() || '#333';
+    let activeTypeFilter = null;
 
     const svg = d3
       .create('svg')
@@ -280,6 +281,13 @@
       .attr('fill', nodeColor)
       .attr('opacity', 0.12);
 
+    node.each(function (d) {
+      appendSvgTypeBadges(d3.select(this), d, cardWidth / 2 - 12, -cardHeight / 2 + 14, (filter, key) => {
+        activeTypeFilter = activeTypeFilter && activeTypeFilter.filter === filter && activeTypeFilter.key === key ? null : { filter, key };
+        applyGraphTypeFilter();
+      });
+    });
+
     node.append('text')
       .attr('y', cardHeight / 2 - 24)
       .attr('text-anchor', 'middle')
@@ -288,6 +296,19 @@
       .attr('fill', textColor)
       .attr('pointer-events', 'none')
       .each(function (d) { wrapSvgText(d3.select(this), d.title || d.label, cardWidth - 18, 2); });
+
+    function nodeMatchesFilter(d) {
+      if (!activeTypeFilter) return true;
+      return activeTypeFilter.filter === 'subtype' ? d.node_subtype === activeTypeFilter.key : (d.node_type || d.entity_type) === activeTypeFilter.key;
+    }
+
+    function applyGraphTypeFilter() {
+      node
+        .attr('opacity', (d) => nodeMatchesFilter(d) ? 1 : 0.5)
+        .style('filter', (d) => nodeMatchesFilter(d) ? null : 'grayscale(1)');
+      link.attr('opacity', (d) => nodeMatchesFilter(d.source) && nodeMatchesFilter(d.target) ? 1 : 0.25);
+      linkLabels.attr('opacity', (d) => nodeMatchesFilter(d.source) && nodeMatchesFilter(d.target) ? 1 : 0.25);
+    }
 
     simulation.on('tick', () => {
       nodes.forEach((d) => {
@@ -382,13 +403,21 @@
     close.addEventListener('click', () => overlay.remove());
     card.appendChild(close);
 
+    const imageFrame = document.createElement('div');
+    imageFrame.className = 'viswiz-graph-node-modal-image-frame';
     if (node.display_image_url) {
       const image = document.createElement('img');
       image.className = 'viswiz-graph-node-modal-image';
       image.src = node.display_image_url;
       image.alt = node.title || node.label || '';
-      card.appendChild(image);
+      imageFrame.appendChild(image);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'viswiz-graph-node-modal-image-placeholder';
+      imageFrame.appendChild(placeholder);
     }
+    appendHtmlTypeBadges(imageFrame, node, container, nodes, links);
+    card.appendChild(imageFrame);
 
     if (node.other_image_urls && node.other_image_urls.length) {
       const gallery = document.createElement('div');
@@ -409,8 +438,6 @@
     card.appendChild(title);
     const details = document.createElement('dl');
     details.className = 'viswiz-node-detail-list';
-    appendTypeDetail(details, 'Node type', node.node_type_label || node.node_type || node.entity_type_label || node.entity_type, node.node_type || node.entity_type, 'type', container, nodes, links);
-    appendTypeDetail(details, 'Node subtype', node.node_subtype_label || node.node_subtype, node.node_subtype, 'subtype', container, nodes, links);
     if (node.node_subtype === 'proposed') {
       appendDetail(details, 'Proposed subtype reason', node.proposed_subtype_reason, 'long');
       appendDetail(details, 'Example entity', node.proposed_subtype_example);
@@ -419,7 +446,9 @@
     }
     appendDetail(details, 'Description', node.description, node.description ? 'formatted' : 'short');
     (node.custom_labels || []).forEach((item) => appendDetail(details, item.key || 'Custom field', item.value, item.type));
-    card.appendChild(details);
+    if (details.childElementCount) {
+      card.appendChild(details);
+    }
     appendRelatedNodes(card, container, node, nodes, links);
     overlay.appendChild(card);
     overlay.addEventListener('click', (event) => { if (event.target === overlay) overlay.remove(); });
@@ -462,21 +491,65 @@
     return link;
   }
 
-  function appendTypeDetail(list, label, value, key, filter, container, nodes, links) {
-    if (!value) return;
-    const dt = document.createElement('dt');
-    dt.textContent = label;
-    const dd = document.createElement('dd');
-    const link = document.createElement('a');
-    link.href = `#${filter}-${encodeURIComponent(key || value)}`;
-    link.textContent = value;
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      showTypeNodes(container, filter, key, value, nodes, links);
+  function getNodeTypeBadges(node) {
+    return [
+      {
+        filter: 'type',
+        key: node.node_type || node.entity_type,
+        label: node.node_type_label || node.entity_type_label || node.node_type || node.entity_type,
+        className: 'viswiz-node-type-badge--type',
+      },
+      {
+        filter: 'subtype',
+        key: node.node_subtype,
+        label: node.node_subtype_label || node.node_subtype,
+        className: 'viswiz-node-type-badge--subtype',
+      },
+    ].filter((badge) => badge.key && badge.label);
+  }
+
+  function appendSvgTypeBadges(group, node, rightX, topY, onSelect) {
+    getNodeTypeBadges(node).forEach((badge, index) => {
+      const width = Math.min(118, Math.max(44, String(badge.label).length * 6 + 14));
+      const badgeGroup = group.append('g')
+        .attr('class', `viswiz-node-svg-type-badge ${badge.className}`)
+        .attr('role', 'link')
+        .attr('tabindex', 0)
+        .attr('transform', `translate(${rightX - width},${topY + index * 18})`)
+        .on('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onSelect(badge.filter, badge.key);
+        })
+        .on('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            event.stopPropagation();
+            onSelect(badge.filter, badge.key);
+          }
+        });
+      badgeGroup.append('rect').attr('width', width).attr('height', 15).attr('rx', 7.5);
+      badgeGroup.append('text').attr('x', width / 2).attr('y', 10.5).text(badge.label);
     });
-    dd.appendChild(link);
-    list.appendChild(dt);
-    list.appendChild(dd);
+  }
+
+  function appendHtmlTypeBadges(wrapper, node, container, nodes, links) {
+    const badges = getNodeTypeBadges(node);
+    if (!badges.length) return;
+    const list = document.createElement('div');
+    list.className = 'viswiz-node-type-badges';
+    badges.forEach((badge) => {
+      const link = document.createElement('a');
+      link.href = `#${badge.filter}-${encodeURIComponent(badge.key)}`;
+      link.className = `viswiz-node-type-badge ${badge.className}`;
+      link.textContent = badge.label;
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        showTypeNodes(container, badge.filter, badge.key, badge.label, nodes, links);
+      });
+      list.appendChild(link);
+    });
+    wrapper.appendChild(list);
   }
 
   function getRelatedNodes(node, nodes, links) {
@@ -515,16 +588,20 @@
   function createNodePreviewCard(container, node, nodes, links, relationLabel = '') {
     const item = document.createElement('article');
     item.className = 'viswiz-related-node-card';
+    const media = document.createElement('div');
+    media.className = 'viswiz-related-node-media';
     if (node.display_image_url) {
       const image = document.createElement('img');
       image.src = node.display_image_url;
       image.alt = node.title || node.label || '';
-      item.appendChild(image);
+      media.appendChild(image);
     } else {
       const placeholder = document.createElement('div');
       placeholder.className = 'viswiz-related-node-placeholder';
-      item.appendChild(placeholder);
+      media.appendChild(placeholder);
     }
+    appendHtmlTypeBadges(media, node, container, nodes, links);
+    item.appendChild(media);
     const title = document.createElement('h5');
     title.appendChild(createNodeLink(container, node, nodes, links));
     item.appendChild(title);
@@ -543,7 +620,7 @@
     showNodeDetails(container, pseudoNode, nodes, links);
     const card = container.querySelector('.viswiz-graph-node-modal-card');
     if (!card) return;
-    card.querySelectorAll('.viswiz-node-detail-list, .viswiz-graph-node-modal-image, .viswiz-graph-node-modal-gallery').forEach((el) => el.remove());
+    card.querySelectorAll('.viswiz-node-detail-list, .viswiz-graph-node-modal-image-frame, .viswiz-graph-node-modal-gallery').forEach((el) => el.remove());
     const heading = card.querySelector('h3');
     if (heading) heading.textContent = `${label || 'Selected type'} nodes`;
     const section = document.createElement('section');

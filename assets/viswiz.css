@@ -366,13 +366,84 @@
   cursor: pointer;
 }
 
+.viswiz-graph-node-modal-image-frame {
+  position: relative;
+  min-height: 180px;
+  margin: 0 0 18px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
 .viswiz-graph-node-modal-image {
   display: block;
   width: 100%;
   max-height: 320px;
   object-fit: cover;
-  margin: 0 0 18px;
-  border-radius: 10px;
+}
+
+.viswiz-graph-node-modal-image-placeholder {
+  min-height: 220px;
+  background: color-mix(in srgb, var(--viswiz-primary, #4caf50) 12%, transparent);
+}
+
+
+.viswiz-node-svg-type-badge {
+  cursor: pointer;
+}
+
+.viswiz-node-svg-type-badge rect {
+  fill: #1f6feb;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1;
+}
+
+.viswiz-node-svg-type-badge.viswiz-node-type-badge--subtype rect {
+  fill: #7c3aed;
+}
+
+.viswiz-node-svg-type-badge text {
+  fill: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.viswiz-node-type-badges {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  max-width: calc(100% - 20px);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.viswiz-node-type-badge {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  background: #1f6feb;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.viswiz-node-type-badge:hover,
+.viswiz-node-type-badge:focus {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.viswiz-node-type-badge--subtype {
+  background: #7c3aed;
 }
 
 .viswiz-node-detail-list {
@@ -457,12 +528,29 @@
   background: #fff;
 }
 
+.viswiz-related-node-media {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
 .viswiz-related-node-card img,
 .viswiz-related-node-placeholder {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 6px;
+}
+
+.viswiz-related-node-card .viswiz-node-type-badges {
+  top: 6px;
+  right: 6px;
+  gap: 4px;
+}
+
+.viswiz-related-node-card .viswiz-node-type-badge {
+  padding: 2px 6px;
+  font-size: 0.65rem;
 }
 
 .viswiz-related-node-placeholder {
