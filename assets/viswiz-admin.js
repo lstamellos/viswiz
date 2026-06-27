@@ -172,6 +172,7 @@
       <div class="viswiz-node-grid">
         <label>Title <input type="text" name="${namePrefix}[title][]" placeholder="Node title" class="regular-text" data-viswiz-node-title /></label>
         <label>Short label <input type="text" name="${namePrefix}[label][]" placeholder="Optional short label" class="regular-text" /></label>
+        <label>Entity type <select name="${namePrefix}[entity_type][]"><option value="">Select entity type</option><option value="person">Person</option><option value="organization">Organization</option><option value="party">Party</option><option value="movement">Movement</option><option value="media">Media</option><option value="state_body">State body</option><option value="place">Place</option><option value="legal_case">Legal case</option><option value="publication">Publication</option><option value="event">Event</option></select></label>
         <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
         <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
       </div>
@@ -485,8 +486,9 @@
       const id = $(this).find('input[name$="[id][]"]').val() || '';
       const title = $(this).find('input[name$="[title][]"]').val() || '';
       const label = $(this).find('input[name$="[label][]"]').val() || title;
+      const entity_type = $(this).find('select[name$="[entity_type][]"]').val() || '';
       if (id || label || title) {
-        nodes.push({ id, label, title });
+        nodes.push({ id, label, title, entity_type });
       }
     });
     $('#viswiz-visual-graph-links .viswiz-relation-card').each(function () {

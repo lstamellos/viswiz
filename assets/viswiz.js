@@ -409,6 +409,7 @@
     details.className = 'viswiz-node-detail-list';
     appendDetail(details, 'Title', node.title);
     appendDetail(details, 'Short label', node.label);
+    appendDetail(details, 'Entity type', node.entity_type_label || node.entity_type);
     appendDetail(details, 'Description', node.description, node.description ? 'formatted' : 'short');
     (node.custom_labels || []).forEach((item) => appendDetail(details, item.key || 'Custom field', item.value, item.type));
     card.appendChild(details);
