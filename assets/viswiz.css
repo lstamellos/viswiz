@@ -310,3 +310,103 @@
 .viswiz-custom-label-row textarea {
   min-width: 260px;
 }
+
+.viswiz-graph {
+  position: relative;
+}
+
+.viswiz-graph-node-card {
+  cursor: pointer;
+  outline: none;
+}
+
+.viswiz-graph-node-card rect:first-child {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+  transition: stroke-width 0.2s ease, filter 0.2s ease;
+}
+
+.viswiz-graph-node-card:hover rect:first-child,
+.viswiz-graph-node-card:focus rect:first-child {
+  stroke-width: 3px;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.2));
+}
+
+.viswiz-graph-node-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.viswiz-graph-node-modal-card {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: min(760px, 90vh);
+  overflow: auto;
+  padding: 24px;
+  border-radius: 14px;
+  background: var(--viswiz-background, #fff);
+  color: var(--viswiz-text, #333);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+}
+
+.viswiz-graph-node-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viswiz-graph-node-modal-image {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  margin: 0 0 18px;
+  border-radius: 10px;
+}
+
+.viswiz-node-detail-list {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr;
+  gap: 10px 18px;
+  margin: 18px 0 0;
+}
+
+.viswiz-node-detail-list dt {
+  font-weight: 700;
+}
+
+.viswiz-node-detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .viswiz-node-detail-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.viswiz-graph-node-modal-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+  margin: -6px 0 18px;
+}
+
+.viswiz-graph-node-modal-gallery img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
