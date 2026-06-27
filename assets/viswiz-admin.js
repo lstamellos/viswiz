@@ -423,6 +423,8 @@
     });
     card.open = true;
     card.classList.add('is-editing');
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
     document.body.classList.add('viswiz-node-modal-open');
     refreshNodeRelationTools();
   }
@@ -432,6 +434,8 @@
     card.dataset.viswizClosing = '1';
     card.open = false;
     card.classList.remove('is-editing');
+    card.removeAttribute('role');
+    card.removeAttribute('aria-modal');
     if (!document.querySelector('[data-viswiz-node-card].is-editing')) {
       document.body.classList.remove('viswiz-node-modal-open');
     }
@@ -443,7 +447,7 @@
   function autosaveNodeAndClose(card) {
     if (!card) return;
     const form = card.closest('form');
-    if (!form || !window.fetch) {
+    if (!form || !window.fetch || !window.VisWizAdmin || !VisWizAdmin.ajaxUrl || !VisWizAdmin.postId) {
       if (form) {
         form.requestSubmit ? form.requestSubmit() : form.submit();
       }
@@ -454,16 +458,22 @@
     }
     setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
     const formData = new FormData(form);
-    if (!formData.has('save')) {
-      formData.append('save', 'Update');
-    }
-    window.fetch(form.action || window.location.href, {
+    formData.set('action', 'viswiz_autosave_graph_node');
+    formData.set('nonce', VisWizAdmin.nonce || '');
+    formData.set('post_id', VisWizAdmin.postId);
+    window.fetch(VisWizAdmin.ajaxUrl, {
       method: 'POST',
       credentials: 'same-origin',
       body: formData,
     })
       .then((response) => {
         if (!response.ok) {
+          throw new Error('Autosave failed');
+        }
+        return response.json();
+      })
+      .then((response) => {
+        if (!response || !response.success) {
           throw new Error('Autosave failed');
         }
         setNodeAutosaveStatus(card, 'Autosaved.', 'saved');
@@ -746,6 +756,21 @@
     filterNodeList();
   });
 
+
+  document.addEventListener('click', function (event) {
+    const summary = event.target.closest && event.target.closest('[data-viswiz-node-card] > summary');
+    if (!summary) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const card = summary.closest('[data-viswiz-node-card]');
+    if (!card) return;
+    if (card.classList.contains('is-editing')) {
+      autosaveNodeAndClose(card);
+    } else {
+      openNodeModal(card);
+    }
+  }, true);
+
   $(document).on('toggle', '[data-viswiz-node-card]', function () {
     if (this.dataset.viswizClosing === '1') return;
     if (this.open) {
@@ -755,16 +780,6 @@
     }
   });
 
-  $(document).on('click', '[data-viswiz-node-card] > summary', function (event) {
-    event.preventDefault();
-    const card = this.closest('[data-viswiz-node-card]');
-    if (!card) return;
-    if (card.classList.contains('is-editing')) {
-      autosaveNodeAndClose(card);
-    } else {
-      openNodeModal(card);
-    }
-  });
 
   $(document).on('click', '[data-viswiz-close-node]', function () {
     const card = this.closest('[data-viswiz-node-card]');

@@ -333,6 +333,7 @@
   display: none;
 }
 
+body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-node-card.is-editing {
   grid-column: 1 / -1;
   position: fixed;
@@ -423,6 +424,7 @@ body.viswiz-node-modal-open::before {
 }
 
 @media (max-width: 782px) {
+  body.viswiz-node-modal-open .viswiz-node-card.is-editing,
   .viswiz-node-card.is-editing {
     top: 0;
     right: 0;

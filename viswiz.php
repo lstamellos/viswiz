@@ -39,6 +39,7 @@ add_action( 'add_meta_boxes', 'viswiz_register_visualization_meta_box' );
 add_action( 'save_post_viswiz_visualization', 'viswiz_save_visualization_meta' );
 add_action( 'admin_enqueue_scripts', 'viswiz_enqueue_admin_assets' );
 add_action( 'wp_ajax_viswiz_autosave_node_type', 'viswiz_ajax_autosave_node_type' );
+add_action( 'wp_ajax_viswiz_autosave_graph_node', 'viswiz_ajax_autosave_graph_node' );
 add_filter( 'manage_viswiz_visualization_posts_columns', 'viswiz_add_visualization_columns' );
 add_action( 'manage_viswiz_visualization_posts_custom_column', 'viswiz_render_visualization_columns', 10, 2 );
 
@@ -2214,6 +2215,25 @@ function viswiz_render_visualization_columns( $column, $post_id ) {
     );
 }
 
+
+function viswiz_ajax_autosave_graph_node() {
+    check_ajax_referer( 'viswiz_node_type_autosave', 'nonce' );
+
+    $post_id = absint( $_POST['post_id'] ?? 0 );
+    if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+        wp_send_json_error( array( 'message' => 'You are not allowed to edit this visualization.' ), 403 );
+    }
+
+    if ( ! isset( $_POST['viswiz_meta'] ) || ! is_array( $_POST['viswiz_meta'] ) ) {
+        wp_send_json_error( array( 'message' => 'Missing visualization data.' ), 400 );
+    }
+
+    $meta = wp_unslash( $_POST['viswiz_meta'] );
+    $graph_json = viswiz_sanitize_graph_option( $meta['graph_data'] ?? array() );
+    update_post_meta( $post_id, 'viswiz_graph_data', $graph_json );
+
+    wp_send_json_success( array( 'message' => 'Node changes autosaved.' ) );
+}
 
 function viswiz_ajax_autosave_node_type() {
     check_ajax_referer( 'viswiz_node_type_autosave', 'nonce' );
