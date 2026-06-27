@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.2.4
+ * Version: 1.2.5
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.2.4';
+const VISWIZ_VERSION = '1.2.5';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -125,7 +125,7 @@ function viswiz_create_custom_tables() {
         KEY to_key (to_key)
     ) $charset_collate;" );
 
-    update_option( 'viswiz_db_version', '1.2.4' );
+    update_option( 'viswiz_db_version', '1.2.5' );
 }
 
 function viswiz_get_table_name( $table ) {
@@ -157,7 +157,7 @@ function viswiz_is_graph_like_type( $type ) {
 }
 
 function viswiz_maybe_upgrade_tables() {
-    if ( get_option( 'viswiz_db_version' ) !== '1.2.4' ) {
+    if ( get_option( 'viswiz_db_version' ) !== '1.2.5' ) {
         viswiz_create_custom_tables();
     }
 }
@@ -737,6 +737,21 @@ function viswiz_get_graph_dataset_label( $dataset_id ) {
     return 'Visualization-specific data';
 }
 
+function viswiz_get_graph_entity_types() {
+    return array(
+        'person' => 'Person',
+        'organization' => 'Organization',
+        'party' => 'Party',
+        'movement' => 'Movement',
+        'media' => 'Media',
+        'state_body' => 'State body',
+        'place' => 'Place',
+        'legal_case' => 'Legal case',
+        'publication' => 'Publication',
+        'event' => 'Event',
+    );
+}
+
 function viswiz_get_node_auto_id( $node, $index ) {
     $id = $node['id'] ?? '';
     if ( $id === '' ) {
@@ -749,6 +764,8 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
     $id = viswiz_get_node_auto_id( $node, $index );
     $title = $node['title'] ?? ( $node['label'] ?? '' );
     $description = $node['description'] ?? '';
+    $entity_type = sanitize_key( $node['entity_type'] ?? '' );
+    $entity_types = viswiz_get_graph_entity_types();
     $main_image = absint( $node['main_image'] ?? 0 );
     $other_images = is_array( $node['other_images'] ?? null ) ? implode( ',', array_map( 'absint', $node['other_images'] ) ) : sanitize_text_field( $node['other_images'] ?? '' );
     $custom_labels = is_array( $node['custom_labels'] ?? null ) ? $node['custom_labels'] : array();
@@ -767,6 +784,7 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
         <div class="viswiz-node-grid">
             <label>Title <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[title][]" placeholder="Node title" value="<?php echo esc_attr( $title ); ?>" class="regular-text" data-viswiz-node-title /></label>
             <label>Short label <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Optional short label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" /></label>
+            <label>Entity type <select name="<?php echo esc_attr( $name_prefix ); ?>[entity_type][]"><option value="">Select entity type</option><?php foreach ( $entity_types as $type_key => $type_label ) : ?><option value="<?php echo esc_attr( $type_key ); ?>" <?php selected( $entity_type, $type_key ); ?>><?php echo esc_html( $type_label ); ?></option><?php endforeach; ?></select></label>
             <label>Main image <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[main_image][]" value="<?php echo esc_attr( $main_image ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label><?php echo $main_image ? esc_html( '#' . $main_image ) : 'No image selected'; ?></span></span></label>
             <label>Other images <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[other_images][]" value="<?php echo esc_attr( $other_images ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label><?php echo $other_images ? esc_html( $other_images ) : 'No images selected'; ?></span></span></label>
         </div>
@@ -950,6 +968,8 @@ function viswiz_sanitize_graph_option( $value ) {
     $node_labels = $nodes['label'] ?? array();
     $node_titles = $nodes['title'] ?? array();
     $node_descriptions = $nodes['description'] ?? array();
+    $node_entity_types = $nodes['entity_type'] ?? array();
+    $allowed_entity_types = array_keys( viswiz_get_graph_entity_types() );
     $node_main_images = $nodes['main_image'] ?? array();
     $node_other_images = $nodes['other_images'] ?? array();
     $custom_keys = $nodes['custom_key'] ?? array();
@@ -960,6 +980,10 @@ function viswiz_sanitize_graph_option( $value ) {
         $title = sanitize_text_field( $node_titles[ $index ] ?? '' );
         $label = sanitize_text_field( $node_labels[ $index ] ?? '' );
         $description = wp_kses_post( $node_descriptions[ $index ] ?? '' );
+        $entity_type = sanitize_key( $node_entity_types[ $index ] ?? '' );
+        if ( ! in_array( $entity_type, $allowed_entity_types, true ) ) {
+            $entity_type = '';
+        }
         if ( $title === '' && $label === '' && $description === '' ) {
             continue;
         }
@@ -991,6 +1015,7 @@ function viswiz_sanitize_graph_option( $value ) {
             'label' => $label ?: $title,
             'title' => $title,
             'description' => $description,
+            'entity_type' => $entity_type,
             'main_image' => absint( $node_main_images[ $index ] ?? 0 ),
             'other_images' => array_values( array_filter( array_map( 'absint', explode( ',', (string) ( $node_other_images[ $index ] ?? '' ) ) ) ) ),
             'custom_labels' => $custom_labels,
@@ -1057,7 +1082,10 @@ function viswiz_prepare_graph_data_for_display( $graph_data ) {
         return array();
     }
 
+    $entity_types = viswiz_get_graph_entity_types();
     foreach ( $graph_data['nodes'] ?? array() as $index => $node ) {
+        $entity_type = sanitize_key( $node['entity_type'] ?? '' );
+        $graph_data['nodes'][ $index ]['entity_type_label'] = $entity_types[ $entity_type ] ?? '';
         $main_image_id = absint( $node['main_image'] ?? 0 );
         if ( $main_image_id ) {
             $graph_data['nodes'][ $index ]['main_image_url'] = wp_get_attachment_image_url( $main_image_id, 'medium_large' ) ?: '';
