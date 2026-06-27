@@ -462,10 +462,14 @@
       tinyMCE.triggerSave();
     }
     setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
-    const formData = new FormData(form);
+    const formData = new FormData();
     formData.set('action', 'viswiz_autosave_graph_node');
     formData.set('nonce', VisWizAdmin.nonce || '');
     formData.set('post_id', postId);
+    document.querySelectorAll('#viswiz-visual-graph-nodes [name^="viswiz_meta[graph_data]"], #viswiz-visual-graph-links [name^="viswiz_meta[graph_data]"]').forEach((field) => {
+      if (field.disabled || ((field.type === 'checkbox' || field.type === 'radio') && !field.checked)) return;
+      formData.append(field.name, field.value);
+    });
     window.fetch(VisWizAdmin.ajaxUrl, {
       method: 'POST',
       credentials: 'same-origin',
@@ -763,12 +767,12 @@
 
 
   document.addEventListener('click', function (event) {
-    const summary = event.target.closest && event.target.closest('[data-viswiz-node-card] > summary');
-    if (!summary) return;
+    const card = event.target.closest && event.target.closest('[data-viswiz-node-card]');
+    if (!card) return;
+    const summary = Array.from(card.children).find((child) => child.tagName === 'SUMMARY');
+    if (!summary || !summary.contains(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
-    const card = summary.closest('[data-viswiz-node-card]');
-    if (!card) return;
     if (card.classList.contains('is-editing')) {
       autosaveNodeAndClose(card);
     } else {
