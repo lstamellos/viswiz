@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.2.8
+ * Version: 1.3.8
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.2.8';
+const VISWIZ_VERSION = '1.3.8';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -126,7 +126,7 @@ function viswiz_create_custom_tables() {
         KEY to_key (to_key)
     ) $charset_collate;" );
 
-    update_option( 'viswiz_db_version', '1.2.6' );
+    update_option( 'viswiz_db_version', VISWIZ_VERSION );
 }
 
 function viswiz_get_table_name( $table ) {
@@ -839,14 +839,22 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
     if ( empty( $custom_labels ) ) {
         $custom_labels = array( array( 'key' => '', 'type' => 'short', 'value' => '' ) );
     }
+    $search_text = strtolower( wp_strip_all_tags( implode( ' ', array( $title, $node['label'] ?? '', $description ) ) ) );
     ?>
-    <details class="viswiz-node-card viswiz-sortable-card" open data-viswiz-node-card data-node-index="<?php echo esc_attr( $index ); ?>">
+    <details class="viswiz-node-card viswiz-sortable-card" open data-viswiz-node-card data-node-index="<?php echo esc_attr( $index ); ?>" data-viswiz-node-search-text="<?php echo esc_attr( $search_text ); ?>" data-viswiz-node-type-value="<?php echo esc_attr( $node_type ); ?>" data-viswiz-node-subtype-value="<?php echo esc_attr( $node_subtype ); ?>">
         <summary>
             <span class="viswiz-drag-handle" aria-hidden="true">↕</span>
             <strong><?php echo esc_html( $title ?: 'New node' ); ?></strong>
             <code data-viswiz-node-id-display><?php echo esc_html( $id ); ?></code>
             <?php if ( $dataset_label ) : ?><span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span><?php endif; ?>
         </summary>
+        <div class="viswiz-node-card-media">
+            <?php if ( $main_image ) : ?>
+                <?php echo wp_get_attachment_image( $main_image, 'thumbnail', false, array( 'class' => 'viswiz-node-card-image' ) ); ?>
+            <?php else : ?>
+                <span class="viswiz-node-card-image-placeholder" aria-hidden="true">No image</span>
+            <?php endif; ?>
+        </div>
         <input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[id][]" value="<?php echo esc_attr( $id ); ?>" data-viswiz-node-id />
         <div class="viswiz-node-grid">
             <label>Title <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[title][]" placeholder="Node title" value="<?php echo esc_attr( $title ); ?>" class="regular-text" data-viswiz-node-title /></label>
@@ -1790,8 +1798,22 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         <h4>Manual Graph</h4>
         <div class="viswiz-graph">
             <?php $dataset_label = viswiz_get_graph_dataset_label( $meta['dataset_id'] ); ?>
-            <h5>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h5>
-            <div id="viswiz-visual-graph-nodes" class="viswiz-repeatable viswiz-card-list">
+            <div class="viswiz-node-list-frame" data-viswiz-node-list-frame>
+                <h5>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h5>
+                <div class="viswiz-node-list-controls">
+                    <div class="viswiz-node-type-filter" data-viswiz-node-type-filter>
+                        <button type="button" class="button viswiz-node-type-filter-toggle" data-viswiz-node-type-filter-toggle>All node types and subtypes</button>
+                        <div class="viswiz-node-type-filter-menu" data-viswiz-node-type-filter-menu hidden>
+                            <label class="screen-reader-text" for="viswiz_node_type_filter_search">Search node types and subtypes</label>
+                            <input type="search" id="viswiz_node_type_filter_search" class="regular-text" placeholder="Filter types/subtypes..." data-viswiz-node-type-filter-search />
+                            <div class="viswiz-node-type-filter-options" data-viswiz-node-type-filter-options></div>
+                        </div>
+                    </div>
+                    <label class="viswiz-node-search-label" for="viswiz_node_search">Search nodes</label>
+                    <input type="search" id="viswiz_node_search" class="regular-text" placeholder="Type at least 3 characters to filter by title, name, or description" data-viswiz-node-search />
+                    <span class="description" data-viswiz-node-search-status></span>
+                </div>
+                <div id="viswiz-visual-graph-nodes" class="viswiz-repeatable viswiz-card-list viswiz-node-box-grid" data-viswiz-node-list>
                 <?php $nodes = $graph_data['nodes'] ?? array(); ?>
                 <?php if ( empty( $nodes ) ) : ?>
                     <?php $nodes = array( array( 'id' => '', 'label' => '', 'title' => '' ) ); ?>
@@ -1799,8 +1821,9 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <?php foreach ( $nodes as $node_index => $node ) : ?>
                     <?php viswiz_render_graph_node_row( 'viswiz_meta[graph_data][nodes]', $node, $node_index, $dataset_label ); ?>
                 <?php endforeach; ?>
+                </div>
+                <button type="button" class="button" data-viswiz-add="visual-graph-node">Add Node</button>
             </div>
-            <button type="button" class="button" data-viswiz-add="visual-graph-node">Add Node</button>
             <h5>Relations <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h5>
             <div id="viswiz-visual-graph-links" class="viswiz-repeatable viswiz-card-list">
                 <?php $links = $graph_data['links'] ?? array(); ?>
