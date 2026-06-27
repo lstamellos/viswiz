@@ -287,9 +287,7 @@
       </div>
       <p class="viswiz-node-actions"><button type="submit" class="button button-primary" data-viswiz-save-node>Save node</button> <button type="button" class="button" data-viswiz-close-node>Close & autosave</button> <span class="description" data-viswiz-node-autosave-status></span> <button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove node</button></p>`;
     container.appendChild(row);
-    row.open = true;
-    row.classList.add('is-editing');
-    document.body.classList.add('viswiz-node-modal-open');
+    openNodeModal(row);
     updateNodeSubtypeOptions(row);
     refreshNodeDatalist();
     refreshNodeRelationTools();
@@ -415,12 +413,32 @@
     status.dataset.viswizAutosaveState = state || '';
   }
 
+  function openNodeModal(card) {
+    if (!card) return;
+    document.querySelectorAll('[data-viswiz-node-card].is-editing').forEach((openCard) => {
+      if (openCard !== card) {
+        openCard.open = false;
+        openCard.classList.remove('is-editing');
+      }
+    });
+    card.open = true;
+    card.classList.add('is-editing');
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    document.body.classList.add('viswiz-node-modal-open');
+    refreshNodeRelationTools();
+  }
+
   function closeNodeModal(card) {
     if (!card) return;
     card.dataset.viswizClosing = '1';
     card.open = false;
     card.classList.remove('is-editing');
-    document.body.classList.remove('viswiz-node-modal-open');
+    card.removeAttribute('role');
+    card.removeAttribute('aria-modal');
+    if (!document.querySelector('[data-viswiz-node-card].is-editing')) {
+      document.body.classList.remove('viswiz-node-modal-open');
+    }
     window.setTimeout(() => {
       delete card.dataset.viswizClosing;
     }, 0);
@@ -429,7 +447,7 @@
   function autosaveNodeAndClose(card) {
     if (!card) return;
     const form = card.closest('form');
-    if (!form || !window.fetch) {
+    if (!form || !window.fetch || !window.VisWizAdmin || !VisWizAdmin.ajaxUrl || !VisWizAdmin.postId) {
       if (form) {
         form.requestSubmit ? form.requestSubmit() : form.submit();
       }
@@ -440,16 +458,22 @@
     }
     setNodeAutosaveStatus(card, 'Autosaving…', 'saving');
     const formData = new FormData(form);
-    if (!formData.has('save')) {
-      formData.append('save', 'Update');
-    }
-    window.fetch(form.action || window.location.href, {
+    formData.set('action', 'viswiz_autosave_graph_node');
+    formData.set('nonce', VisWizAdmin.nonce || '');
+    formData.set('post_id', VisWizAdmin.postId);
+    window.fetch(VisWizAdmin.ajaxUrl, {
       method: 'POST',
       credentials: 'same-origin',
       body: formData,
     })
       .then((response) => {
         if (!response.ok) {
+          throw new Error('Autosave failed');
+        }
+        return response.json();
+      })
+      .then((response) => {
+        if (!response || !response.success) {
           throw new Error('Autosave failed');
         }
         setNodeAutosaveStatus(card, 'Autosaved.', 'saved');
@@ -732,20 +756,30 @@
     filterNodeList();
   });
 
-  $(document).on('toggle', '[data-viswiz-node-card]', function () {
-    this.classList.toggle('is-editing', this.open);
-    if (this.open) {
-      document.body.classList.add('viswiz-node-modal-open');
-      refreshNodeRelationTools();
+
+  document.addEventListener('click', function (event) {
+    const summary = event.target.closest && event.target.closest('[data-viswiz-node-card] > summary');
+    if (!summary) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const card = summary.closest('[data-viswiz-node-card]');
+    if (!card) return;
+    if (card.classList.contains('is-editing')) {
+      autosaveNodeAndClose(card);
     } else {
-      document.body.classList.remove('viswiz-node-modal-open');
+      openNodeModal(card);
+    }
+  }, true);
+
+  $(document).on('toggle', '[data-viswiz-node-card]', function () {
+    if (this.dataset.viswizClosing === '1') return;
+    if (this.open) {
+      openNodeModal(this);
+    } else {
+      closeNodeModal(this);
     }
   });
 
-  $(document).on('click', '[data-viswiz-node-card][open] > summary', function (event) {
-    event.preventDefault();
-    autosaveNodeAndClose(this.closest('[data-viswiz-node-card]'));
-  });
 
   $(document).on('click', '[data-viswiz-close-node]', function () {
     const card = this.closest('[data-viswiz-node-card]');
