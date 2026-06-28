@@ -172,9 +172,14 @@
 
     const width = container.clientWidth || 400;
     const height = Math.max(360, Math.round(width * 0.62));
-    const cardWidth = 150;
-    const cardHeight = 112;
+    const nodeStyle = container.dataset.nodeStyle || 'card';
+    const labelStyle = container.dataset.nodeLabelStyle || 'rounded';
+    const nodeRadius = parseInt(container.dataset.nodeRadius, 10) || 20;
+    const cardWidth = nodeStyle === 'card' ? (parseInt(container.dataset.nodeCardWidth, 10) || 150) : Math.max(90, nodeRadius * 3.4);
+    const cardHeight = nodeStyle === 'card' ? 112 : (nodeStyle === 'round' ? nodeRadius * 2.6 : 46);
     const imageHeight = 64;
+    const showNodeImages = container.dataset.showNodeImages !== '0';
+    const showTypeBadges = container.dataset.showTypeBadges !== '0';
     const linkDistance = parseInt(container.dataset.linkDistance, 10) || 150;
     const chargeStrength = parseInt(container.dataset.chargeStrength, 10) || -500;
     const nodeColor = getComputedStyle(container).getPropertyValue('--viswiz-primary').trim() || '#4caf50';
@@ -196,7 +201,7 @@
       .force('link', d3.forceLink(links).id((d) => d.id).distance(linkDistance))
       .force('charge', d3.forceManyBody().strength(chargeStrength))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(Math.hypot(cardWidth, cardHeight) / 2 + 12));
+      .force('collision', d3.forceCollide().radius(nodeStyle === 'round' ? nodeRadius + 18 : Math.hypot(cardWidth, cardHeight) / 2 + 12));
 
     const defs = svg.append('defs');
     defs
@@ -253,50 +258,56 @@
       })
       .call(drag(simulation));
 
-    node.append('rect')
-      .attr('x', -cardWidth / 2)
-      .attr('y', -cardHeight / 2)
-      .attr('width', cardWidth)
-      .attr('height', cardHeight)
-      .attr('rx', 10)
-      .attr('fill', '#fff')
+    const labelRadius = labelStyle === 'pill' ? cardHeight / 2 : (labelStyle === 'plain' ? 0 : 10);
+    node.append(nodeStyle === 'round' ? 'circle' : 'rect')
+      .attr('x', nodeStyle === 'round' ? null : -cardWidth / 2)
+      .attr('y', nodeStyle === 'round' ? null : -cardHeight / 2)
+      .attr('r', nodeStyle === 'round' ? nodeRadius : null)
+      .attr('width', nodeStyle === 'round' ? null : cardWidth)
+      .attr('height', nodeStyle === 'round' ? null : cardHeight)
+      .attr('rx', nodeStyle === 'round' ? null : labelRadius)
+      .attr('fill', nodeStyle === 'round' ? nodeColor : (labelStyle === 'plain' ? 'transparent' : '#fff'))
       .attr('stroke', nodeColor)
       .attr('stroke-width', 2);
 
-    node.filter((d) => !!d.display_image_url)
-      .append('image')
-      .attr('href', (d) => d.display_image_url)
-      .attr('x', -cardWidth / 2 + 8)
-      .attr('y', -cardHeight / 2 + 8)
-      .attr('width', cardWidth - 16)
-      .attr('height', imageHeight)
-      .attr('preserveAspectRatio', 'xMidYMid slice');
+    if (nodeStyle === 'card' && showNodeImages) {
+      node.filter((d) => !!d.display_image_url)
+        .append('image')
+        .attr('href', (d) => d.display_image_url)
+        .attr('x', -cardWidth / 2 + 8)
+        .attr('y', -cardHeight / 2 + 8)
+        .attr('width', cardWidth - 16)
+        .attr('height', imageHeight)
+        .attr('preserveAspectRatio', 'xMidYMid slice');
 
-    node.filter((d) => !d.display_image_url)
-      .append('rect')
-      .attr('x', -cardWidth / 2 + 8)
-      .attr('y', -cardHeight / 2 + 8)
-      .attr('width', cardWidth - 16)
-      .attr('height', imageHeight)
-      .attr('rx', 6)
-      .attr('fill', nodeColor)
-      .attr('opacity', 0.12);
+      node.filter((d) => !d.display_image_url)
+        .append('rect')
+        .attr('x', -cardWidth / 2 + 8)
+        .attr('y', -cardHeight / 2 + 8)
+        .attr('width', cardWidth - 16)
+        .attr('height', imageHeight)
+        .attr('rx', 6)
+        .attr('fill', nodeColor)
+        .attr('opacity', 0.12);
+    }
 
-    node.each(function (d) {
-      appendSvgTypeBadges(d3.select(this), d, cardWidth / 2 - 12, -cardHeight / 2 + 14, (filter, key) => {
-        activeTypeFilter = activeTypeFilter && activeTypeFilter.filter === filter && activeTypeFilter.key === key ? null : { filter, key };
-        applyGraphTypeFilter();
+    if (showTypeBadges) {
+      node.each(function (d) {
+        appendSvgTypeBadges(d3.select(this), d, cardWidth / 2 - 12, -cardHeight / 2 + 14, (filter, key) => {
+          activeTypeFilter = activeTypeFilter && activeTypeFilter.filter === filter && activeTypeFilter.key === key ? null : { filter, key };
+          applyGraphTypeFilter();
+        });
       });
-    });
+    }
 
     node.append('text')
-      .attr('y', cardHeight / 2 - 24)
+      .attr('y', nodeStyle === 'card' && showNodeImages ? cardHeight / 2 - 24 : 4)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 12)
+      .attr('font-size', nodeStyle === 'round' ? 11 : 12)
       .attr('font-weight', 700)
-      .attr('fill', textColor)
+      .attr('fill', nodeStyle === 'round' ? '#fff' : textColor)
       .attr('pointer-events', 'none')
-      .each(function (d) { wrapSvgText(d3.select(this), d.title || d.label, cardWidth - 18, 2); });
+      .each(function (d) { wrapSvgText(d3.select(this), d.title || d.label, nodeStyle === 'round' ? nodeRadius * 1.7 : cardWidth - 18, nodeStyle === 'card' ? 2 : 1); });
 
     function nodeMatchesFilter(d) {
       if (!activeTypeFilter) return true;
@@ -313,15 +324,17 @@
 
     simulation.on('tick', () => {
       nodes.forEach((d) => {
-        d.x = Math.max(cardWidth / 2 + 4, Math.min(width - cardWidth / 2 - 4, d.x));
-        d.y = Math.max(cardHeight / 2 + 4, Math.min(height - cardHeight / 2 - 4, d.y));
+        const boundsX = nodeStyle === 'round' ? nodeRadius + 4 : cardWidth / 2 + 4;
+        const boundsY = nodeStyle === 'round' ? nodeRadius + 4 : cardHeight / 2 + 4;
+        d.x = Math.max(boundsX, Math.min(width - boundsX, d.x));
+        d.y = Math.max(boundsY, Math.min(height - boundsY, d.y));
       });
 
       link
-        .attr('x1', (d) => edgePoint(d.source, d.target, cardWidth, cardHeight).x)
-        .attr('y1', (d) => edgePoint(d.source, d.target, cardWidth, cardHeight).y)
-        .attr('x2', (d) => edgePoint(d.target, d.source, cardWidth, cardHeight).x)
-        .attr('y2', (d) => edgePoint(d.target, d.source, cardWidth, cardHeight).y);
+        .attr('x1', (d) => edgePoint(d.source, d.target, nodeStyle === 'round' ? nodeRadius * 2 : cardWidth, nodeStyle === 'round' ? nodeRadius * 2 : cardHeight).x)
+        .attr('y1', (d) => edgePoint(d.source, d.target, nodeStyle === 'round' ? nodeRadius * 2 : cardWidth, nodeStyle === 'round' ? nodeRadius * 2 : cardHeight).y)
+        .attr('x2', (d) => edgePoint(d.target, d.source, nodeStyle === 'round' ? nodeRadius * 2 : cardWidth, nodeStyle === 'round' ? nodeRadius * 2 : cardHeight).x)
+        .attr('y2', (d) => edgePoint(d.target, d.source, nodeStyle === 'round' ? nodeRadius * 2 : cardWidth, nodeStyle === 'round' ? nodeRadius * 2 : cardHeight).y);
 
       linkLabels
         .attr('x', (d) => (d.source.x + d.target.x) / 2)
