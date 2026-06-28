@@ -378,7 +378,9 @@ body.viswiz-node-modal-open {
   position: relative;
   width: min(1200px, 100%);
   min-height: 100%;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .viswiz-modal-close-button {
@@ -402,15 +404,43 @@ body.viswiz-node-modal-open {
 
 body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-node-card.is-editing {
+  box-sizing: border-box;
   cursor: default;
   display: block;
   width: 100%;
   min-height: 100%;
   max-width: none;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: visible;
   padding: 24px;
   background: #fff;
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+}
+
+.viswiz-node-editor-modal-content *,
+.viswiz-node-editor-modal-content *::before,
+.viswiz-node-editor-modal-content *::after {
+  box-sizing: border-box;
+}
+
+.viswiz-node-editor-modal-content input,
+.viswiz-node-editor-modal-content select,
+.viswiz-node-editor-modal-content textarea,
+.viswiz-node-editor-modal-content .regular-text,
+.viswiz-node-editor-modal-content .wp-editor-wrap,
+.viswiz-node-editor-modal-content .wp-editor-container,
+.viswiz-node-editor-modal-content .mce-tinymce {
+  max-width: 100%;
+}
+
+.viswiz-node-editor-modal-content textarea,
+.viswiz-node-editor-modal-content .wp-editor-area {
+  width: 100%;
+}
+
+.viswiz-node-editor-modal-content .wp-editor-wrap,
+.viswiz-node-editor-modal-content .wp-editor-container {
+  min-width: 0;
 }
 
 .viswiz-node-card-placeholder {
@@ -617,6 +647,7 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-node-grid label,
 .viswiz-relation-grid label,
 .viswiz-full-field {
+  min-width: 0;
   display: grid;
   gap: 4px;
   font-weight: 600;
@@ -625,6 +656,7 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-media-field,
 .viswiz-custom-label-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
@@ -637,7 +669,8 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 }
 
 .viswiz-custom-label-row textarea {
-  min-width: 260px;
+  flex: 1 1 260px;
+  min-width: 0;
 }
 
 .viswiz-graph {
@@ -950,10 +983,14 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 }
 
 .viswiz-relation-card.is-editing {
+  box-sizing: border-box;
   cursor: default;
   display: block;
   width: 100%;
   min-height: 100%;
+  max-width: none;
+  overflow-x: hidden;
+  overflow-y: visible;
   padding: 24px;
   background: #fff;
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
