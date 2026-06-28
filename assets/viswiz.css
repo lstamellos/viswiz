@@ -965,3 +965,17 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
   color: var(--viswiz-primary, #4caf50);
   font-weight: 600;
 }
+
+.viswiz-node-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viswiz-node-image-actions .button {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 24px;
+}

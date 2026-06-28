@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.06
+ * Version: 1.3.07
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.06';
+const VISWIZ_VERSION = '1.3.07';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -842,6 +842,11 @@ function viswiz_render_graph_node_image_gallery( $main_image, $other_images ) {
                     <figure class="viswiz-node-image-thumb<?php echo $is_featured ? ' is-featured' : ''; ?>" data-viswiz-node-image-id="<?php echo esc_attr( $image_id ); ?>">
                         <?php echo wp_get_attachment_image( $image_id, 'thumbnail', false, array( 'class' => 'viswiz-node-image-thumb-img' ) ); ?>
                         <figcaption><?php echo $is_featured ? esc_html__( 'Featured image', 'viswiz' ) : esc_html__( 'Attached image', 'viswiz' ); ?> <span>#<?php echo esc_html( $image_id ); ?></span></figcaption>
+                        <div class="viswiz-node-image-actions">
+                            <button type="button" class="button button-small" data-viswiz-node-image-replace="<?php echo esc_attr( $image_id ); ?>"><?php esc_html_e( 'Replace', 'viswiz' ); ?></button>
+                            <button type="button" class="button button-small" data-viswiz-node-image-edit="<?php echo esc_attr( $image_id ); ?>"><?php esc_html_e( 'Edit', 'viswiz' ); ?></button>
+                            <button type="button" class="button button-small button-link-delete" data-viswiz-node-image-remove="<?php echo esc_attr( $image_id ); ?>"><?php esc_html_e( 'Remove', 'viswiz' ); ?></button>
+                        </div>
                     </figure>
                 <?php endforeach; ?>
             </div>
