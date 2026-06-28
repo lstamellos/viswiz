@@ -615,6 +615,7 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 }
 
 .viswiz-node-grid label,
+.viswiz-relation-grid label,
 .viswiz-full-field {
   display: grid;
   gap: 4px;
