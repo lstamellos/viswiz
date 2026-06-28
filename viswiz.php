@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.07
+ * Version: 1.3.08
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.07';
+const VISWIZ_VERSION = '1.3.08';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -704,13 +704,14 @@ function viswiz_render_settings_page() {
                                 <button type="button" class="button" data-viswiz-add="graph-node">Add Node</button>
                                 <p class="description">IDs are assigned automatically. Use the title, formatted description, image fields, and custom labels to enrich each node.</p>
                                 <h4>Relations <span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span></h4>
+                                <?php viswiz_render_graph_node_datalist( $nodes, 'viswiz_visual_relation_nodes' ); ?>
                                 <div id="viswiz-graph-links" class="viswiz-repeatable viswiz-card-list">
                                     <?php $links = $graph_data['links'] ?? array(); ?>
                                     <?php if ( empty( $links ) ) : ?>
                                         <?php $links = array( array( 'from' => '', 'to' => '', 'label' => '' ) ); ?>
                                     <?php endif; ?>
                                     <?php foreach ( $links as $link_index => $link ) : ?>
-                                        <?php viswiz_render_graph_link_row( 'viswiz_graph_data[links]', $link, $link_index, $dataset_label, '', $nodes ); ?>
+                                        <?php viswiz_render_graph_link_row( 'viswiz_graph_data[links]', $link, $link_index, $dataset_label, 'viswiz_visual_relation_nodes', $nodes ); ?>
                                     <?php endforeach; ?>
                                 </div>
                                 <button type="button" class="button" data-viswiz-add="graph-link">Add Relation</button>
@@ -960,8 +961,8 @@ function viswiz_render_graph_link_row( $name_prefix, $link = array(), $index = 0
     <details class="viswiz-relation-card viswiz-sortable-card" data-viswiz-relation-card data-relation-index="<?php echo esc_attr( $index ); ?>" data-relation-from="<?php echo esc_attr( $from ); ?>" data-relation-to="<?php echo esc_attr( $to ); ?>">
         <summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong><?php echo esc_html( $link['label'] ?? 'Relation' ); ?></strong><span class="viswiz-relation-card-summary-meta"><?php echo esc_html( trim( $from_display . ' → ' . $to_display, ' →' ) ?: 'No endpoints' ); ?></span><?php if ( $dataset_label ) : ?><span class="viswiz-dataset-badge"><?php echo esc_html( $dataset_label ); ?></span><?php endif; ?></summary>
         <div class="viswiz-relation-grid">
-            <label>From <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[from][]" placeholder="Search/select source node" value="<?php echo esc_attr( $from_display ); ?>" class="regular-text" data-viswiz-relation-from <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
-            <label>To <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[to][]" placeholder="Search/select target node" value="<?php echo esc_attr( $to_display ); ?>" class="regular-text" data-viswiz-relation-to <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
+            <label>From <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[from][]" placeholder="Type 3+ characters to select source node" value="<?php echo esc_attr( $from_display ); ?>" class="regular-text" data-viswiz-relation-from <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
+            <label>To <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[to][]" placeholder="Type 3+ characters to select target node" value="<?php echo esc_attr( $to_display ); ?>" class="regular-text" data-viswiz-relation-to <?php echo $node_datalist_id ? 'list="' . esc_attr( $node_datalist_id ) . '"' : ''; ?> /></label>
             <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Relation label" value="<?php echo esc_attr( $link['label'] ?? '' ); ?>" class="regular-text" />
             <select name="<?php echo esc_attr( $name_prefix ); ?>[direction][]"><option value="directed" <?php selected( $link['direction'] ?? 'directed', 'directed' ); ?>>Directed</option><option value="undirected" <?php selected( $link['direction'] ?? '', 'undirected' ); ?>>Undirected</option><option value="bidirectional" <?php selected( $link['direction'] ?? '', 'bidirectional' ); ?>>Bidirectional</option></select>
             <input type="number" name="<?php echo esc_attr( $name_prefix ); ?>[intensity][]" placeholder="Intensity" value="<?php echo esc_attr( $link['intensity'] ?? '1' ); ?>" min="0" step="0.01" />
