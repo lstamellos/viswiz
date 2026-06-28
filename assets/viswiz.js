@@ -155,6 +155,7 @@
       node.display_image_url = node.main_image_url || node.default_image_url || '';
     });
 
+    const nodeIds = new Set(nodes.map((node) => String(node.id)));
     const links = (data.links || []).map((l) => ({
       source: l.from,
       target: l.to,
@@ -162,7 +163,7 @@
       direction: l.direction || 'directed',
       intensity: parseFloat(l.intensity || 1),
       relation_type: l.relation_type || '',
-    }));
+    })).filter((link) => nodeIds.has(String(link.source)) && nodeIds.has(String(link.target)));
 
     if (!nodes.length) {
       container.textContent = 'No graph data available.';

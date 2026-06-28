@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.10
+ * Version: 1.3.11
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.10';
+const VISWIZ_VERSION = '1.3.11';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -179,13 +179,7 @@ function viswiz_enqueue_assets() {
         array(),
         VISWIZ_VERSION
     );
-    wp_register_script(
-        'd3',
-        'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js',
-        array(),
-        '7.9.0',
-        true
-    );
+    viswiz_register_d3_script();
     wp_register_script(
         'viswiz-script',
         plugins_url( 'assets/viswiz.js', __FILE__ ),
@@ -218,6 +212,20 @@ function viswiz_enqueue_assets() {
             'salesProduct' => viswiz_get_sales_product_ids(),
             'salesCategory' => viswiz_get_sales_category_ids(),
         )
+    );
+}
+
+function viswiz_register_d3_script() {
+    if ( wp_script_is( 'd3', 'registered' ) ) {
+        return;
+    }
+
+    wp_register_script(
+        'd3',
+        'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js',
+        array(),
+        '7.9.0',
+        true
     );
 }
 
@@ -2433,11 +2441,12 @@ function viswiz_enqueue_admin_assets( $hook ) {
 
     wp_enqueue_media();
     wp_enqueue_editor();
+    viswiz_register_d3_script();
 
     wp_enqueue_script(
         'viswiz-admin',
         plugins_url( 'assets/viswiz-admin.js', __FILE__ ),
-        array( 'jquery', 'wp-editor' ),
+        array( 'jquery', 'wp-editor', 'd3' ),
         VISWIZ_VERSION,
         true
     );

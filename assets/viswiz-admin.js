@@ -1956,8 +1956,11 @@
     const nodes = (data.nodes || []).map(function (n) {
       return { id: n.id, label: n.label || n.id };
     });
+    const nodeIds = new Set(nodes.map(function (node) { return String(node.id); }));
     const links = (data.links || []).map(function (l) {
       return { source: l.from, target: l.to, label: l.label || '', direction: l.direction || 'directed', intensity: parseFloat(l.intensity || 1), relation_type: l.relation_type || '' };
+    }).filter(function (link) {
+      return nodeIds.has(String(link.source)) && nodeIds.has(String(link.target));
     });
 
     if (!nodes.length) {
