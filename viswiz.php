@@ -934,7 +934,7 @@ function viswiz_render_graph_node_datalist( $nodes, $datalist_id ) {
         <?php foreach ( $nodes as $node_index => $node ) : ?>
             <?php $node_id = viswiz_get_node_auto_id( $node, $node_index ); ?>
             <?php $node_title = $node['title'] ?? ( $node['label'] ?? $node_id ); ?>
-            <option value="<?php echo esc_attr( $node_title ); ?>" data-node-id="<?php echo esc_attr( $node_id ); ?>"><?php echo esc_html( $node_id ); ?></option>
+            <option value="<?php echo esc_attr( $node_title ); ?>" label="<?php echo esc_attr( $node_id ); ?>" data-node-id="<?php echo esc_attr( $node_id ); ?>" data-node-search="<?php echo esc_attr( strtolower( wp_strip_all_tags( implode( ' ', array( $node_title, $node['label'] ?? '', $node_id ) ) ) ) ); ?>"><?php echo esc_html( $node_id ); ?></option>
         <?php endforeach; ?>
     </datalist>
     <?php
