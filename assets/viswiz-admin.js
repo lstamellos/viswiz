@@ -674,6 +674,10 @@
     modalFrame.className = 'viswiz-node-editor-modal-frame';
     modal.appendChild(modalFrame);
 
+    const modalContent = document.createElement('div');
+    modalContent.className = 'viswiz-node-editor-modal-content';
+    modalFrame.appendChild(modalContent);
+
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'button-link media-modal-close viswiz-modal-close-button';
@@ -681,11 +685,7 @@
     button.setAttribute('aria-label', closeLabel || t('closeModal', 'Close modal'));
     button.title = closeLabel || t('closeModal', 'Close modal');
     button.innerHTML = '<span class="media-modal-icon" aria-hidden="true"></span>';
-    modalFrame.appendChild(button);
-
-    const modalContent = document.createElement('div');
-    modalContent.className = 'viswiz-node-editor-modal-content';
-    modalFrame.appendChild(modalContent);
+    modalContent.appendChild(button);
 
     return { modal, modalContent };
   }
@@ -1532,7 +1532,7 @@
     const relation = document.querySelector('#viswiz-visual-graph-links [data-viswiz-relation-card]:last-child');
     if (relation) {
       const from = relation.querySelector('[data-viswiz-relation-from]');
-      if (from) from.value = getNodeDisplayForId(nodeId);
+      if (from) from.value = nodeId;
       updateRelationCardDataset(relation);
       openNodeRelationEditor(card, relation);
     }
