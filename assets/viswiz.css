@@ -372,34 +372,17 @@ body.viswiz-node-modal-open {
   display: flex;
   align-items: stretch;
   justify-content: center;
+  pointer-events: none;
 }
 
 .viswiz-node-editor-modal-content {
   position: relative;
   width: min(1200px, 100%);
-  min-height: 100%;
+  max-height: calc(100vh - var(--wp-admin--admin-bar--height, 32px) - 48px);
   overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;
-}
-
-.viswiz-modal-close-button {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  width: 50px;
-  height: 50px;
-}
-
-.viswiz-modal-close-button .media-modal-icon::before {
-  content: '\f158';
-  display: inline-block;
-  font: normal 20px/1 dashicons;
-  speak: never;
-  vertical-align: middle;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  pointer-events: auto;
 }
 
 body.viswiz-node-modal-open .viswiz-node-card.is-editing,
@@ -408,7 +391,6 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
   cursor: default;
   display: block;
   width: 100%;
-  min-height: 100%;
   max-width: none;
   overflow-x: hidden;
   overflow-y: visible;
@@ -1108,4 +1090,30 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 .viswiz-relation-card summary,
 .viswiz-node-card summary {
   cursor: pointer;
+}
+
+.viswiz-modal-close-button {
+  position: sticky;
+  top: 12px;
+  right: 12px;
+  z-index: 100002;
+  float: right;
+  width: 36px;
+  height: 36px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 12px -48px auto;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+}
+
+.viswiz-modal-close-button .media-modal-icon::before {
+  content: "\00d7";
+  color: #1d2327;
+  font-size: 28px;
+  line-height: 1;
 }

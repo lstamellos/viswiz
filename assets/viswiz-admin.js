@@ -1,6 +1,8 @@
 (function ($) {
   const graphNodeSubtypes = (window.VisWizAdmin && VisWizAdmin.nodeSubtypes) || {};
   let autosaveTimer = null;
+  const i18n = (window.VisWizAdmin && VisWizAdmin.i18n) || {};
+  const t = (key, fallback) => i18n[key] || fallback;
 
   function getSubtypeEntries(nodeType) {
     const options = graphNodeSubtypes[nodeType] || [];
@@ -672,17 +674,18 @@
     modalFrame.className = 'viswiz-node-editor-modal-frame';
     modal.appendChild(modalFrame);
 
+    const modalContent = document.createElement('div');
+    modalContent.className = 'viswiz-node-editor-modal-content';
+    modalFrame.appendChild(modalContent);
+
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'button-link media-modal-close viswiz-modal-close-button';
     button.dataset.viswizModalDismiss = '1';
-    button.setAttribute('aria-label', closeLabel);
+    button.setAttribute('aria-label', closeLabel || t('closeModal', 'Close modal'));
+    button.title = closeLabel || t('closeModal', 'Close modal');
     button.innerHTML = '<span class="media-modal-icon" aria-hidden="true"></span>';
-    modalFrame.appendChild(button);
-
-    const modalContent = document.createElement('div');
-    modalContent.className = 'viswiz-node-editor-modal-content';
-    modalFrame.appendChild(modalContent);
+    modalContent.appendChild(button);
 
     return { modal, modalContent };
   }
@@ -704,7 +707,7 @@
     placeholder.innerHTML = summary ? summary.outerHTML : '<summary><strong>Editing node…</strong></summary>';
     card.parentNode.insertBefore(placeholder, card);
 
-    const { modal, modalContent } = createEditorModalShell('node', 'Close node editor');
+    const { modal, modalContent } = createEditorModalShell('node', t('closeNodeEditor', 'Close node editor'));
     form.appendChild(modal);
     modalContent.appendChild(card);
 
@@ -752,7 +755,7 @@
     if (window.tinyMCE && tinyMCE.triggerSave) {
       tinyMCE.triggerSave();
     }
-    if (options.setStatus) options.setStatus('Autosaving…', 'saving');
+    if (options.setStatus) options.setStatus(t('autosaving', 'Autosaving…'), 'saving');
     const formData = new FormData();
     formData.set('action', 'viswiz_autosave_graph_node');
     formData.set('nonce', VisWizAdmin.nonce || '');
@@ -776,11 +779,11 @@
         if (!response || !response.success) {
           throw new Error('Autosave failed');
         }
-        if (options.setStatus) options.setStatus('Autosaved.', 'saved');
+        if (options.setStatus) options.setStatus(t('autosaved', 'Autosaved.'), 'saved');
         closeCallback(card);
       })
       .catch(() => {
-        if (options.setStatus) options.setStatus('Autosave failed. Use Save to retry.', 'error');
+        if (options.setStatus) options.setStatus(t('autosaveFailed', 'Autosave failed. Use Save to retry.'), 'error');
       });
   }
 
@@ -878,7 +881,7 @@
     const summary = card.querySelector('summary');
     placeholder.innerHTML = summary ? summary.outerHTML : '<summary><strong>Editing relation…</strong></summary>';
     card.parentNode.insertBefore(placeholder, card);
-    const { modal, modalContent } = createEditorModalShell('relation', 'Close relation editor');
+    const { modal, modalContent } = createEditorModalShell('relation', t('closeRelationEditor', 'Close relation editor'));
     form.appendChild(modal);
     modalContent.appendChild(card);
     card.open = true;
@@ -1390,6 +1393,7 @@
 
   $(document).on('click', '.viswiz-tab-button', function () {
     const tab = $(this).data('viswiz-tab');
+    $('[data-viswiz-active-tab-input]').val(tab);
     $('.viswiz-tab-button').removeClass('is-active');
     $(this).addClass('is-active');
     $('.viswiz-tab-panel').removeClass('is-active');
@@ -1400,6 +1404,8 @@
 
 
   $(document).on('submit', 'form', function () {
+    const activeTab = $('.viswiz-tab-button.is-active').data('viswiz-tab');
+    if (activeTab) $('[data-viswiz-active-tab-input]', this).val(activeTab);
     this.querySelectorAll('[data-viswiz-relation-from], [data-viswiz-relation-to]').forEach((input) => {
       input.value = getNodeIdForDisplay(input.value);
     });
@@ -1526,7 +1532,7 @@
     const relation = document.querySelector('#viswiz-visual-graph-links [data-viswiz-relation-card]:last-child');
     if (relation) {
       const from = relation.querySelector('[data-viswiz-relation-from]');
-      if (from) from.value = getNodeDisplayForId(nodeId);
+      if (from) from.value = nodeId;
       updateRelationCardDataset(relation);
       openNodeRelationEditor(card, relation);
     }
@@ -1614,6 +1620,8 @@
   }
 
   $(document).on('submit', 'form', function () {
+    const activeTab = $('.viswiz-tab-button.is-active').data('viswiz-tab');
+    if (activeTab) $('[data-viswiz-active-tab-input]', this).val(activeTab);
     reindexGraphCustomLabels();
   });
 

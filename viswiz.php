@@ -2,8 +2,10 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.12
+ * Version: 1.3.14
  * Author: cremedia.studio
+ * Text Domain: viswiz
+ * Domain Path: /languages
  * Requires Plugins: woocommerce
  */
 
@@ -11,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.12';
+const VISWIZ_VERSION = '1.3.14';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -27,6 +29,7 @@ const VISWIZ_OPTION_CURRENCY = 'viswiz_currency_code';
 const VISWIZ_OPTION_SALES_CATEGORIES = 'viswiz_sales_category_ids';
 
 register_activation_hook( __FILE__, 'viswiz_activate' );
+add_action( 'plugins_loaded', 'viswiz_load_textdomain' );
 add_action( 'init', 'viswiz_register_shortcodes' );
 add_action( 'rest_api_init', 'viswiz_register_rest_routes' );
 add_action( 'wp_enqueue_scripts', 'viswiz_enqueue_assets' );
@@ -37,12 +40,18 @@ add_action( 'init', 'viswiz_register_visualizations_cpt' );
 add_action( 'init', 'viswiz_register_block_assets' );
 add_action( 'add_meta_boxes', 'viswiz_register_visualization_meta_box' );
 add_action( 'save_post_viswiz_visualization', 'viswiz_save_visualization_meta' );
+add_filter( 'redirect_post_location', 'viswiz_redirect_to_active_visualization_tab', 10, 2 );
 add_action( 'admin_enqueue_scripts', 'viswiz_enqueue_admin_assets' );
 add_action( 'wp_ajax_viswiz_autosave_node_type', 'viswiz_ajax_autosave_node_type' );
 add_action( 'wp_ajax_viswiz_autosave_graph_node', 'viswiz_ajax_autosave_graph_node' );
 add_filter( 'manage_viswiz_visualization_posts_columns', 'viswiz_add_visualization_columns' );
 add_action( 'manage_viswiz_visualization_posts_custom_column', 'viswiz_render_visualization_columns', 10, 2 );
 
+
+
+function viswiz_load_textdomain() {
+    load_plugin_textdomain( 'viswiz', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+}
 
 function viswiz_activate() {
     viswiz_create_custom_tables();
@@ -137,20 +146,20 @@ function viswiz_get_table_name( $table ) {
 
 function viswiz_get_supported_visualization_types() {
     return array(
-        'pie' => 'Pie',
-        'bar' => 'Bar',
-        'column' => 'Column',
-        'line' => 'Line',
-        'area' => 'Area',
-        'scatter' => 'Scatter',
-        'progress' => 'Progress',
-        'counter' => 'Counter',
-        'timeline' => 'Timeline',
-        'graph' => 'Graph',
-        'flow_diagram' => 'Flow Diagram',
-        'org_chart' => 'Org Chart',
-        'map' => 'Map',
-        'diagram' => 'Diagram (legacy)',
+        'pie' => __( 'Pie', 'viswiz' ),
+        'bar' => __( 'Bar', 'viswiz' ),
+        'column' => __( 'Column', 'viswiz' ),
+        'line' => __( 'Line', 'viswiz' ),
+        'area' => __( 'Area', 'viswiz' ),
+        'scatter' => __( 'Scatter', 'viswiz' ),
+        'progress' => __( 'Progress', 'viswiz' ),
+        'counter' => __( 'Counter', 'viswiz' ),
+        'timeline' => __( 'Timeline', 'viswiz' ),
+        'graph' => __( 'Graph', 'viswiz' ),
+        'flow_diagram' => __( 'Flow Diagram', 'viswiz' ),
+        'org_chart' => __( 'Org Chart', 'viswiz' ),
+        'map' => __( 'Map', 'viswiz' ),
+        'diagram' => __( 'Diagram (legacy)', 'viswiz' ),
     );
 }
 
@@ -1725,21 +1734,23 @@ function viswiz_register_visualization_meta_box() {
 
 function viswiz_render_visualization_meta_box( WP_Post $post ) {
     wp_nonce_field( 'viswiz_visualization_save', 'viswiz_visualization_nonce' );
+    $active_tab = isset( $_GET['viswiz_tab'] ) ? sanitize_key( wp_unslash( $_GET['viswiz_tab'] ) ) : 'data';
     $meta = viswiz_get_visualization_meta( $post->ID );
     $manual_progress = $meta['manual_progress'];
     $manual_pie = $meta['manual_pie'];
     $diagram_data = $meta['diagram_data'];
     $graph_data = $meta['graph_data'];
     ?>
+    <input type="hidden" name="viswiz_active_tab" value="<?php echo esc_attr( $active_tab ); ?>" data-viswiz-active-tab-input />
     <div class="viswiz-meta-tabs">
-        <button type="button" class="button viswiz-tab-button is-active" data-viswiz-tab="data">Data</button>
-        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="nodes">Nodes</button>
-        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="node-types">Node Types</button>
-        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="relations">Relations</button>
-        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="formatting">Formatting</button>
-        <button type="button" class="button viswiz-tab-button" data-viswiz-tab="preview">Preview</button>
+        <button type="button" class="button viswiz-tab-button <?php echo $active_tab === 'data' ? 'is-active' : ''; ?>" data-viswiz-tab="data">Data</button>
+        <button type="button" class="button viswiz-tab-button <?php echo $active_tab === 'nodes' ? 'is-active' : ''; ?>" data-viswiz-tab="nodes">Nodes</button>
+        <button type="button" class="button viswiz-tab-button <?php echo $active_tab === 'node-types' ? 'is-active' : ''; ?>" data-viswiz-tab="node-types">Node Types</button>
+        <button type="button" class="button viswiz-tab-button <?php echo $active_tab === 'relations' ? 'is-active' : ''; ?>" data-viswiz-tab="relations">Relations</button>
+        <button type="button" class="button viswiz-tab-button <?php echo $active_tab === 'formatting' ? 'is-active' : ''; ?>" data-viswiz-tab="formatting">Formatting</button>
+        <button type="button" class="button viswiz-tab-button <?php echo $active_tab === 'preview' ? 'is-active' : ''; ?>" data-viswiz-tab="preview">Preview</button>
     </div>
-    <div class="viswiz-tab-panel is-active" data-viswiz-panel="data">
+    <div class="viswiz-tab-panel <?php echo $active_tab === 'data' ? 'is-active' : ''; ?>" data-viswiz-panel="data">
     <div class="viswiz-editor-guide" aria-live="polite">
         <strong>Element editing guide</strong>
         <ul>
@@ -1914,7 +1925,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         <button type="button" class="button" data-viswiz-add="visual-diagram">Add Diagram Section</button>
     </div>
     </div>
-    <div class="viswiz-tab-panel" data-viswiz-panel="nodes">
+    <div class="viswiz-tab-panel <?php echo $active_tab === 'nodes' ? 'is-active' : ''; ?>" data-viswiz-panel="nodes">
     <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
         <h4>Nodes <span class="viswiz-dataset-badge"><?php echo esc_html( viswiz_get_graph_dataset_label( $meta['dataset_id'] ) ); ?></span></h4>
         <div class="viswiz-graph">
@@ -1951,14 +1962,14 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         </div>
     </div>
     </div>
-    <div class="viswiz-tab-panel" data-viswiz-panel="node-types">
+    <div class="viswiz-tab-panel <?php echo $active_tab === 'node-types' ? 'is-active' : ''; ?>" data-viswiz-panel="node-types">
         <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
             <h4>Node Types &amp; Subtypes</h4>
             <p class="description">Review node type usage, edit node assignments, approve or reject author-proposed subtypes, and delete type/subtype assignments. Actions warn when linked nodes are affected.</p>
             <div id="viswiz-node-type-manager" class="viswiz-node-type-manager" data-viswiz-node-type-manager></div>
         </div>
     </div>
-    <div class="viswiz-tab-panel" data-viswiz-panel="relations">
+    <div class="viswiz-tab-panel <?php echo $active_tab === 'relations' ? 'is-active' : ''; ?>" data-viswiz-panel="relations">
         <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
             <h4>Relations <span class="viswiz-dataset-badge"><?php echo esc_html( viswiz_get_graph_dataset_label( $meta['dataset_id'] ) ); ?></span></h4>
             <?php viswiz_render_graph_node_datalist( $graph_data['nodes'] ?? array(), 'viswiz_visual_relation_nodes' ); ?>
@@ -1974,7 +1985,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             <button type="button" class="button" data-viswiz-add="visual-graph-link">Add Relation</button>
         </div>
     </div>
-    <div class="viswiz-tab-panel" data-viswiz-panel="formatting">
+    <div class="viswiz-tab-panel <?php echo $active_tab === 'formatting' ? 'is-active' : ''; ?>" data-viswiz-panel="formatting">
         <p>
             <label for="viswiz_animation">Animation</label>
             <select name="viswiz_meta[animation]" id="viswiz_animation">
@@ -2028,7 +2039,7 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
             </p>
         </div>
     </div>
-    <div class="viswiz-tab-panel" data-viswiz-panel="preview">
+    <div class="viswiz-tab-panel <?php echo $active_tab === 'preview' ? 'is-active' : ''; ?>" data-viswiz-panel="preview">
         <p class="description">This preview shows how your visualization will appear based on current settings. For WooCommerce data sources, sample data is shown.</p>
         <button type="button" class="button button-secondary" id="viswiz-refresh-preview">Refresh Preview</button>
         <div id="viswiz-preview-container" class="viswiz-preview-wrap"></div>
@@ -2108,6 +2119,15 @@ function viswiz_save_visualization_meta( $post_id ) {
     $pie_json = viswiz_sanitize_pie_option( $meta['manual_pie'] ?? array() );
     $diagram_json = viswiz_sanitize_diagram_option( $meta['diagram_data'] ?? array() );
     $graph_json = viswiz_sanitize_graph_option( $meta['graph_data'] ?? array() );
+    $graph_data_for_tables = json_decode( $graph_json, true ) ?: array();
+
+    if ( ! isset( $meta['graph_data']['links'] ) ) {
+        $existing_graph_data = json_decode( get_post_meta( $post_id, 'viswiz_graph_data', true ) ?: '[]', true );
+        if ( is_array( $existing_graph_data ) && ! empty( $existing_graph_data['links'] ) ) {
+            $graph_data_for_tables['links'] = $existing_graph_data['links'];
+            $graph_json = viswiz_json_encode( $graph_data_for_tables );
+        }
+    }
 
     update_post_meta( $post_id, 'viswiz_manual_progress', $progress_json );
     update_post_meta( $post_id, 'viswiz_manual_pie', $pie_json );
@@ -2125,8 +2145,42 @@ function viswiz_save_visualization_meta( $post_id ) {
         'manual_progress' => json_decode( $progress_json, true ) ?: array(),
         'manual_pie' => json_decode( $pie_json, true ) ?: array(),
         'diagram_data' => json_decode( $diagram_json, true ) ?: array(),
-        'graph_data' => json_decode( $graph_json, true ) ?: array(),
+        'graph_data' => $graph_data_for_tables,
     ) );
+}
+
+
+function viswiz_redirect_to_active_visualization_tab( $location, $post_id ) {
+    if ( get_post_type( $post_id ) !== 'viswiz_visualization' || empty( $_POST['viswiz_active_tab'] ) ) {
+        return $location;
+    }
+    $tab = sanitize_key( wp_unslash( $_POST['viswiz_active_tab'] ) );
+    $allowed = array( 'data', 'nodes', 'node-types', 'relations', 'formatting', 'preview' );
+    if ( ! in_array( $tab, $allowed, true ) ) {
+        return $location;
+    }
+    return add_query_arg( 'viswiz_tab', $tab, $location );
+}
+
+function viswiz_get_admin_i18n() {
+    return array(
+        'closeModal' => __( 'Close modal', 'viswiz' ),
+        'closeNodeEditor' => __( 'Close node editor', 'viswiz' ),
+        'closeRelationEditor' => __( 'Close relation editor', 'viswiz' ),
+        'autosaving' => __( 'Autosaving…', 'viswiz' ),
+        'autosaved' => __( 'Autosaved.', 'viswiz' ),
+        'autosaveFailed' => __( 'Autosave failed. Use Save to retry.', 'viswiz' ),
+        'selectNode' => __( 'Select a node…', 'viswiz' ),
+        'noImage' => __( 'No image', 'viswiz' ),
+        'noImageSelected' => __( 'No image selected', 'viswiz' ),
+        'noImagesSelected' => __( 'No images selected', 'viswiz' ),
+        'nodeImages' => __( 'Node images', 'viswiz' ),
+        'featuredImage' => __( 'Featured image', 'viswiz' ),
+        'attachedImage' => __( 'Attached image', 'viswiz' ),
+        'replace' => __( 'Replace', 'viswiz' ),
+        'edit' => __( 'Edit', 'viswiz' ),
+        'remove' => __( 'Remove', 'viswiz' ),
+    );
 }
 
 function viswiz_get_visualization_meta( $post_id ) {
@@ -2336,9 +2390,17 @@ function viswiz_ajax_autosave_graph_node() {
 
     $meta = wp_unslash( $_POST['viswiz_meta'] );
     $graph_json = viswiz_sanitize_graph_option( $meta['graph_data'] ?? array() );
+    if ( ! isset( $meta['graph_data']['links'] ) ) {
+        $graph_data = json_decode( $graph_json, true ) ?: array();
+        $existing_graph_data = json_decode( get_post_meta( $post_id, 'viswiz_graph_data', true ) ?: '[]', true );
+        if ( is_array( $existing_graph_data ) && ! empty( $existing_graph_data['links'] ) ) {
+            $graph_data['links'] = $existing_graph_data['links'];
+            $graph_json = viswiz_json_encode( $graph_data );
+        }
+    }
     update_post_meta( $post_id, 'viswiz_graph_data', $graph_json );
 
-    wp_send_json_success( array( 'message' => 'Node changes autosaved.' ) );
+    wp_send_json_success( array( 'message' => __( 'Node changes autosaved.', 'viswiz' ) ) );
 }
 
 function viswiz_ajax_autosave_node_type() {
@@ -2459,6 +2521,7 @@ function viswiz_enqueue_admin_assets( $hook ) {
             'nonce' => wp_create_nonce( 'viswiz_node_type_autosave' ),
             'postId' => $is_viswiz_post ? (int) ( get_the_ID() ?: filter_input( INPUT_GET, 'post', FILTER_VALIDATE_INT ) ) : 0,
             'nodeSubtypes' => viswiz_get_graph_node_subtypes_for_script(),
+            'i18n' => viswiz_get_admin_i18n(),
         )
     );
 
