@@ -232,6 +232,116 @@
   }
 
 
+
+  function getMediaThumbUrl(item) {
+    return item?.sizes?.thumbnail?.url || item?.sizes?.medium?.url || item?.url || '';
+  }
+
+  function getMediaAttachmentData(id, selectedById) {
+    const selected = selectedById.get(String(id));
+    if (selected) {
+      return Promise.resolve(selected);
+    }
+    if (!window.wp || !wp.media || !wp.media.attachment) {
+      return Promise.resolve({ id });
+    }
+    const attachment = wp.media.attachment(id);
+    return attachment.fetch().then(() => attachment.toJSON(), () => ({ id }));
+  }
+
+  function renderNodeImageGallery(gallery, ids, mainId, selectedById) {
+    Promise.all(ids.map((id) => getMediaAttachmentData(id, selectedById))).then((items) => {
+      const title = gallery.querySelector('strong')?.outerHTML || '<strong>Node images</strong>';
+      const figures = ids.map((id, index) => {
+        const url = getMediaThumbUrl(items[index]);
+        const isFeatured = String(id) === String(mainId);
+        const image = url ? `<img class="viswiz-node-image-thumb-img" src="${escapeAttribute(url)}" alt="" />` : `<span class="viswiz-node-card-image-placeholder" aria-hidden="true">#${escapeAttribute(id)}</span>`;
+        return `<figure class="viswiz-node-image-thumb${isFeatured ? ' is-featured' : ''}" data-viswiz-node-image-id="${escapeAttribute(id)}">${image}<figcaption>${isFeatured ? 'Featured image' : 'Attached image'} <span>#${escapeAttribute(id)}</span></figcaption><div class="viswiz-node-image-actions"><button type="button" class="button button-small" data-viswiz-node-image-replace="${escapeAttribute(id)}">Replace</button><button type="button" class="button button-small" data-viswiz-node-image-edit="${escapeAttribute(id)}">Edit</button><button type="button" class="button button-small button-link-delete" data-viswiz-node-image-remove="${escapeAttribute(id)}">Remove</button></div></figure>`;
+      }).join('');
+      gallery.innerHTML = `${title}<div class="viswiz-node-image-gallery-grid">${figures}</div>`;
+    });
+  }
+
+  function updateNodeImageGallery(card, selectedItems = []) {
+    const gallery = card?.querySelector('[data-viswiz-node-image-gallery]');
+    if (!gallery) return;
+    const mainId = card.querySelector('[data-viswiz-main-image-value]')?.value || '';
+    const otherIds = (card.querySelector('[data-viswiz-other-images-value]')?.value || '').split(',').filter(Boolean);
+    const selectedById = new Map(selectedItems.map((item) => [String(item.id), item]));
+    const ids = Array.from(new Set([mainId, ...otherIds].filter(Boolean)));
+    const title = gallery.querySelector('strong')?.outerHTML || '<strong>Node images</strong>';
+    if (!ids.length) {
+      gallery.innerHTML = `${title}<p class="description" data-viswiz-node-image-empty>No images attached to this node.</p>`;
+      return;
+    }
+    gallery.innerHTML = `${title}<p class="description" data-viswiz-node-image-empty>Loading node images…</p>`;
+    renderNodeImageGallery(gallery, ids, mainId, selectedById);
+  }
+
+
+  function getNodeImageIds(card) {
+    const mainId = card.querySelector('[data-viswiz-main-image-value]')?.value || '';
+    const otherIds = (card.querySelector('[data-viswiz-other-images-value]')?.value || '').split(',').filter(Boolean);
+    return { mainId, otherIds };
+  }
+
+  function setNodeImageIds(card, mainId, otherIds, selectedItems = []) {
+    const uniqueOtherIds = Array.from(new Set(otherIds.filter(Boolean).map(String))).filter((id) => id !== String(mainId));
+    const mainInput = card.querySelector('[data-viswiz-main-image-value]');
+    const otherInput = card.querySelector('[data-viswiz-other-images-value]');
+    if (mainInput) mainInput.value = mainId || '';
+    if (otherInput) otherInput.value = uniqueOtherIds.join(',');
+    const mainLabel = mainInput?.closest('.viswiz-media-field')?.querySelector('[data-viswiz-media-label]');
+    const otherLabel = otherInput?.closest('.viswiz-media-field')?.querySelector('[data-viswiz-media-label]');
+    if (mainLabel) mainLabel.textContent = mainId ? `#${mainId}` : 'No image selected';
+    if (otherLabel) otherLabel.textContent = uniqueOtherIds.length ? uniqueOtherIds.join(',') : 'No images selected';
+    updateNodeMainImagePreview(card, mainId, selectedItems);
+    updateNodeImageGallery(card, selectedItems);
+  }
+
+  function updateNodeMainImagePreview(card, mainId, selectedItems = []) {
+    const media = card.querySelector('.viswiz-node-card-media');
+    if (!media) return;
+    if (!mainId) {
+      media.innerHTML = '<span class="viswiz-node-card-image-placeholder" aria-hidden="true">No image</span>';
+      return;
+    }
+    const selectedById = new Map(selectedItems.map((item) => [String(item.id), item]));
+    getMediaAttachmentData(mainId, selectedById).then((item) => {
+      const url = getMediaThumbUrl(item);
+      media.innerHTML = url ? `<img class="viswiz-node-card-image" src="${escapeAttribute(url)}" alt="" />` : `<span class="viswiz-node-card-image-placeholder" aria-hidden="true">#${escapeAttribute(mainId)}</span>`;
+    });
+  }
+
+  function removeNodeImage(card, imageId) {
+    const { mainId, otherIds } = getNodeImageIds(card);
+    const nextMainId = String(mainId) === String(imageId) ? '' : mainId;
+    setNodeImageIds(card, nextMainId, otherIds.filter((id) => String(id) !== String(imageId)));
+  }
+
+  function replaceNodeImage(card, imageId) {
+    if (!window.wp || !wp.media) return;
+    const frame = wp.media({ title: 'Replace node image', multiple: false, library: { type: 'image' } });
+    frame.on('select', function () {
+      const selection = frame.state().get('selection').toJSON();
+      const replacement = selection[0];
+      if (!replacement) return;
+      const { mainId, otherIds } = getNodeImageIds(card);
+      const replacementId = String(replacement.id);
+      const replacingMain = String(mainId) === String(imageId);
+      const nextMainId = replacingMain ? replacementId : mainId;
+      const nextOtherIds = replacingMain ? otherIds : otherIds.map((id) => String(id) === String(imageId) ? replacementId : id);
+      setNodeImageIds(card, nextMainId, nextOtherIds, selection);
+    });
+    frame.open();
+  }
+
+  function editNodeImage(imageId) {
+    if (!imageId) return;
+    const adminUrl = window.ajaxurl ? window.ajaxurl.replace('admin-ajax.php', `post.php?post=${encodeURIComponent(imageId)}&action=edit`) : `post.php?post=${encodeURIComponent(imageId)}&action=edit`;
+    window.open(adminUrl, '_blank', 'noopener');
+  }
+
   function getNextGraphNodeId(container) {
     const ids = Array.from(container.querySelectorAll('[data-viswiz-node-id]')).map((input) => input.value);
     let index = ids.length + 1;
@@ -264,9 +374,10 @@
         <label>Short label <input type="text" name="${namePrefix}[label][]" placeholder="Optional short label" class="regular-text" /></label>
         <label>Node type <select name="${namePrefix}[node_type][]" data-viswiz-node-type><option value="">Select node type</option><option value="person">Person</option><option value="organization">Organization</option><option value="event">Event</option><option value="place">Place</option><option value="publication">Publication</option><option value="legal_case">Legal case</option><option value="state_body">State body</option><option value="symbol">Symbol</option><option value="concept">Concept</option><option value="asset">Asset</option></select></label>
         <label>Node subtype <select name="${namePrefix}[node_subtype][]" data-viswiz-node-subtype><option value="">No subtype</option><option value="proposed">Other / proposed subtype</option></select></label>
-        <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
-        <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
+        <label>Main image <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[main_image][]" value="" data-viswiz-media-value data-viswiz-main-image-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label>No image selected</span></span></label>
+        <label>Other images <span class="viswiz-media-field"><input type="hidden" name="${namePrefix}[other_images][]" value="" data-viswiz-media-value data-viswiz-other-images-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label>No images selected</span></span></label>
       </div>
+      <div class="viswiz-node-image-gallery" data-viswiz-node-image-gallery aria-live="polite"><strong>Node images</strong><p class="description" data-viswiz-node-image-empty>No images attached to this node.</p></div>
 
       <div class="viswiz-proposed-subtype" data-viswiz-proposed-subtype hidden>
         <strong>Proposed subtype workflow</strong>
@@ -1171,6 +1282,21 @@
     reindexGraphCustomLabels();
   });
 
+
+  $(document).on('click', '[data-viswiz-node-image-remove]', function () {
+    const card = this.closest('[data-viswiz-node-card]');
+    if (card) removeNodeImage(card, this.dataset.viswizNodeImageRemove);
+  });
+
+  $(document).on('click', '[data-viswiz-node-image-replace]', function () {
+    const card = this.closest('[data-viswiz-node-card]');
+    if (card) replaceNodeImage(card, this.dataset.viswizNodeImageReplace);
+  });
+
+  $(document).on('click', '[data-viswiz-node-image-edit]', function () {
+    editNodeImage(this.dataset.viswizNodeImageEdit);
+  });
+
   $(document).on('click', '[data-viswiz-media-select]', function () {
     if (!window.wp || !wp.media) return;
     const button = $(this);
@@ -1180,7 +1306,12 @@
       const selection = frame.state().get('selection').toJSON();
       const ids = selection.map((item) => item.id).join(',');
       button.siblings('[data-viswiz-media-value]').val(ids);
-      button.siblings('[data-viswiz-media-label]').text(ids ? '#' + ids : (multiple ? 'No images selected' : 'No image selected'));
+      button.siblings('[data-viswiz-media-label]').text(ids ? (multiple ? ids : '#' + ids) : (multiple ? 'No images selected' : 'No image selected'));
+      const card = button.closest('[data-viswiz-node-card]')[0];
+      if (card) {
+        const { mainId, otherIds } = getNodeImageIds(card);
+        setNodeImageIds(card, mainId, otherIds, selection);
+      }
     });
     frame.open();
   });

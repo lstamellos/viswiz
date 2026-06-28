@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.05
+ * Version: 1.3.07
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.05';
+const VISWIZ_VERSION = '1.3.07';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -826,6 +826,35 @@ function viswiz_get_node_auto_id( $node, $index ) {
     return sanitize_key( $id );
 }
 
+
+function viswiz_render_graph_node_image_gallery( $main_image, $other_images ) {
+    $other_image_ids = array_filter( array_map( 'absint', explode( ',', (string) $other_images ) ) );
+    $image_ids = array_values( array_unique( array_filter( array_merge( array( absint( $main_image ) ), $other_image_ids ) ) ) );
+    ?>
+    <div class="viswiz-node-image-gallery" data-viswiz-node-image-gallery aria-live="polite">
+        <strong>Node images</strong>
+        <?php if ( empty( $image_ids ) ) : ?>
+            <p class="description" data-viswiz-node-image-empty>No images attached to this node.</p>
+        <?php else : ?>
+            <div class="viswiz-node-image-gallery-grid">
+                <?php foreach ( $image_ids as $image_id ) : ?>
+                    <?php $is_featured = ( absint( $main_image ) === $image_id ); ?>
+                    <figure class="viswiz-node-image-thumb<?php echo $is_featured ? ' is-featured' : ''; ?>" data-viswiz-node-image-id="<?php echo esc_attr( $image_id ); ?>">
+                        <?php echo wp_get_attachment_image( $image_id, 'thumbnail', false, array( 'class' => 'viswiz-node-image-thumb-img' ) ); ?>
+                        <figcaption><?php echo $is_featured ? esc_html__( 'Featured image', 'viswiz' ) : esc_html__( 'Attached image', 'viswiz' ); ?> <span>#<?php echo esc_html( $image_id ); ?></span></figcaption>
+                        <div class="viswiz-node-image-actions">
+                            <button type="button" class="button button-small" data-viswiz-node-image-replace="<?php echo esc_attr( $image_id ); ?>"><?php esc_html_e( 'Replace', 'viswiz' ); ?></button>
+                            <button type="button" class="button button-small" data-viswiz-node-image-edit="<?php echo esc_attr( $image_id ); ?>"><?php esc_html_e( 'Edit', 'viswiz' ); ?></button>
+                            <button type="button" class="button button-small button-link-delete" data-viswiz-node-image-remove="<?php echo esc_attr( $image_id ); ?>"><?php esc_html_e( 'Remove', 'viswiz' ); ?></button>
+                        </div>
+                    </figure>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
 function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0, $dataset_label = '' ) {
     $id = viswiz_get_node_auto_id( $node, $index );
     $title = $node['title'] ?? ( $node['label'] ?? '' );
@@ -862,9 +891,10 @@ function viswiz_render_graph_node_row( $name_prefix, $node = array(), $index = 0
             <label>Short label <input type="text" name="<?php echo esc_attr( $name_prefix ); ?>[label][]" placeholder="Optional short label" value="<?php echo esc_attr( $node['label'] ?? '' ); ?>" class="regular-text" /></label>
             <label>Node type <select name="<?php echo esc_attr( $name_prefix ); ?>[node_type][]" data-viswiz-node-type><option value="">Select node type</option><?php foreach ( $node_types as $type_key => $type_label ) : ?><option value="<?php echo esc_attr( $type_key ); ?>" <?php selected( $node_type, $type_key ); ?>><?php echo esc_html( $type_label ); ?></option><?php endforeach; ?></select></label>
             <label>Node subtype <select name="<?php echo esc_attr( $name_prefix ); ?>[node_subtype][]" data-viswiz-node-subtype><option value="">No subtype</option><?php foreach ( $node_subtypes as $subtype_key => $subtype_label ) : ?><option value="<?php echo esc_attr( $subtype_key ); ?>" <?php selected( $node_subtype, $subtype_key ); ?>><?php echo esc_html( $subtype_label ); ?></option><?php endforeach; ?><option value="proposed" <?php selected( $node_subtype, 'proposed' ); ?>>Other / proposed subtype</option></select></label>
-            <label>Main image <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[main_image][]" value="<?php echo esc_attr( $main_image ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label><?php echo $main_image ? esc_html( '#' . $main_image ) : 'No image selected'; ?></span></span></label>
-            <label>Other images <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[other_images][]" value="<?php echo esc_attr( $other_images ); ?>" data-viswiz-media-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label><?php echo $other_images ? esc_html( $other_images ) : 'No images selected'; ?></span></span></label>
+            <label>Main image <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[main_image][]" value="<?php echo esc_attr( $main_image ); ?>" data-viswiz-media-value data-viswiz-main-image-value /><button type="button" class="button" data-viswiz-media-select="single">Select/upload</button><span data-viswiz-media-label><?php echo $main_image ? esc_html( '#' . $main_image ) : 'No image selected'; ?></span></span></label>
+            <label>Other images <span class="viswiz-media-field"><input type="hidden" name="<?php echo esc_attr( $name_prefix ); ?>[other_images][]" value="<?php echo esc_attr( $other_images ); ?>" data-viswiz-media-value data-viswiz-other-images-value /><button type="button" class="button" data-viswiz-media-select="multiple">Select/upload</button><span data-viswiz-media-label><?php echo $other_images ? esc_html( $other_images ) : 'No images selected'; ?></span></span></label>
         </div>
+        <?php viswiz_render_graph_node_image_gallery( $main_image, $other_images ); ?>
         <div class="viswiz-proposed-subtype" data-viswiz-proposed-subtype <?php echo $is_proposed_subtype ? '' : 'hidden'; ?>>
             <strong>Proposed subtype workflow</strong>
             <p class="description">Editors should propose new subtypes instead of adding top-level node types for routine work. Admins and superadmins can approve, merge, rename, or reject proposals.</p>
