@@ -180,12 +180,16 @@
     const imageHeight = 64;
     const showNodeImages = container.dataset.showNodeImages !== '0';
     const showTypeBadges = container.dataset.showTypeBadges !== '0';
-    const linkDistance = parseInt(container.dataset.linkDistance, 10) || 150;
+    const baseLinkDistance = parseInt(container.dataset.linkDistance, 10) || 150;
+    const linkDistance = Math.max(baseLinkDistance, getMaxRelationLabelWidth(links) + cardWidth + 56);
     const chargeStrength = parseInt(container.dataset.chargeStrength, 10) || -500;
     const nodeColor = getComputedStyle(container).getPropertyValue('--viswiz-primary').trim() || '#4caf50';
     const linkColor = getComputedStyle(container).getPropertyValue('--viswiz-secondary').trim() || '#999';
     const textColor = getComputedStyle(container).getPropertyValue('--viswiz-text').trim() || '#333';
     let activeTypeFilter = null;
+
+    const graphFrame = document.createElement('div');
+    graphFrame.className = 'viswiz-graph-frame';
 
     const svg = d3
       .create('svg')
@@ -196,28 +200,31 @@
       .attr('role', 'img')
       .attr('aria-label', 'Graph visualization');
 
+    const zoomLayer = svg.append('g').attr('class', 'viswiz-graph-zoom-layer');
+
     const simulation = d3
       .forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d) => d.id).distance(linkDistance))
+      .force('link', d3.forceLink(links).id((d) => d.id).distance((d) => Math.max(linkDistance, getRelationLabelWidth(d) + cardWidth + 56)))
       .force('charge', d3.forceManyBody().strength(chargeStrength))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(nodeStyle === 'round' ? nodeRadius + 18 : Math.hypot(cardWidth, cardHeight) / 2 + 12));
 
     const defs = svg.append('defs');
+    const markerId = `viswiz-arrowhead-${Math.random().toString(36).slice(2)}`;
     defs
       .append('marker')
-      .attr('id', 'viswiz-arrowhead')
+      .attr('id', markerId)
       .attr('viewBox', '0 -5 10 10')
       .attr('refX', 9)
       .attr('refY', 0)
       .attr('markerWidth', 7)
       .attr('markerHeight', 7)
-      .attr('orient', 'auto')
+      .attr('orient', 'auto-start-reverse')
       .append('path')
       .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', linkColor);
 
-    const link = svg
+    const link = zoomLayer
       .append('g')
       .attr('class', 'viswiz-graph-links-g')
       .selectAll('line')
@@ -225,21 +232,18 @@
       .join('line')
       .attr('stroke', linkColor)
       .attr('stroke-width', (d) => Math.max(1, Math.min(8, d.intensity || 1)))
-      .attr('marker-start', (d) => d.direction === 'bidirectional' ? 'url(#viswiz-arrowhead)' : null)
-      .attr('marker-end', (d) => d.direction === 'undirected' ? null : 'url(#viswiz-arrowhead)');
+      .attr('marker-start', (d) => d.direction === 'bidirectional' ? `url(#${markerId})` : null)
+      .attr('marker-end', (d) => d.direction === 'undirected' ? null : `url(#${markerId})`);
 
-    const linkLabels = svg
+    const linkLabels = zoomLayer
       .append('g')
       .attr('class', 'viswiz-graph-link-labels')
-      .selectAll('text')
+      .selectAll('g')
       .data(links)
-      .join('text')
-      .attr('font-size', 10)
-      .attr('fill', textColor)
-      .attr('text-anchor', 'middle')
-      .text((d) => [d.label, d.relation_type].filter(Boolean).join(' · '));
+      .join('g')
+      .each(function (d) { appendRelationBadge(d3.select(this), d, textColor); });
 
-    const node = svg
+    const node = zoomLayer
       .append('g')
       .attr('class', 'viswiz-graph-nodes')
       .selectAll('g')
@@ -337,13 +341,22 @@
         .attr('y2', (d) => edgePoint(d.target, d.source, nodeStyle === 'round' ? nodeRadius * 2 : cardWidth, nodeStyle === 'round' ? nodeRadius * 2 : cardHeight).y);
 
       linkLabels
-        .attr('x', (d) => (d.source.x + d.target.x) / 2)
-        .attr('y', (d) => (d.source.y + d.target.y) / 2 - 8);
+        .attr('transform', (d) => relationBadgeTransform(d));
 
       node.attr('transform', (d) => `translate(${d.x},${d.y})`);
     });
 
-    container.appendChild(svg.node());
+    graphFrame.appendChild(svg.node());
+    const zoomControls = buildGraphZoomControls();
+    graphFrame.appendChild(zoomControls);
+    container.appendChild(graphFrame);
+
+    const zoom = d3.zoom()
+      .scaleExtent([0.35, 3])
+      .on('zoom', (event) => zoomLayer.attr('transform', event.transform));
+    svg.call(zoom);
+    zoomControls.querySelector('[data-viswiz-zoom=\"in\"]').addEventListener('click', () => svg.transition().duration(160).call(zoom.scaleBy, 1.2));
+    zoomControls.querySelector('[data-viswiz-zoom=\"out\"]').addEventListener('click', () => svg.transition().duration(160).call(zoom.scaleBy, 1 / 1.2));
 
     function drag(sim) {
       function dragstarted(event) {
@@ -375,27 +388,115 @@
   }
 
   function wrapSvgText(text, value, width, maxLines) {
-    const words = String(value || '').split(/\s+/).filter(Boolean);
-    let line = [];
-    let lineNumber = 0;
-    const lineHeight = 14;
+    const estimatedCharWidth = 6.2;
+    const maxChars = Math.max(4, Math.floor(width / estimatedCharWidth));
+    const lines = wrapTextToLines(value, maxChars, maxLines);
     const y = parseFloat(text.attr('y')) || 0;
-    let tspan = text.text(null).append('tspan').attr('x', 0).attr('y', y);
-    words.forEach((word) => {
-      line.push(word);
-      tspan.text(line.join(' '));
-      if (tspan.node().getComputedTextLength() > width && line.length > 1) {
-        line.pop();
-        tspan.text(line.join(' '));
-        line = [word];
-        lineNumber += 1;
-        if (lineNumber >= maxLines) {
-          tspan.text(`${tspan.text()}…`);
-          return;
-        }
-        tspan = text.append('tspan').attr('x', 0).attr('y', y).attr('dy', lineNumber * lineHeight).text(word);
-      }
+
+    text.text(null);
+    lines.forEach((line, index) => {
+      text.append('tspan')
+        .attr('x', 0)
+        .attr('y', y)
+        .attr('dy', `${(index - (lines.length - 1) / 2) * 1.05}em`)
+        .text(line);
     });
+  }
+
+
+  function getRelationText(link) {
+    return [link.label, link.relation_type].filter(Boolean).join(' · ');
+  }
+
+  function getRelationLabelWidth(link) {
+    const text = getRelationText(link);
+    return Math.min(180, Math.max(64, text.length * 5.8 + 24));
+  }
+
+  function getMaxRelationLabelWidth(links) {
+    return (links || []).reduce((max, link) => Math.max(max, getRelationLabelWidth(link)), 64);
+  }
+
+  function appendRelationBadge(group, link, textColor) {
+    const label = getRelationText(link);
+    if (!label) {
+      group.attr('display', 'none');
+      return;
+    }
+    const width = getRelationLabelWidth(link);
+    const lines = wrapTextToLines(label, Math.max(10, Math.floor((width - 18) / 5.8)), 3);
+    const height = Math.max(24, lines.length * 13 + 10);
+
+    group.attr('class', 'viswiz-graph-link-badge');
+    group.append('rect')
+      .attr('x', -width / 2)
+      .attr('y', -height / 2)
+      .attr('width', width)
+      .attr('height', height)
+      .attr('rx', height / 2)
+      .attr('ry', height / 2);
+
+    const text = group.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10)
+      .attr('font-weight', 600)
+      .attr('fill', textColor)
+      .attr('dominant-baseline', 'middle');
+
+    lines.forEach((line, index) => {
+      text.append('tspan')
+        .attr('x', 0)
+        .attr('dy', index === 0 ? `${-(lines.length - 1) * 0.55}em` : '1.1em')
+        .text(line);
+    });
+  }
+
+  function relationBadgeTransform(link) {
+    const x = (link.source.x + link.target.x) / 2;
+    const y = (link.source.y + link.target.y) / 2;
+    const angle = Math.atan2(link.target.y - link.source.y, link.target.x - link.source.x) * 180 / Math.PI;
+    return `translate(${x},${y}) rotate(${angle})`;
+  }
+
+  function wrapTextToLines(value, maxChars, maxLines) {
+    const words = String(value || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let current = '';
+    words.forEach((word) => {
+      const parts = word.length > maxChars ? word.match(new RegExp(`.{1,${maxChars}}`, 'g')) : [word];
+      parts.forEach((part) => {
+        const next = current ? `${current} ${part}` : part;
+        if (next.length > maxChars && current) {
+          lines.push(current);
+          current = part;
+        } else {
+          current = next;
+        }
+      });
+    });
+    if (current) lines.push(current);
+    const trimmed = lines.slice(0, maxLines);
+    if (lines.length > maxLines && trimmed.length) {
+      trimmed[trimmed.length - 1] = `${trimmed[trimmed.length - 1].replace(/…$/, '')}…`;
+    }
+    return trimmed.length ? trimmed : [''];
+  }
+
+  function buildGraphZoomControls() {
+    const controls = document.createElement('div');
+    controls.className = 'viswiz-graph-zoom-controls';
+    [
+      { action: 'in', label: '+', aria: 'Zoom in' },
+      { action: 'out', label: '−', aria: 'Zoom out' },
+    ].forEach((control) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.viswizZoom = control.action;
+      button.textContent = control.label;
+      button.setAttribute('aria-label', control.aria);
+      controls.appendChild(button);
+    });
+    return controls;
   }
 
   function showNodeDetails(container, node, nodes = [], links = []) {
