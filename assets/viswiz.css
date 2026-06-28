@@ -239,6 +239,64 @@
   pointer-events: none;
 }
 
+
+.viswiz-graph-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  touch-action: none;
+}
+
+.viswiz-graph-zoom-layer {
+  transform-origin: center;
+}
+
+.viswiz-graph-node-card text {
+  overflow: hidden;
+}
+
+.viswiz-graph-link-badge rect {
+  fill: var(--viswiz-background, #fff);
+  stroke: var(--viswiz-secondary, #999);
+  stroke-width: 1;
+  opacity: 0.94;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.14));
+}
+
+.viswiz-graph-link-badge text {
+  pointer-events: none;
+}
+
+.viswiz-graph-zoom-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.viswiz-graph-zoom-controls button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #c3c4c7;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--viswiz-text, #333);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+.viswiz-graph-zoom-controls button:hover,
+.viswiz-graph-zoom-controls button:focus {
+  border-color: var(--viswiz-primary, #4caf50);
+  outline: 2px solid rgba(76, 175, 80, 0.28);
+}
+
 .viswiz-card-list {
   display: grid;
   gap: 12px;
