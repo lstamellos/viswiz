@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.14
+ * Version: 1.3.15
  * Author: cremedia.studio
  * Text Domain: viswiz
  * Domain Path: /languages
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.14';
+const VISWIZ_VERSION = '1.3.15';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -2083,8 +2083,8 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <span class="description">Width of basic info cards (90-260 pixels)</span>
             </p>
             <p>
-                <label><input type="checkbox" name="viswiz_meta[format_colors][show_node_images]" value="1" <?php checked( $meta['format_colors']['show_node_images'] ?? 1, 1 ); ?> /> Show node images on cards</label><br />
-                <label><input type="checkbox" name="viswiz_meta[format_colors][show_type_badges]" value="1" <?php checked( $meta['format_colors']['show_type_badges'] ?? 1, 1 ); ?> /> Show type and subtype badges</label>
+                <label><input type="checkbox" name="viswiz_meta[format_colors][show_node_images]" id="viswiz_graph_show_node_images" value="1" <?php checked( $meta['format_colors']['show_node_images'] ?? 1, 1 ); ?> /> Show node images on cards</label><br />
+                <label><input type="checkbox" name="viswiz_meta[format_colors][show_type_badges]" id="viswiz_graph_show_type_badges" value="1" <?php checked( $meta['format_colors']['show_type_badges'] ?? 1, 1 ); ?> /> Show type and subtype badges</label>
             </p>
         </div>
     </div>
@@ -2565,9 +2565,34 @@ function viswiz_enqueue_admin_assets( $hook ) {
     viswiz_register_d3_script();
 
     wp_enqueue_script(
+        'viswiz-script',
+        plugins_url( 'assets/viswiz.js', __FILE__ ),
+        array( 'd3' ),
+        VISWIZ_VERSION,
+        true
+    );
+
+    wp_localize_script(
+        'viswiz-script',
+        'VisWizData',
+        array(
+            'restUrl' => esc_url_raw( rest_url( 'viswiz/v1' ) ),
+            'nonce' => wp_create_nonce( 'wp_rest' ),
+            'target' => (float) get_option( VISWIZ_OPTION_TARGET, 0 ),
+            'manualProgress' => viswiz_get_manual_progress(),
+            'manualPie' => viswiz_get_manual_pie(),
+            'diagramData' => viswiz_get_diagram_data(),
+            'graphData' => viswiz_prepare_graph_data_for_display( viswiz_get_graph_data() ),
+            'currencyCode' => viswiz_get_currency_code(),
+            'currencySymbol' => viswiz_get_currency_symbol(),
+            'skipAutoInit' => true,
+        )
+    );
+
+    wp_enqueue_script(
         'viswiz-admin',
         plugins_url( 'assets/viswiz-admin.js', __FILE__ ),
-        array( 'jquery', 'wp-editor', 'd3' ),
+        array( 'jquery', 'wp-editor', 'd3', 'viswiz-script' ),
         VISWIZ_VERSION,
         true
     );

@@ -1960,7 +1960,28 @@
     };
   }
 
+
+  function applyGraphDatasetOptions(container, colors, animation) {
+    const options = getGraphOptions();
+    container.dataset.nodeRadius = String(options.nodeRadius);
+    container.dataset.linkDistance = String(options.linkDistance);
+    container.dataset.chargeStrength = String(options.chargeStrength);
+    container.dataset.nodeStyle = options.nodeStyle;
+    container.dataset.nodeLabelStyle = options.labelStyle;
+    container.dataset.nodeCardWidth = String(options.nodeCardWidth);
+    container.dataset.showNodeImages = $('#viswiz_graph_show_node_images').is(':checked') ? '1' : '0';
+    container.dataset.showTypeBadges = $('#viswiz_graph_show_type_badges').is(':checked') ? '1' : '0';
+    container.dataset.animation = animation || 'none';
+    container.dataset.colors = JSON.stringify(colors || getFormattingColors());
+  }
+
   function renderPreviewGraph(container, data, options) {
+    if (window.VisWiz && typeof window.VisWiz.renderGraph === 'function') {
+      window.VisWiz.applyFormatting(container);
+      window.VisWiz.renderGraph(container, data);
+      return;
+    }
+
     container.innerHTML = '';
 
     const graphOptions = options || getGraphOptions();
@@ -2155,9 +2176,10 @@
         vizContainer.textContent = 'No diagram data entered.';
       }
       container.appendChild(vizContainer);
-    } else if (type === 'graph') {
+    } else if (['graph', 'flow_diagram', 'org_chart'].includes(type)) {
       vizContainer = document.createElement('div');
       vizContainer.className = 'viswiz-graph';
+      applyGraphDatasetOptions(vizContainer, colors, animation);
       applyPreviewFormatting(vizContainer, colors, animation);
 
       const data = gatherGraphData();

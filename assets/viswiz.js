@@ -883,7 +883,19 @@
     '#ff5722',
   ];
 
+  window.VisWiz = {
+    ...(window.VisWiz || {}),
+    renderGraph,
+    renderProgress,
+    renderPie,
+    renderDiagram,
+    applyFormatting,
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
+    if (!window.VisWizData || window.VisWizData.skipAutoInit) {
+      return;
+    }
     initProgress();
     initPie();
     initDiagram();
