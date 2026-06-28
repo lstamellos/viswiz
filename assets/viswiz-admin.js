@@ -528,14 +528,37 @@
     status.dataset.viswizAutosaveState = state || '';
   }
 
-  function addModalAutosaveCloseButton(modal, label = 'Close modal and autosave') {
+  function createEditorModalShell(type, closeLabel = 'Close modal') {
+    const modal = document.createElement('div');
+    modal.className = 'viswiz-node-editor-modal';
+    modal.dataset.viswizEditorModal = '1';
+    if (type === 'node') modal.dataset.viswizNodeEditorModal = '1';
+    if (type === 'relation') modal.dataset.viswizRelationEditorModal = '1';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'viswiz-node-editor-modal-backdrop';
+    backdrop.dataset.viswizModalDismiss = '1';
+    modal.appendChild(backdrop);
+
+    const modalFrame = document.createElement('div');
+    modalFrame.className = 'viswiz-node-editor-modal-frame';
+    modal.appendChild(modalFrame);
+
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'button viswiz-modal-close-button';
-    button.dataset.viswizModalAutosaveClose = '1';
-    button.setAttribute('aria-label', label);
-    button.textContent = '×';
-    modal.appendChild(button);
+    button.className = 'button-link media-modal-close viswiz-modal-close-button';
+    button.dataset.viswizModalDismiss = '1';
+    button.setAttribute('aria-label', closeLabel);
+    button.innerHTML = '<span class="media-modal-icon" aria-hidden="true"></span>';
+    modalFrame.appendChild(button);
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'viswiz-node-editor-modal-content';
+    modalFrame.appendChild(modalContent);
+
+    return { modal, modalContent };
   }
 
   function openNodeModal(card) {
@@ -555,15 +578,7 @@
     placeholder.innerHTML = summary ? summary.outerHTML : '<summary><strong>Editing node…</strong></summary>';
     card.parentNode.insertBefore(placeholder, card);
 
-    const modal = document.createElement('div');
-    modal.className = 'viswiz-node-editor-modal';
-    modal.dataset.viswizNodeEditorModal = '1';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    addModalAutosaveCloseButton(modal);
-    const modalContent = document.createElement('div');
-    modalContent.className = 'viswiz-node-editor-modal-content';
-    modal.appendChild(modalContent);
+    const { modal, modalContent } = createEditorModalShell('node', 'Close node editor');
     form.appendChild(modal);
     modalContent.appendChild(card);
 
@@ -738,15 +753,7 @@
     const summary = card.querySelector('summary');
     placeholder.innerHTML = summary ? summary.outerHTML : '<summary><strong>Editing relation…</strong></summary>';
     card.parentNode.insertBefore(placeholder, card);
-    const modal = document.createElement('div');
-    modal.className = 'viswiz-node-editor-modal';
-    modal.dataset.viswizRelationEditorModal = '1';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    addModalAutosaveCloseButton(modal);
-    const modalContent = document.createElement('div');
-    modalContent.className = 'viswiz-node-editor-modal-content';
-    modal.appendChild(modalContent);
+    const { modal, modalContent } = createEditorModalShell('relation', 'Close relation editor');
     form.appendChild(modal);
     modalContent.appendChild(card);
     card.open = true;
@@ -1212,12 +1219,13 @@
   });
 
 
-  $(document).on('click', '[data-viswiz-modal-autosave-close]', function () {
+  $(document).on('click', '[data-viswiz-modal-dismiss]', function (event) {
+    event.preventDefault();
     const modal = this.closest('[data-viswiz-node-editor-modal], [data-viswiz-relation-editor-modal]');
     const nodeCard = modal?.querySelector('[data-viswiz-node-card].is-editing');
     const relationCard = modal?.querySelector('[data-viswiz-relation-card].is-editing');
-    if (nodeCard) autosaveNodeAndClose(nodeCard);
-    else if (relationCard) autosaveRelationAndClose(relationCard);
+    if (nodeCard) closeNodeModal(nodeCard);
+    else if (relationCard) closeRelationModal(relationCard);
   });
 
   $(document).on('keydown', function (event) {

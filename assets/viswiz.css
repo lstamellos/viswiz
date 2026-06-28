@@ -358,17 +358,46 @@ body.viswiz-node-modal-open {
   bottom: 0;
   left: 0;
   z-index: 100000;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  padding: 24px;
-  overflow: auto;
+}
+
+.viswiz-node-editor-modal-backdrop {
+  position: absolute;
+  inset: 0;
   background: rgba(0, 0, 0, 0.55);
 }
 
+.viswiz-node-editor-modal-frame {
+  position: absolute;
+  inset: 24px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
 .viswiz-node-editor-modal-content {
+  position: relative;
   width: min(1200px, 100%);
   min-height: 100%;
+  overflow: auto;
+}
+
+.viswiz-modal-close-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 50px;
+  height: 50px;
+}
+
+.viswiz-modal-close-button .media-modal-icon::before {
+  content: '\f158';
+  display: inline-block;
+  font: normal 20px/1 dashicons;
+  speak: never;
+  vertical-align: middle;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body.viswiz-node-modal-open .viswiz-node-card.is-editing,
@@ -448,7 +477,10 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
 @media (max-width: 782px) {
   .viswiz-node-editor-modal {
     top: 0;
-    padding: 0;
+  }
+
+  .viswiz-node-editor-modal-frame {
+    inset: 0;
   }
 
   body.viswiz-node-modal-open .viswiz-node-card.is-editing,
