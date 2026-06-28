@@ -1048,3 +1048,26 @@ body.viswiz-node-modal-open .viswiz-node-card.is-editing,
   font-size: 12px;
   line-height: 24px;
 }
+
+.viswiz-editor-guide {
+  border: 1px solid #c3c4c7;
+  border-left: 4px solid var(--viswiz-primary, #4caf50);
+  border-radius: 6px;
+  background: #fff;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+}
+
+.viswiz-editor-guide ul {
+  margin: 8px 0 0 18px;
+}
+
+.viswiz-editor-guide li {
+  margin-bottom: 4px;
+}
+
+.viswiz-node-type-card summary,
+.viswiz-relation-card summary,
+.viswiz-node-card summary {
+  cursor: pointer;
+}

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.08
+ * Version: 1.3.09
  * Author: cremedia.studio
  * Requires Plugins: woocommerce
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.08';
+const VISWIZ_VERSION = '1.3.09';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -1707,6 +1707,15 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         <button type="button" class="button viswiz-tab-button" data-viswiz-tab="preview">Preview</button>
     </div>
     <div class="viswiz-tab-panel is-active" data-viswiz-panel="data">
+    <div class="viswiz-editor-guide" aria-live="polite">
+        <strong>Element editing guide</strong>
+        <ul>
+            <li data-viswiz-types="progress">Progress visualizations use labeled values plus one or more named target markers.</li>
+            <li data-viswiz-types="pie,bar,column,line,area,scatter,counter,timeline,map">Chart visualizations use reusable label, value, and color rows.</li>
+            <li data-viswiz-types="diagram,flow_diagram,org_chart,timeline">Diagram visualizations use sections with repeatable items.</li>
+            <li data-viswiz-types="graph,flow_diagram,org_chart">Graph visualizations are edited from the Nodes, Node Types, and Relations tabs.</li>
+        </ul>
+    </div>
     <p>
         <label for="viswiz_shortcode"><strong>Shortcode</strong></label><br />
         <input type="text" id="viswiz_shortcode" class="large-text" readonly value="<?php echo esc_attr( viswiz_get_visualization_shortcode( $post->ID ) ); ?>" />
