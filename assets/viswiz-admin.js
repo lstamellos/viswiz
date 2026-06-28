@@ -446,12 +446,19 @@
       const value = getNodeFilterValue(card);
       entries.set(value, getNodeTypeLabel(card));
     });
-    optionsWrap.innerHTML = '';
+    optionsWrap.replaceChildren();
     Array.from(entries.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([value, label]) => {
       const row = document.createElement('label');
       row.className = 'viswiz-node-type-filter-option';
       row.dataset.viswizNodeTypeFilterText = label.toLowerCase();
-      row.innerHTML = `<input type="checkbox" value="${value}" data-viswiz-node-type-filter-option ${selected.has(value) ? 'checked' : ''}> <span>${label}</span>`;
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = value;
+      input.dataset.viswizNodeTypeFilterOption = '1';
+      input.checked = selected.has(value);
+      const text = document.createElement('span');
+      text.textContent = label;
+      row.append(input, document.createTextNode(' '), text);
       optionsWrap.appendChild(row);
     });
     updateNodeTypeFilterLabel();
@@ -1081,6 +1088,25 @@
     filterNodeList();
   }
 
+  function appendCountText(parent, count, singular) {
+    const span = document.createElement('span');
+    span.className = 'description';
+    span.textContent = `${count} ${singular}${count === 1 ? '' : 's'}`;
+    parent.appendChild(span);
+  }
+
+  function createTypeActionButton(label, datasetKey, datasetValue, extraDataset = {}) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = label.startsWith('Delete') ? 'button button-small button-link-delete' : 'button button-small';
+    button.textContent = label;
+    button.dataset[datasetKey] = datasetValue;
+    Object.entries(extraDataset).forEach(([key, value]) => {
+      button.dataset[key] = value;
+    });
+    return button;
+  }
+
   function refreshNodeTypeManager() {
     const wrap = document.querySelector('[data-viswiz-node-type-manager]');
     if (!wrap) return;
@@ -1103,17 +1129,64 @@
         entry.proposals.push({ index: card.dataset.nodeIndex, label: card.querySelector('[name$="[proposed_subtype_label][]"]')?.value || 'Untitled proposal', status: card.querySelector('[name$="[proposed_subtype_status][]"]')?.value || 'proposed' });
       }
     });
-    wrap.innerHTML = '';
-    if (!typeMap.size) { wrap.innerHTML = '<p class="description">No node types are linked to nodes yet.</p>'; return; }
-    Array.from(typeMap.entries()).sort((a,b)=>a[1].label.localeCompare(b[1].label)).forEach(([type, entry]) => {
-      const section = document.createElement('details'); section.open = true; section.className = 'viswiz-node-type-card';
-      section.innerHTML = `<summary><strong>${escapeAttribute(entry.label)}</strong> <span class="description">${entry.count} linked node${entry.count === 1 ? '' : 's'}</span> <button type="button" class="button button-small button-link-delete" data-viswiz-delete-node-type="${escapeAttribute(type)}">Delete type assignment</button></summary>`;
-      const list = document.createElement('div'); list.className = 'viswiz-node-type-subtype-list';
-      entry.subtypes.forEach((sub, subtype) => { const row = document.createElement('p'); row.innerHTML = `<strong>${escapeAttribute(sub.label)}</strong> <span class="description">${sub.count} linked node${sub.count === 1 ? '' : 's'}</span> <button type="button" class="button button-small button-link-delete" data-viswiz-delete-node-subtype="${escapeAttribute(subtype)}" data-node-type="${escapeAttribute(type)}">Delete subtype assignment</button>`; list.appendChild(row); });
-      if (entry.proposals.length) { const h = document.createElement('h5'); h.textContent = 'Author-proposed subtypes'; list.appendChild(h); entry.proposals.forEach((proposal) => { const row = document.createElement('p'); row.innerHTML = `<strong>${escapeAttribute(proposal.label)}</strong> <span class="description">Status: ${escapeAttribute(proposal.status)}</span> <button type="button" class="button button-small" data-viswiz-review-proposal="approved" data-node-index="${escapeAttribute(proposal.index)}">Approve</button> <button type="button" class="button button-small" data-viswiz-review-proposal="rejected" data-node-index="${escapeAttribute(proposal.index)}">Reject</button>`; list.appendChild(row); }); }
-      section.appendChild(list); wrap.appendChild(section);
+    wrap.replaceChildren();
+    if (!typeMap.size) {
+      const empty = document.createElement('p');
+      empty.className = 'description';
+      empty.textContent = 'No node types are linked to nodes yet.';
+      wrap.appendChild(empty);
+      return;
+    }
+    Array.from(typeMap.entries()).sort((a, b) => a[1].label.localeCompare(b[1].label)).forEach(([type, entry]) => {
+      const section = document.createElement('details');
+      section.open = true;
+      section.className = 'viswiz-node-type-card';
+      const summary = document.createElement('summary');
+      const title = document.createElement('strong');
+      title.textContent = entry.label;
+      summary.appendChild(title);
+      summary.appendChild(document.createTextNode(' '));
+      appendCountText(summary, entry.count, 'linked node');
+      summary.appendChild(document.createTextNode(' '));
+      summary.appendChild(createTypeActionButton('Delete type assignment', 'viswizDeleteNodeType', type));
+      section.appendChild(summary);
+
+      const list = document.createElement('div');
+      list.className = 'viswiz-node-type-subtype-list';
+      entry.subtypes.forEach((sub, subtype) => {
+        const row = document.createElement('p');
+        const label = document.createElement('strong');
+        label.textContent = sub.label;
+        row.appendChild(label);
+        row.appendChild(document.createTextNode(' '));
+        appendCountText(row, sub.count, 'linked node');
+        row.appendChild(document.createTextNode(' '));
+        row.appendChild(createTypeActionButton('Delete subtype assignment', 'viswizDeleteNodeSubtype', subtype, { nodeType: type }));
+        list.appendChild(row);
+      });
+      if (entry.proposals.length) {
+        const h = document.createElement('h5');
+        h.textContent = 'Author-proposed subtypes';
+        list.appendChild(h);
+        entry.proposals.forEach((proposal) => {
+          const row = document.createElement('p');
+          const label = document.createElement('strong');
+          label.textContent = proposal.label;
+          const status = document.createElement('span');
+          status.className = 'description';
+          status.textContent = `Status: ${proposal.status}`;
+          row.append(label, document.createTextNode(' '), status, document.createTextNode(' '));
+          row.appendChild(createTypeActionButton('Approve', 'viswizReviewProposal', 'approved', { nodeIndex: proposal.index }));
+          row.appendChild(document.createTextNode(' '));
+          row.appendChild(createTypeActionButton('Reject', 'viswizReviewProposal', 'rejected', { nodeIndex: proposal.index }));
+          list.appendChild(row);
+        });
+      }
+      section.appendChild(list);
+      wrap.appendChild(section);
     });
   }
+
 
 
   const addHandlers = {
@@ -1652,9 +1725,12 @@
       const id = $(this).find('input[name$="[id][]"]').val() || '';
       const title = $(this).find('input[name$="[title][]"]').val() || '';
       const label = $(this).find('input[name$="[label][]"]').val() || title;
-      const entity_type = $(this).find('select[name$="[entity_type][]"]').val() || '';
+      const node_type = $(this).find('[data-viswiz-node-type]').val() || '';
+      const node_subtype = $(this).find('[data-viswiz-node-subtype]').val() || '';
+      const main_image = $(this).find('[data-viswiz-main-image-value]').val() || '';
+      const other_images = ($(this).find('[data-viswiz-other-images-value]').val() || '').split(',').filter(Boolean);
       if (id || label || title) {
-        nodes.push({ id, label, title, entity_type });
+        nodes.push({ id, label, title, node_type, node_subtype, main_image, other_images });
       }
     });
     $('#viswiz-visual-graph-links .viswiz-relation-card').each(function () {
