@@ -401,6 +401,7 @@
     openNodeModal(row);
     updateNodeSubtypeOptions(row);
     refreshNodeDatalist();
+    initializeRelationNodeAutocomplete();
     refreshNodeRelationTools();
     buildNodeTypeFilterOptions();
     filterNodeList();
@@ -492,22 +493,103 @@
     updateNodeTypeFilterLabel();
   }
 
-  function refreshNodeDatalist() {
+  function buildNodeOptions() {
+    return Array.from(document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card], #viswiz-graph-nodes [data-viswiz-node-card]')).map((card) => {
+      const id = card.querySelector('[data-viswiz-node-id]')?.value || '';
+      const label = card.querySelector('[name$="[label][]"]')?.value || '';
+      const title = card.querySelector('[data-viswiz-node-title]')?.value || label || id;
+      return {
+        value: title,
+        label: id,
+        dataset: {
+          nodeId: id,
+          nodeSearch: [title, label, id].join(' ').toLowerCase(),
+          nodeTitle: title.toLowerCase(),
+        },
+      };
+    }).filter((item) => item.dataset.nodeId);
+  }
+
+  function refreshNodeDatalist(query = '') {
     const datalist = document.querySelector('[data-viswiz-node-options]');
     if (!datalist) return;
     datalist.innerHTML = '';
-    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
-      const id = card.querySelector('[data-viswiz-node-id]')?.value || '';
-      const title = card.querySelector('[data-viswiz-node-title]')?.value || card.querySelector('[name$="[label][]"]')?.value || id;
-      if (!id) return;
-      const option = document.createElement('option');
-      const label = card.querySelector('[name$="[label][]"]')?.value || '';
-      option.value = title;
-      option.label = id;
-      option.dataset.nodeId = id;
-      option.dataset.nodeSearch = [title, label, id].join(' ').toLowerCase();
-      option.textContent = id;
-      datalist.appendChild(option);
+    const raw = String(query || '').trim().toLowerCase();
+    if (raw.length < 3) return;
+    buildNodeOptions()
+      .filter((item) => item.dataset.nodeTitle.includes(raw))
+      .sort((a, b) => a.value.localeCompare(b.value))
+      .forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.value;
+        option.label = item.label;
+        option.dataset.nodeId = item.dataset.nodeId;
+        option.dataset.nodeSearch = item.dataset.nodeSearch;
+        option.dataset.nodeTitle = item.dataset.nodeTitle;
+        option.textContent = item.label;
+        datalist.appendChild(option);
+      });
+  }
+
+  function isRelationNodeInput(input) {
+    return input && input.matches('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick="from"], [data-viswiz-node-relation-quick="to"]');
+  }
+
+  function getRelationNodeMatches(query) {
+    const raw = String(query || '').trim().toLowerCase();
+    if (raw.length < 3) return [];
+    return buildNodeOptions()
+      .filter((item) => item.dataset.nodeTitle.includes(raw))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }
+
+  function removeRelationNodeAutocomplete(input) {
+    const list = input?.parentNode?.querySelector('[data-viswiz-node-autocomplete-list]');
+    if (list) list.remove();
+  }
+
+  function renderRelationNodeAutocomplete(input, matches) {
+    removeRelationNodeAutocomplete(input);
+    if (!matches.length) return;
+    const list = document.createElement('div');
+    list.className = 'viswiz-node-autocomplete-list';
+    list.dataset.viswizNodeAutocompleteList = '1';
+    list.setAttribute('role', 'listbox');
+    matches.slice(0, 20).forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'viswiz-node-autocomplete-option';
+      button.dataset.nodeTitle = item.value;
+      button.setAttribute('role', 'option');
+      button.innerHTML = `<span>${escapeAttribute(item.value)}</span><code>${escapeAttribute(item.dataset.nodeId)}</code>`;
+      list.appendChild(button);
+    });
+    input.insertAdjacentElement('afterend', list);
+  }
+
+  function updateRelationNodeAutocomplete(input) {
+    if (!isRelationNodeInput(input)) return;
+    const selectedEventCount = parseInt(input.dataset.viswizAutocompleteSelected || '0', 10);
+    if (selectedEventCount > 0) {
+      input.dataset.viswizAutocompleteSelected = String(selectedEventCount - 1);
+      if (selectedEventCount === 1) delete input.dataset.viswizAutocompleteSelected;
+      removeRelationNodeAutocomplete(input);
+      return;
+    }
+    const listId = input.dataset.viswizNodeList || input.getAttribute('list') || 'viswiz_visual_relation_nodes';
+    input.dataset.viswizNodeList = listId;
+    input.removeAttribute('list');
+    const matches = getRelationNodeMatches(input.value);
+    refreshNodeDatalist(input.value);
+    renderRelationNodeAutocomplete(input, matches);
+  }
+
+  function initializeRelationNodeAutocomplete(scope = document) {
+    scope.querySelectorAll('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick="from"], [data-viswiz-node-relation-quick="to"]').forEach((input) => {
+      if (!input.dataset.viswizNodeList && input.getAttribute('list')) {
+        input.dataset.viswizNodeList = input.getAttribute('list');
+      }
+      updateRelationNodeAutocomplete(input);
     });
   }
 
@@ -676,8 +758,7 @@
   }
 
   function getNodeOptions() {
-    const datalist = document.querySelector('[data-viswiz-node-options]');
-    return datalist ? Array.from(datalist.options) : [];
+    return buildNodeOptions();
   }
 
   function findNodeOptionByText(value) {
@@ -700,7 +781,7 @@
   }
 
   function autocompleteRelationNodeInput(input) {
-    if (!input || !input.matches('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick]')) return;
+    if (!input || !isRelationNodeInput(input)) return;
     const option = findAutocompleteNodeOption(input.value);
     if (option) {
       input.value = option.value;
@@ -798,8 +879,8 @@
     editor.dataset.relationIndex = index;
     editor.innerHTML = `
       <strong>Edit relation</strong>
-      <label>From <input type="text" value="${escapeAttribute(getNodeDisplayForId(ids.from))}" data-viswiz-node-relation-quick="from" list="viswiz_visual_relation_nodes" /></label>
-      <label>To <input type="text" value="${escapeAttribute(getNodeDisplayForId(ids.to))}" data-viswiz-node-relation-quick="to" list="viswiz_visual_relation_nodes" /></label>
+      <label>From <input type="text" value="${escapeAttribute(getNodeDisplayForId(ids.from))}" data-viswiz-node-relation-quick="from" data-viswiz-node-list="viswiz_visual_relation_nodes" /></label>
+      <label>To <input type="text" value="${escapeAttribute(getNodeDisplayForId(ids.to))}" data-viswiz-node-relation-quick="to" data-viswiz-node-list="viswiz_visual_relation_nodes" /></label>
       <label>Label <input type="text" value="${escapeAttribute(label)}" data-viswiz-node-relation-quick="label" /></label>
       <label>Relation type <input type="text" value="${escapeAttribute(relationType)}" data-viswiz-node-relation-quick="relation_type" /></label>
       <p class="viswiz-node-relation-editor-actions">
@@ -808,6 +889,7 @@
         <button type="button" class="button button-link-delete" data-viswiz-delete-node-relation>Delete relation from dataset</button>
       </p>
     `;
+    initializeRelationNodeAutocomplete(editor);
   }
 
 
@@ -869,7 +951,7 @@
 
   function refreshNodeRelationTools() {
     document.querySelectorAll('#viswiz-visual-graph-links [data-viswiz-relation-card]').forEach(updateRelationCardDataset);
-    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((nodeCard) => {
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card], #viswiz-graph-nodes [data-viswiz-node-card]').forEach((nodeCard) => {
       const nodeId = nodeCard.querySelector('[data-viswiz-node-id]')?.value || '';
       const list = nodeCard.querySelector('[data-viswiz-node-relation-list]');
       if (!list) return;
@@ -905,14 +987,15 @@
     row.dataset.relationIndex = container.querySelectorAll('[data-viswiz-relation-card]').length;
     row.innerHTML = `<summary><span class="viswiz-drag-handle" aria-hidden="true">↕</span><strong>Relation</strong><span class="viswiz-relation-card-summary-meta">No endpoints</span></summary>
       <div class="viswiz-relation-grid">
-        <label>From <input type="text" name="${namePrefix}[from][]" placeholder="Search/select source node" class="regular-text" data-viswiz-relation-from list="viswiz_visual_relation_nodes" /></label>
-        <label>To <input type="text" name="${namePrefix}[to][]" placeholder="Search/select target node" class="regular-text" data-viswiz-relation-to list="viswiz_visual_relation_nodes" /></label>
+        <label>From <input type="text" name="${namePrefix}[from][]" placeholder="Type 3+ characters to select source node" class="regular-text" data-viswiz-relation-from data-viswiz-node-list="viswiz_visual_relation_nodes" /></label>
+        <label>To <input type="text" name="${namePrefix}[to][]" placeholder="Type 3+ characters to select target node" class="regular-text" data-viswiz-relation-to data-viswiz-node-list="viswiz_visual_relation_nodes" /></label>
         <input type="text" name="${namePrefix}[label][]" placeholder="Relation label" class="regular-text" />
         <select name="${namePrefix}[direction][]"><option value="directed">Directed</option><option value="undirected">Undirected</option><option value="bidirectional">Bidirectional</option></select>
         <input type="number" name="${namePrefix}[intensity][]" placeholder="Intensity" value="1" min="0" step="0.01" />
         <input type="text" name="${namePrefix}[relation_type][]" placeholder="Relation type" class="regular-text" />
       </div><p><button type="button" class="button viswiz-move-up">Move up</button> <button type="button" class="button viswiz-move-down">Move down</button> <button type="button" class="button viswiz-remove-row">Remove relation</button></p>`;
     container.appendChild(row);
+    initializeRelationNodeAutocomplete(row);
     refreshNodeRelationTools();
   }
 
@@ -921,7 +1004,7 @@
   }
 
   function getLinkedNodeCount(type, subtype = null) {
-    return Array.from(document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]')).filter((card) => {
+    return Array.from(document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card], #viswiz-graph-nodes [data-viswiz-node-card]')).filter((card) => {
       const cardType = card.querySelector('[data-viswiz-node-type]')?.value || '';
       const cardSubtype = card.querySelector('[data-viswiz-node-subtype]')?.value || '';
       return cardType === type && (subtype === null || cardSubtype === subtype);
@@ -948,7 +1031,7 @@
 
   function deleteNodeTypeAssignment(type) {
     if (!warnLinkedNodes('Deleting this type', type, null)) return;
-    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card], #viswiz-graph-nodes [data-viswiz-node-card]').forEach((card) => {
       const typeSelect = card.querySelector('[data-viswiz-node-type]');
       const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
       if (typeSelect && typeSelect.value === type) {
@@ -964,7 +1047,7 @@
 
   function deleteNodeSubtypeAssignment(type, subtype) {
     if (!warnLinkedNodes('Deleting this subtype', type, subtype)) return;
-    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card], #viswiz-graph-nodes [data-viswiz-node-card]').forEach((card) => {
       const typeSelect = card.querySelector('[data-viswiz-node-type]');
       const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
       if (typeSelect?.value === type && subtypeSelect?.value === subtype) {
@@ -1002,7 +1085,7 @@
     const wrap = document.querySelector('[data-viswiz-node-type-manager]');
     if (!wrap) return;
     const typeMap = new Map();
-    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card]').forEach((card) => {
+    document.querySelectorAll('#viswiz-visual-graph-nodes [data-viswiz-node-card], #viswiz-graph-nodes [data-viswiz-node-card]').forEach((card) => {
       const typeSelect = card.querySelector('[data-viswiz-node-type]');
       const subtypeSelect = card.querySelector('[data-viswiz-node-subtype]');
       const type = typeSelect?.value || '';
@@ -1070,6 +1153,22 @@
     },
   };
 
+
+  $(document).on('click', '[data-viswiz-node-autocomplete-list] [data-node-title]', function () {
+    const input = this.closest('label')?.querySelector('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick="from"], [data-viswiz-node-relation-quick="to"]');
+    if (!input) return;
+    input.value = this.dataset.nodeTitle || '';
+    input.dataset.viswizAutocompleteSelected = '2';
+    removeRelationNodeAutocomplete(input);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  $(document).on('click', function (event) {
+    if (event.target.closest('[data-viswiz-node-autocomplete-list]') || event.target.closest('[data-viswiz-relation-from], [data-viswiz-relation-to], [data-viswiz-node-relation-quick="from"], [data-viswiz-node-relation-quick="to"]')) return;
+    document.querySelectorAll('[data-viswiz-node-autocomplete-list]').forEach((list) => list.remove());
+  });
+
   $(document).on('click', '[data-viswiz-delete-node-type]', function (event) {
     event.preventDefault();
     deleteNodeTypeAssignment(this.dataset.viswizDeleteNodeType);
@@ -1104,6 +1203,7 @@
       reindexProgressRows(container.get(0));
     }
     refreshNodeDatalist();
+    initializeRelationNodeAutocomplete();
     refreshNodeRelationTools();
     buildNodeTypeFilterOptions();
     filterNodeList();
@@ -1329,11 +1429,13 @@
   });
 
   $(document).on('change blur', '[data-viswiz-node-relation-quick]', function () {
+    updateRelationNodeAutocomplete(this);
     autocompleteRelationNodeInput(this);
     syncQuickRelationEditor(this);
   });
 
   $(document).on('input', '[data-viswiz-node-relation-quick]', function () {
+    updateRelationNodeAutocomplete(this);
     syncQuickRelationEditor(this);
   });
 
@@ -1350,6 +1452,7 @@
   });
 
   $(document).on('change blur', '[data-viswiz-relation-from], [data-viswiz-relation-to]', function () {
+    updateRelationNodeAutocomplete(this);
     autocompleteRelationNodeInput(this);
     const relation = this.closest('[data-viswiz-relation-card]');
     if (relation) updateRelationCardDataset(relation);
@@ -1357,6 +1460,7 @@
   });
 
   $(document).on('input change', '[data-viswiz-relation-from], [data-viswiz-relation-to], .viswiz-relation-card input[name$="[label][]"]', function () {
+    updateRelationNodeAutocomplete(this);
     const relation = this.closest('[data-viswiz-relation-card]');
     if (relation) updateRelationCardDataset(relation);
     refreshNodeRelationTools();
@@ -1435,6 +1539,7 @@
     document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => updateProposedSubtype(card));
     document.querySelectorAll('[data-viswiz-node-card]').forEach((card) => updateNodeSummary(card));
     refreshNodeDatalist();
+    initializeRelationNodeAutocomplete();
     refreshNodeRelationTools();
     buildNodeTypeFilterOptions();
     filterNodeList();
