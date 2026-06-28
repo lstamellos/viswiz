@@ -1954,10 +1954,34 @@
       nodeRadius: parseInt($('#viswiz_graph_node_radius').val(), 10) || 20,
       linkDistance: parseInt($('#viswiz_graph_link_distance').val(), 10) || 100,
       chargeStrength: parseInt($('#viswiz_graph_charge').val(), 10) || -300,
+      nodeStyle: $('#viswiz_graph_node_style').val() || 'card',
+      labelStyle: $('#viswiz_graph_node_label_style').val() || 'rounded',
+      nodeCardWidth: parseInt($('#viswiz_graph_node_card_width').val(), 10) || 150,
     };
   }
 
+
+  function applyGraphDatasetOptions(container, colors, animation) {
+    const options = getGraphOptions();
+    container.dataset.nodeRadius = String(options.nodeRadius);
+    container.dataset.linkDistance = String(options.linkDistance);
+    container.dataset.chargeStrength = String(options.chargeStrength);
+    container.dataset.nodeStyle = options.nodeStyle;
+    container.dataset.nodeLabelStyle = options.labelStyle;
+    container.dataset.nodeCardWidth = String(options.nodeCardWidth);
+    container.dataset.showNodeImages = $('#viswiz_graph_show_node_images').is(':checked') ? '1' : '0';
+    container.dataset.showTypeBadges = $('#viswiz_graph_show_type_badges').is(':checked') ? '1' : '0';
+    container.dataset.animation = animation || 'none';
+    container.dataset.colors = JSON.stringify(colors || getFormattingColors());
+  }
+
   function renderPreviewGraph(container, data, options) {
+    if (window.VisWiz && typeof window.VisWiz.renderGraph === 'function') {
+      window.VisWiz.applyFormatting(container);
+      window.VisWiz.renderGraph(container, data);
+      return;
+    }
+
     container.innerHTML = '';
 
     const graphOptions = options || getGraphOptions();
@@ -1984,6 +2008,9 @@
     const width = 400;
     const height = 300;
     const nodeRadius = graphOptions.nodeRadius;
+    const nodeStyle = graphOptions.nodeStyle || 'card';
+    const labelStyle = graphOptions.labelStyle || 'rounded';
+    const nodeCardWidth = graphOptions.nodeCardWidth || 150;
     const linkDistance = graphOptions.linkDistance;
     const chargeStrength = graphOptions.chargeStrength;
     const colors = getFormattingColors();
@@ -1998,7 +2025,7 @@
       .force('link', d3.forceLink(links).id(function (d) { return d.id; }).distance(linkDistance))
       .force('charge', d3.forceManyBody().strength(chargeStrength))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(nodeRadius + 10));
+      .force('collision', d3.forceCollide().radius(nodeStyle === 'card' ? Math.hypot(nodeCardWidth, 80) / 2 + 10 : nodeRadius + 10));
 
     const defs = svg.append('defs');
     defs.append('marker')
@@ -2039,17 +2066,22 @@
       .data(nodes)
       .join('g');
 
-    node.append('circle')
-      .attr('r', nodeRadius)
-      .attr('fill', colors.primary)
-      .attr('stroke', '#fff')
+    node.append(nodeStyle === 'round' ? 'circle' : 'rect')
+      .attr('r', nodeStyle === 'round' ? nodeRadius : null)
+      .attr('x', nodeStyle === 'round' ? null : -nodeCardWidth / 2)
+      .attr('y', nodeStyle === 'round' ? null : -23)
+      .attr('width', nodeStyle === 'round' ? null : nodeCardWidth)
+      .attr('height', nodeStyle === 'round' ? null : 46)
+      .attr('rx', nodeStyle === 'round' ? null : (labelStyle === 'pill' ? 23 : (labelStyle === 'plain' ? 0 : 10)))
+      .attr('fill', nodeStyle === 'round' ? colors.primary : (labelStyle === 'plain' ? 'transparent' : '#fff'))
+      .attr('stroke', colors.primary)
       .attr('stroke-width', 2);
 
     node.append('text')
       .attr('dy', 4)
       .attr('text-anchor', 'middle')
       .attr('font-size', 11)
-      .attr('fill', '#fff')
+      .attr('fill', nodeStyle === 'round' ? '#fff' : colors.text)
       .attr('pointer-events', 'none')
       .text(function (d) { return [d.label, d.relation_type].filter(Boolean).join(' · '); });
 
@@ -2144,9 +2176,10 @@
         vizContainer.textContent = 'No diagram data entered.';
       }
       container.appendChild(vizContainer);
-    } else if (type === 'graph') {
+    } else if (['graph', 'flow_diagram', 'org_chart'].includes(type)) {
       vizContainer = document.createElement('div');
       vizContainer.className = 'viswiz-graph';
+      applyGraphDatasetOptions(vizContainer, colors, animation);
       applyPreviewFormatting(vizContainer, colors, animation);
 
       const data = gatherGraphData();

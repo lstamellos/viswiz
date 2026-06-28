@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.3.14
+ * Version: 1.3.15
  * Author: cremedia.studio
  * Text Domain: viswiz
  * Domain Path: /languages
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.3.14';
+const VISWIZ_VERSION = '1.3.15';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -1407,6 +1407,29 @@ function viswiz_sanitize_format_colors( $colors ) {
             $sanitized[ $key ] = sanitize_hex_color( $colors[ $key ] ) ?: '';
         }
     }
+
+    $number_ranges = array(
+        'node_radius' => array( 10, 50, 20 ),
+        'link_distance' => array( 50, 300, 100 ),
+        'charge_strength' => array( -1000, -50, -300 ),
+        'node_card_width' => array( 90, 260, 150 ),
+    );
+    foreach ( $number_ranges as $key => $range ) {
+        if ( isset( $colors[ $key ] ) ) {
+            $value = (int) $colors[ $key ];
+            $sanitized[ $key ] = max( $range[0], min( $range[1], $value ) );
+        }
+    }
+
+    $node_style = sanitize_key( $colors['node_style'] ?? 'card' );
+    $sanitized['node_style'] = in_array( $node_style, array( 'card', 'compact', 'round' ), true ) ? $node_style : 'card';
+
+    $label_style = sanitize_key( $colors['node_label_style'] ?? 'rounded' );
+    $sanitized['node_label_style'] = in_array( $label_style, array( 'rounded', 'pill', 'plain' ), true ) ? $label_style : 'rounded';
+
+    $sanitized['show_node_images'] = array_key_exists( 'show_node_images', $colors ) ? ( empty( $colors['show_node_images'] ) ? 0 : 1 ) : 1;
+    $sanitized['show_type_badges'] = array_key_exists( 'show_type_badges', $colors ) ? ( empty( $colors['show_type_badges'] ) ? 0 : 1 ) : 1;
+
     return $sanitized;
 }
 
@@ -2023,9 +2046,26 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
         <div class="viswiz-field-group" data-viswiz-types="graph,flow_diagram,org_chart">
             <h4>Graph Options</h4>
             <p>
+                <label for="viswiz_graph_node_style">Node Appearance</label>
+                <select name="viswiz_meta[format_colors][node_style]" id="viswiz_graph_node_style">
+                    <option value="card" <?php selected( $meta['format_colors']['node_style'] ?? 'card', 'card' ); ?>>Basic info cards</option>
+                    <option value="compact" <?php selected( $meta['format_colors']['node_style'] ?? 'card', 'compact' ); ?>>Compact labels</option>
+                    <option value="round" <?php selected( $meta['format_colors']['node_style'] ?? 'card', 'round' ); ?>>Round labels</option>
+                </select>
+                <span class="description">Choose cards for rich nodes, compact for dense maps, or round labels for simple networks.</span>
+            </p>
+            <p>
+                <label for="viswiz_graph_node_label_style">Label Shape</label>
+                <select name="viswiz_meta[format_colors][node_label_style]" id="viswiz_graph_node_label_style">
+                    <option value="rounded" <?php selected( $meta['format_colors']['node_label_style'] ?? 'rounded', 'rounded' ); ?>>Rounded rectangle</option>
+                    <option value="pill" <?php selected( $meta['format_colors']['node_label_style'] ?? 'rounded', 'pill' ); ?>>Pill</option>
+                    <option value="plain" <?php selected( $meta['format_colors']['node_label_style'] ?? 'rounded', 'plain' ); ?>>Plain text</option>
+                </select>
+            </p>
+            <p>
                 <label for="viswiz_graph_node_radius">Node Size</label>
                 <input type="number" name="viswiz_meta[format_colors][node_radius]" id="viswiz_graph_node_radius" value="<?php echo esc_attr( $meta['format_colors']['node_radius'] ?? '20' ); ?>" min="10" max="50" step="1" class="small-text" />
-                <span class="description">Radius of graph nodes (10-50 pixels)</span>
+                <span class="description">Radius for round/compact graph nodes (10-50 pixels)</span>
             </p>
             <p>
                 <label for="viswiz_graph_link_distance">Link Distance</label>
@@ -2036,6 +2076,15 @@ function viswiz_render_visualization_meta_box( WP_Post $post ) {
                 <label for="viswiz_graph_charge">Repulsion Strength</label>
                 <input type="number" name="viswiz_meta[format_colors][charge_strength]" id="viswiz_graph_charge" value="<?php echo esc_attr( $meta['format_colors']['charge_strength'] ?? '-300' ); ?>" min="-1000" max="-50" step="50" class="small-text" />
                 <span class="description">How much nodes push apart (-1000 to -50)</span>
+            </p>
+            <p>
+                <label for="viswiz_graph_node_card_width">Card Width</label>
+                <input type="number" name="viswiz_meta[format_colors][node_card_width]" id="viswiz_graph_node_card_width" value="<?php echo esc_attr( $meta['format_colors']['node_card_width'] ?? '150' ); ?>" min="90" max="260" step="10" class="small-text" />
+                <span class="description">Width of basic info cards (90-260 pixels)</span>
+            </p>
+            <p>
+                <label><input type="checkbox" name="viswiz_meta[format_colors][show_node_images]" id="viswiz_graph_show_node_images" value="1" <?php checked( $meta['format_colors']['show_node_images'] ?? 1, 1 ); ?> /> Show node images on cards</label><br />
+                <label><input type="checkbox" name="viswiz_meta[format_colors][show_type_badges]" id="viswiz_graph_show_type_badges" value="1" <?php checked( $meta['format_colors']['show_type_badges'] ?? 1, 1 ); ?> /> Show type and subtype badges</label>
             </p>
         </div>
     </div>
@@ -2318,13 +2367,23 @@ function viswiz_render_visualization( $post_id ) {
         $node_radius = esc_attr( $meta['format_colors']['node_radius'] ?? '20' );
         $link_distance = esc_attr( $meta['format_colors']['link_distance'] ?? '100' );
         $charge_strength = esc_attr( $meta['format_colors']['charge_strength'] ?? '-300' );
+        $node_style = esc_attr( $meta['format_colors']['node_style'] ?? 'card' );
+        $node_label_style = esc_attr( $meta['format_colors']['node_label_style'] ?? 'rounded' );
+        $node_card_width = esc_attr( $meta['format_colors']['node_card_width'] ?? '150' );
+        $show_node_images = empty( $meta['format_colors']['show_node_images'] ) ? '0' : '1';
+        $show_type_badges = empty( $meta['format_colors']['show_type_badges'] ) ? '0' : '1';
         return sprintf(
-            '<div class="viswiz-graph" %s data-manual="%s" data-node-radius="%s" data-link-distance="%s" data-charge-strength="%s"></div>',
+            '<div class="viswiz-graph" %s data-manual="%s" data-node-radius="%s" data-link-distance="%s" data-charge-strength="%s" data-node-style="%s" data-node-label-style="%s" data-node-card-width="%s" data-show-node-images="%s" data-show-type-badges="%s"></div>',
             $data_attrs,
             $manual_json,
             $node_radius,
             $link_distance,
-            $charge_strength
+            $charge_strength,
+            $node_style,
+            $node_label_style,
+            $node_card_width,
+            $show_node_images,
+            $show_type_badges
         );
     }
 
@@ -2506,9 +2565,34 @@ function viswiz_enqueue_admin_assets( $hook ) {
     viswiz_register_d3_script();
 
     wp_enqueue_script(
+        'viswiz-script',
+        plugins_url( 'assets/viswiz.js', __FILE__ ),
+        array( 'd3' ),
+        VISWIZ_VERSION,
+        true
+    );
+
+    wp_localize_script(
+        'viswiz-script',
+        'VisWizData',
+        array(
+            'restUrl' => esc_url_raw( rest_url( 'viswiz/v1' ) ),
+            'nonce' => wp_create_nonce( 'wp_rest' ),
+            'target' => (float) get_option( VISWIZ_OPTION_TARGET, 0 ),
+            'manualProgress' => viswiz_get_manual_progress(),
+            'manualPie' => viswiz_get_manual_pie(),
+            'diagramData' => viswiz_get_diagram_data(),
+            'graphData' => viswiz_prepare_graph_data_for_display( viswiz_get_graph_data() ),
+            'currencyCode' => viswiz_get_currency_code(),
+            'currencySymbol' => viswiz_get_currency_symbol(),
+            'skipAutoInit' => true,
+        )
+    );
+
+    wp_enqueue_script(
         'viswiz-admin',
         plugins_url( 'assets/viswiz-admin.js', __FILE__ ),
-        array( 'jquery', 'wp-editor', 'd3' ),
+        array( 'jquery', 'wp-editor', 'd3', 'viswiz-script' ),
         VISWIZ_VERSION,
         true
     );
