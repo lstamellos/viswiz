@@ -12,6 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/viswiz-commerce-builder.php';
+require_once __DIR__ . '/viswiz-dataset-manager.php';
+require_once __DIR__ . '/viswiz-dataset-autosave-sync.php';
 
 add_filter( 'pre_set_site_transient_update_plugins', 'viswiz_updater_check_for_update' );
 add_filter( 'plugins_api', 'viswiz_updater_plugin_information', 20, 3 );
