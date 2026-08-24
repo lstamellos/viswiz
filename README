@@ -1,6 +1,16 @@
 VisWiz WooCommerce Visualizer
 =============================
 
+Version 1.8.1 Dataset Manager & Graph Workflow
+
+- Reworked Datasets into an inspect/manage screen with search, type filters, usage, safer actions, and editable dataset metadata.
+- Added graph dataset inspection with node/relation tables, relation-degree counts, and integrity validation for duplicate/missing node IDs and orphan endpoints.
+- Added direct Open graph editor / Edit graph actions that reuse the existing node/relation builder.
+- Dataset-backed visualizations now hydrate the builder from the canonical dataset instead of showing a stale visualization-specific copy.
+- Switching a visualization to another dataset is guarded so stale editor data cannot overwrite the newly selected dataset.
+- Added dataset duplication for safe structural revisions and synchronized dataset timestamps on visualization saves/autosaves.
+- Dataset deletion now clears the linked visualization post metadata as well as the dataset table link.
+
 Version 1.8.0 Commerce Data Builder & Admin-Controlled Updates
 
 - Added Commerce Data Builder for creating stable visualization snapshots from WooCommerce CRUD/query APIs without direct order-table SQL.
