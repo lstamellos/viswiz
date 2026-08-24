@@ -1,6 +1,19 @@
 VisWiz WooCommerce Visualizer
 =============================
 
+Version 1.8.0 Commerce Data Builder & Admin-Controlled Updates
+
+- Added Commerce Data Builder for creating stable visualization snapshots from WooCommerce CRUD/query APIs without direct order-table SQL.
+- Added revenue, order-count, and item-quantity metrics with total, monthly, and product grouping.
+- Added searchable WooCommerce product filters, enhanced category filters, child-category matching, and paid-order status handling.
+- Added WooCommerce Subscriptions-aware presets and filtering through `WC_Subscriptions_Product::is_subscription()` when the extension is available.
+- Added manual values that can be combined with WooCommerce data, including annual income/subscription revenue versus user-entered expenses.
+- Generated commerce data is copied into the existing VisWiz manual chart rows so published annual/financial visualizations remain stable snapshots.
+- Fixed automatic updates so VisWiz no longer forces them on. Without a configuration override, WordPress' native per-plugin auto-update preference is authoritative.
+- Added VisWiz → Updates in wp-admin, synchronized with the native WordPress `auto_update_plugins` setting. Multisite installations expose the control in Network Admin.
+- `define('VISWIZ_AUTO_UPDATES', true);` or `false` in `wp-config.php` remains available as a hard override and locks the wp-admin control.
+- Expanded release validation so all PHP and JavaScript plugin sources are syntax-checked before an installable ZIP is published.
+
 Version 1.7.5 GitHub Auto Updates
 
 - Added native WordPress update discovery from the latest GitHub Release.
