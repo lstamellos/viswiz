@@ -4,10 +4,11 @@
   const config = window.VisWizCommerceBuilder || {};
   const chartTypes = ['pie', 'bar', 'column', 'line', 'area', 'scatter', 'counter', 'timeline', 'map'];
 
-  function parseIds(value) {
-    return String(value || '')
-      .split(/[\s,;]+/)
-      .map((part) => parseInt(part, 10))
+  function selectedIds(root, selector) {
+    const select = root.querySelector(selector);
+    if (!select) return [];
+    return Array.from(select.selectedOptions || [])
+      .map((option) => parseInt(option.value, 10))
       .filter((id) => Number.isInteger(id) && id > 0);
   }
 
@@ -68,12 +69,14 @@
 
   function applyPreset(root) {
     const preset = root.querySelector('[data-viswiz-cb-preset]')?.value || 'custom';
-    if (preset !== 'annual_income_expenses') return;
-
     const metric = root.querySelector('[data-viswiz-cb-metric]');
     const group = root.querySelector('[data-viswiz-cb-group]');
+    const subscriptionOnly = root.querySelector('[data-viswiz-cb-subscriptions]');
+
+    if (preset === 'custom') return;
     if (metric) metric.value = 'revenue';
     if (group) group.value = 'total';
+    if (subscriptionOnly) subscriptionOnly.checked = preset === 'annual_subscriptions_expenses';
 
     const manualRows = root.querySelectorAll('.viswiz-cb-manual-row');
     if (manualRows.length === 1) {
@@ -138,8 +141,10 @@
     const labelField = document.getElementById('viswiz_label');
     const year = document.querySelector('[data-viswiz-cb-year]')?.value || '';
     const preset = document.querySelector('[data-viswiz-cb-preset]')?.value || '';
-    if (labelField && !labelField.value && preset === 'annual_income_expenses') {
-      labelField.value = `Income and expenses ${year}`;
+    if (labelField && !labelField.value && preset !== 'custom') {
+      labelField.value = preset === 'annual_subscriptions_expenses'
+        ? `Subscription revenue and expenses ${year}`
+        : `Income and expenses ${year}`;
     }
 
     if (window.jQuery) {
@@ -164,8 +169,9 @@
         year: parseInt(root.querySelector('[data-viswiz-cb-year]')?.value || '', 10),
         metric: root.querySelector('[data-viswiz-cb-metric]')?.value || 'revenue',
         group_by: root.querySelector('[data-viswiz-cb-group]')?.value || 'total',
-        product_ids: parseIds(root.querySelector('[data-viswiz-cb-products]')?.value),
-        category_ids: parseIds(root.querySelector('[data-viswiz-cb-categories]')?.value),
+        product_ids: selectedIds(root, '[data-viswiz-cb-products] select'),
+        category_ids: selectedIds(root, '[data-viswiz-cb-categories] select'),
+        subscription_only: Boolean(root.querySelector('[data-viswiz-cb-subscriptions]')?.checked),
         manual_rows: collectManualRows(root),
       };
 
@@ -230,5 +236,9 @@
   $(document).on('click', '[data-viswiz-cb-build]', function () {
     const root = this.closest('[data-viswiz-commerce-builder]');
     if (root) build(root);
+  });
+
+  $(function () {
+    $(document.body).trigger('wc-enhanced-select-init');
   });
 })(jQuery);
