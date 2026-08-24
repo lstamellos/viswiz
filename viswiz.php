@@ -2,8 +2,9 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Real-time progress bars, charts, diagrams, and graph visualizations based on WooCommerce sales, custom datasets, or manual inputs.
- * Version: 1.7.4
+ * Version: 1.7.5
  * Author: cremedia.studio
+ * Update URI: https://github.com/lstamellos/viswiz
  * Text Domain: viswiz
  * Domain Path: /languages
  */
@@ -12,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const VISWIZ_VERSION = '1.7.4';
+const VISWIZ_VERSION = '1.7.5';
 const VISWIZ_OPTION_TARGET = 'viswiz_sales_target';
 const VISWIZ_OPTION_PROGRESS_MANUAL = 'viswiz_manual_progress';
 const VISWIZ_OPTION_PIE_MANUAL = 'viswiz_manual_pie';
@@ -29,6 +30,8 @@ const VISWIZ_OPTION_SALES_CATEGORIES = 'viswiz_sales_category_ids';
 const VISWIZ_OPTION_NODE_TYPE_SCHEMA = 'viswiz_node_type_schema';
 const VISWIZ_OPTION_RELATION_TYPE_SCHEMA = 'viswiz_relation_type_schema';
 const VISWIZ_OPTION_DISPLAY_DEFAULTS = 'viswiz_display_defaults';
+
+require_once __DIR__ . '/includes/viswiz-updater.php';
 
 register_activation_hook( __FILE__, 'viswiz_activate' );
 add_action( 'plugins_loaded', 'viswiz_load_textdomain' );
