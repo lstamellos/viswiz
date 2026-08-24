@@ -1,6 +1,14 @@
 VisWiz WooCommerce Visualizer
 =============================
 
+Version 1.7.5 GitHub Auto Updates
+
+- Added native WordPress update discovery from the latest GitHub Release.
+- Added automatic VisWiz plugin updates through the normal WordPress updater.
+- Release updates require the installable `viswiz-{version}.zip` asset, preventing unsafe GitHub source-archive upgrades.
+- Added release packaging automation for future version bumps on `main`.
+- Automatic updates can be disabled with `define('VISWIZ_AUTO_UPDATES', false);` in `wp-config.php`.
+
 Version 1.7.4 Full Info Modal Label Settings
 
 Backend/editor improvements in 1.6.9:
