@@ -1,0 +1,68 @@
+name: Integrate dataset manager
+
+on:
+  push:
+    branches:
+      - feature/dataset-manager-ux
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/dataset-manager-ux
+          fetch-depth: 0
+
+      - name: Integrate module and bump version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          updater = Path('includes/viswiz-updater.php')
+          text = updater.read_text()
+          needle = "require_once __DIR__ . '/viswiz-commerce-builder.php';"
+          addition = needle + "\nrequire_once __DIR__ . '/viswiz-dataset-manager.php';"
+          if "viswiz-dataset-manager.php" not in text:
+              if needle not in text:
+                  raise SystemExit('Commerce builder include anchor not found')
+              updater.write_text(text.replace(needle, addition, 1))
+
+          main = Path('viswiz.php')
+          text = main.read_text()
+          text = text.replace(' * Version: 1.8.0', ' * Version: 1.8.1', 1)
+          text = text.replace("const VISWIZ_VERSION = '1.8.0';", "const VISWIZ_VERSION = '1.8.1';", 1)
+          main.write_text(text)
+
+          readme = Path('README')
+          text = readme.read_text()
+          heading = 'VisWiz WooCommerce Visualizer\n=============================\n\n'
+          block = '''Version 1.8.1 Dataset Manager & Graph Workflow\n\n- Reworked Datasets into an inspect/manage screen with search, type filters, usage, safer actions, and editable dataset metadata.\n- Added graph dataset inspection with node/relation tables, relation-degree counts, and integrity validation for duplicate/missing node IDs and orphan endpoints.\n- Added direct Open graph editor / Edit graph actions that reuse the existing node/relation builder.\n- Dataset-backed visualizations now hydrate the builder from the canonical dataset instead of showing a stale visualization-specific copy.\n- Switching a visualization to another dataset is guarded so stale editor data cannot overwrite the newly selected dataset.\n- Added dataset duplication for safe structural revisions and synchronized dataset timestamps on visualization saves/autosaves.\n- Dataset deletion now clears the linked visualization post metadata as well as the dataset table link.\n\n'''
+          if 'Version 1.8.1 Dataset Manager & Graph Workflow' not in text:
+              if heading not in text:
+                  raise SystemExit('README heading not found')
+              readme.write_text(text.replace(heading, heading + block, 1))
+          PY
+
+          if git diff --quiet; then
+            echo 'Dataset manager integration already applied.'
+            exit 0
+          fi
+
+          php -l includes/viswiz-dataset-manager.php
+          php -l includes/viswiz-updater.php
+          php -l viswiz.php
+          node --check assets/viswiz-dataset-manager.js
+          git diff --check
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add includes/viswiz-updater.php viswiz.php README
+          git commit -m "Integrate dataset manager and bump VisWiz to 1.8.1"
+          git push origin HEAD:feature/dataset-manager-ux
