@@ -35,60 +35,11 @@ jobs:
           s = s.replace("const VISWIZ_VERSION = '1.7.4';", "const VISWIZ_VERSION = '1.7.5';", 1)
           needle = "const VISWIZ_OPTION_DISPLAY_DEFAULTS = 'viswiz_display_defaults';\n"
           if "includes/viswiz-updater.php" not in s:
+              if needle not in s:
+                  raise SystemExit('Updater insertion point not found')
               s = s.replace(needle, needle + "\nrequire_once __DIR__ . '/includes/viswiz-updater.php';\n", 1)
           p.write_text(s)
           PY
-
-          cat > .github/workflows/release.yml <<'YAML'
-          name: Release VisWiz
-          on:
-            push:
-              branches: [main]
-            workflow_dispatch:
-          permissions:
-            contents: write
-          concurrency:
-            group: viswiz-release
-            cancel-in-progress: false
-          jobs:
-            release:
-              runs-on: ubuntu-latest
-              steps:
-                - uses: actions/checkout@v4
-                  with:
-                    fetch-depth: 0
-                - name: Validate, package and release
-                  env:
-                    GH_TOKEN: __TOKEN__
-                  shell: bash
-                  run: |
-                    set -euo pipefail
-                    VERSION="$(sed -n "s/^const VISWIZ_VERSION = '\([^']*\)';/\1/p" viswiz.php | head -n1)"
-                    HEADER_VERSION="$(sed -n 's/^ \* Version: //p' viswiz.php | head -n1)"
-                    test -n "$VERSION"
-                    test "$VERSION" = "$HEADER_VERSION"
-                    TAG="v${VERSION}"
-                    if gh release view "$TAG" >/dev/null 2>&1; then exit 0; fi
-                    php -l viswiz.php
-                    php -l includes/viswiz-updater.php
-                    node --check assets/viswiz-admin.js
-                    node --check assets/viswiz-block.js
-                    node --check assets/viswiz.js
-                    git diff --check
-                    DIST="${RUNNER_TEMP}/viswiz-${VERSION}"
-                    rm -rf "$DIST" && mkdir -p "$DIST/viswiz"
-                    rsync -a --delete --exclude '.git' --exclude '.github' --exclude '.replit' ./ "$DIST/viswiz/"
-                    (cd "$DIST" && zip -qr "viswiz-${VERSION}.zip" viswiz)
-                    gh release create "$TAG" "$DIST/viswiz-${VERSION}.zip#WordPress installable plugin ZIP" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "VisWiz ${VERSION}" --generate-notes
-          YAML
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('.github/workflows/release.yml')
-          p.write_text(p.read_text().replace('__TOKEN__', '$' + '{{ github.token }}'))
-          PY
-
-          rm -f .github/workflows/bootstrap-viswiz-1.7.5-main.yml
-          rm -f .github/workflows/pr-bootstrap-viswiz-1.7.5.yml
           php -l viswiz.php
           php -l includes/viswiz-updater.php
           node --check assets/viswiz-admin.js
@@ -102,7 +53,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add viswiz.php
           git commit -m 'Enable GitHub auto-updates; bump VisWiz to 1.7.5'
           git push origin HEAD:main
 
