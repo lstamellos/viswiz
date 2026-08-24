@@ -47,6 +47,14 @@ function viswiz_commerce_builder_enqueue_assets( $hook ) {
         return;
     }
 
+    if ( class_exists( 'WooCommerce' ) ) {
+        wp_enqueue_script( 'selectWoo' );
+        wp_enqueue_style( 'selectWoo' );
+        wp_enqueue_script( 'wc-enhanced-select' );
+        wp_enqueue_script( 'wc-product-search' );
+        wp_enqueue_style( 'woocommerce_admin_styles' );
+    }
+
     wp_enqueue_script(
         'viswiz-commerce-builder',
         plugins_url( '../assets/viswiz-commerce-builder.js', __FILE__ ),
@@ -62,13 +70,14 @@ function viswiz_commerce_builder_enqueue_assets( $hook ) {
             'restUrl'        => esc_url_raw( rest_url( 'viswiz/v1/commerce-builder' ) ),
             'nonce'          => wp_create_nonce( 'wp_rest' ),
             'currencySymbol' => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '',
+            'subscriptions'  => function_exists( 'wcs_is_subscription' ),
             'i18n'           => array(
-                'building'      => __( 'Building data…', 'viswiz' ),
-                'build'         => __( 'Build visualization data', 'viswiz' ),
-                'noRows'        => __( 'No matching WooCommerce data was found for these filters.', 'viswiz' ),
-                'success'       => __( 'The generated snapshot has been copied into the visualization data rows. Review it and save/update the visualization.', 'viswiz' ),
-                'error'         => __( 'Could not build WooCommerce data.', 'viswiz' ),
-                'unsupported'   => __( 'Choose a chart-like visualization (Pie, Bar, Column, Line, Area, Scatter, Counter, Timeline or Map) before building data.', 'viswiz' ),
+                'building'    => __( 'Building data…', 'viswiz' ),
+                'build'       => __( 'Build visualization data', 'viswiz' ),
+                'noRows'      => __( 'No matching WooCommerce data was found for these filters.', 'viswiz' ),
+                'success'     => __( 'The generated snapshot has been copied into the visualization data rows. Review it and save/update the visualization.', 'viswiz' ),
+                'error'       => __( 'Could not build WooCommerce data.', 'viswiz' ),
+                'unsupported' => __( 'Choose a chart-like visualization (Pie, Bar, Column, Line, Area, Scatter, Counter, Timeline or Map) before building data.', 'viswiz' ),
             ),
         )
     );
@@ -80,7 +89,8 @@ function viswiz_commerce_builder_render_meta_box( $post ) {
         return;
     }
 
-    $year = (int) wp_date( 'Y' );
+    $year                 = (int) wp_date( 'Y' );
+    $subscriptions_active = function_exists( 'wcs_is_subscription' );
     ?>
     <div class="viswiz-commerce-builder" data-viswiz-commerce-builder>
         <p class="description">
@@ -95,8 +105,11 @@ function viswiz_commerce_builder_render_meta_box( $post ) {
                     <select id="viswiz_cb_preset" data-viswiz-cb-preset>
                         <option value="custom"><?php esc_html_e( 'Custom WooCommerce dataset', 'viswiz' ); ?></option>
                         <option value="annual_income_expenses"><?php esc_html_e( 'Annual income + manual expenses', 'viswiz' ); ?></option>
+                        <?php if ( $subscriptions_active ) : ?>
+                            <option value="annual_subscriptions_expenses"><?php esc_html_e( 'Annual subscription revenue + manual expenses', 'viswiz' ); ?></option>
+                        <?php endif; ?>
                     </select>
-                    <p class="description"><?php esc_html_e( 'For annual subscriptions, choose the subscription products/categories below; renewal and initial orders are then included like normal WooCommerce revenue.', 'viswiz' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'Presets only fill sensible defaults; every filter can still be changed before building the snapshot.', 'viswiz' ); ?></p>
                 </td>
             </tr>
             <tr>
@@ -126,11 +139,16 @@ function viswiz_commerce_builder_render_meta_box( $post ) {
             <tr>
                 <th scope="row"><?php esc_html_e( 'WooCommerce filters', 'viswiz' ); ?></th>
                 <td>
-                    <p><label for="viswiz_cb_products"><strong><?php esc_html_e( 'Product IDs', 'viswiz' ); ?></strong></label><br />
-                    <input id="viswiz_cb_products" data-viswiz-cb-products type="text" class="large-text" placeholder="123, 456" /></p>
-                    <p><label for="viswiz_cb_categories"><strong><?php esc_html_e( 'Product category IDs', 'viswiz' ); ?></strong></label><br />
-                    <input id="viswiz_cb_categories" data-viswiz-cb-categories type="text" class="large-text" placeholder="12, 34" /></p>
-                    <p class="description"><?php esc_html_e( 'Leave both empty to include all qualifying WooCommerce orders. Product/category filters are applied at line-item level.', 'viswiz' ); ?></p>
+                    <?php if ( $subscriptions_active ) : ?>
+                        <p><label><input type="checkbox" value="1" data-viswiz-cb-subscriptions /> <strong><?php esc_html_e( 'Subscription products only', 'viswiz' ); ?></strong></label></p>
+                    <?php endif; ?>
+                    <p><strong><?php esc_html_e( 'Products', 'viswiz' ); ?></strong><br />
+                        <span data-viswiz-cb-products><?php echo viswiz_render_product_search_field( 'viswiz_cb_product_ids[]', array(), true ); ?></span>
+                    </p>
+                    <p><strong><?php esc_html_e( 'Product categories', 'viswiz' ); ?></strong><br />
+                        <span data-viswiz-cb-categories><?php echo viswiz_render_category_select_field( 'viswiz_cb_category_ids[]', array(), 'viswiz_cb_category_ids', true ); ?></span>
+                    </p>
+                    <p class="description"><?php esc_html_e( 'Leave filters empty to include all paid WooCommerce orders. Product/category filters are applied at line-item level. Category filters include child categories.', 'viswiz' ); ?></p>
                 </td>
             </tr>
             </tbody>
@@ -163,12 +181,17 @@ function viswiz_commerce_builder_rest_build( WP_REST_Request $request ) {
         return new WP_Error( 'viswiz_no_woocommerce', __( 'WooCommerce is not active.', 'viswiz' ), array( 'status' => 400 ) );
     }
 
-    $year       = max( 2000, min( 2100, absint( $request->get_param( 'year' ) ) ) );
-    $metric     = sanitize_key( $request->get_param( 'metric' ) ?: 'revenue' );
-    $group_by   = sanitize_key( $request->get_param( 'group_by' ) ?: 'total' );
-    $product_ids  = viswiz_commerce_builder_parse_ids( $request->get_param( 'product_ids' ) );
-    $category_ids = viswiz_commerce_builder_parse_ids( $request->get_param( 'category_ids' ) );
-    $manual_rows  = viswiz_commerce_builder_sanitize_manual_rows( $request->get_param( 'manual_rows' ) );
+    $year              = max( 2000, min( 2100, absint( $request->get_param( 'year' ) ) ) );
+    $metric            = sanitize_key( $request->get_param( 'metric' ) ?: 'revenue' );
+    $group_by          = sanitize_key( $request->get_param( 'group_by' ) ?: 'total' );
+    $product_ids       = viswiz_commerce_builder_parse_ids( $request->get_param( 'product_ids' ) );
+    $category_ids      = viswiz_commerce_builder_parse_ids( $request->get_param( 'category_ids' ) );
+    $subscription_only = rest_sanitize_boolean( $request->get_param( 'subscription_only' ) );
+    $manual_rows       = viswiz_commerce_builder_sanitize_manual_rows( $request->get_param( 'manual_rows' ) );
+
+    if ( function_exists( 'viswiz_get_category_ids_with_children' ) && $category_ids ) {
+        $category_ids = viswiz_get_category_ids_with_children( $category_ids );
+    }
 
     if ( ! in_array( $metric, array( 'revenue', 'orders', 'quantity' ), true ) ) {
         $metric = 'revenue';
@@ -181,8 +204,8 @@ function viswiz_commerce_builder_rest_build( WP_REST_Request $request ) {
     $start    = new DateTimeImmutable( sprintf( '%04d-01-01 00:00:00', $year ), $timezone );
     $end      = new DateTimeImmutable( sprintf( '%04d-12-31 23:59:59', $year ), $timezone );
 
-    $order_ids = viswiz_commerce_builder_get_order_ids( $start, $end );
-    $series    = array();
+    $order_ids      = viswiz_commerce_builder_get_order_ids( $start, $end );
+    $series         = array();
     $matched_orders = array();
 
     foreach ( $order_ids as $order_id ) {
@@ -191,20 +214,33 @@ function viswiz_commerce_builder_rest_build( WP_REST_Request $request ) {
             continue;
         }
 
-        $items = viswiz_commerce_builder_matching_items( $order, $product_ids, $category_ids );
-        if ( ( $product_ids || $category_ids ) && empty( $items ) ) {
+        $items = viswiz_commerce_builder_matching_items( $order, $product_ids, $category_ids, $subscription_only );
+        $has_item_filter = $product_ids || $category_ids || $subscription_only;
+        if ( $has_item_filter && empty( $items ) ) {
             continue;
         }
 
         $matched_orders[ $order->get_id() ] = true;
 
         if ( 'orders' === $metric ) {
-            $key = viswiz_commerce_builder_group_key( $group_by, $order, null );
-            $series[ $key ] = isset( $series[ $key ] ) ? $series[ $key ] + 1 : 1;
+            if ( 'product' === $group_by ) {
+                $seen_products = array();
+                foreach ( $items as $item ) {
+                    $key = viswiz_commerce_builder_group_key( 'product', $order, $item );
+                    if ( isset( $seen_products[ $key ] ) ) {
+                        continue;
+                    }
+                    $seen_products[ $key ] = true;
+                    $series[ $key ] = isset( $series[ $key ] ) ? $series[ $key ] + 1 : 1;
+                }
+            } else {
+                $key = viswiz_commerce_builder_group_key( $group_by, $order, null );
+                $series[ $key ] = isset( $series[ $key ] ) ? $series[ $key ] + 1 : 1;
+            }
             continue;
         }
 
-        if ( empty( $product_ids ) && empty( $category_ids ) && 'product' !== $group_by && 'revenue' === $metric ) {
+        if ( ! $has_item_filter && 'product' !== $group_by && 'revenue' === $metric ) {
             $key = viswiz_commerce_builder_group_key( $group_by, $order, null );
             $series[ $key ] = isset( $series[ $key ] ) ? $series[ $key ] + (float) $order->get_total() : (float) $order->get_total();
             continue;
@@ -237,9 +273,9 @@ function viswiz_commerce_builder_rest_build( WP_REST_Request $request ) {
     $rows = array();
     foreach ( $series as $key => $value ) {
         $rows[] = array(
-            'label' => viswiz_commerce_builder_group_label( $group_by, $key ),
-            'value' => round( (float) $value, 2 ),
-            'color' => '',
+            'label'  => viswiz_commerce_builder_group_label( $group_by, $key ),
+            'value'  => round( (float) $value, 2 ),
+            'color'  => '',
             'source' => 'woocommerce',
         );
     }
@@ -257,26 +293,34 @@ function viswiz_commerce_builder_rest_build( WP_REST_Request $request ) {
         array(
             'rows' => $rows,
             'meta' => array(
-                'year'           => $year,
-                'metric'         => $metric,
-                'group_by'       => $group_by,
-                'orders_scanned' => count( $order_ids ),
-                'orders_matched' => count( $matched_orders ),
-                'currency'       => function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '',
-                'snapshot_at'    => current_time( 'mysql' ),
+                'year'              => $year,
+                'metric'            => $metric,
+                'group_by'          => $group_by,
+                'subscription_only' => $subscription_only,
+                'orders_scanned'    => count( $order_ids ),
+                'orders_matched'    => count( $matched_orders ),
+                'currency'          => function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '',
+                'snapshot_at'       => current_time( 'mysql' ),
             ),
         )
     );
 }
 
 function viswiz_commerce_builder_get_order_ids( DateTimeImmutable $start, DateTimeImmutable $end ) {
-    $page = 1;
-    $ids  = array();
+    $page     = 1;
+    $ids      = array();
+    $statuses = function_exists( 'wc_get_is_paid_statuses' ) ? wc_get_is_paid_statuses() : array( 'processing', 'completed' );
+    $statuses = array_map(
+        function ( $status ) {
+            return 0 === strpos( $status, 'wc-' ) ? $status : 'wc-' . $status;
+        },
+        $statuses
+    );
 
     do {
         $result = wc_get_orders(
             array(
-                'status'       => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
+                'status'       => $statuses,
                 'date_created' => $start->format( 'Y-m-d H:i:s' ) . '...' . $end->format( 'Y-m-d H:i:s' ),
                 'limit'        => 200,
                 'page'         => $page,
@@ -298,8 +342,9 @@ function viswiz_commerce_builder_get_order_ids( DateTimeImmutable $start, DateTi
     return $ids;
 }
 
-function viswiz_commerce_builder_matching_items( WC_Order $order, $product_ids, $category_ids ) {
-    $matching = array();
+function viswiz_commerce_builder_matching_items( WC_Order $order, $product_ids, $category_ids, $subscription_only = false ) {
+    $matching     = array();
+    $product_ids  = array_map( 'absint', (array) $product_ids );
     $category_ids = array_map( 'absint', (array) $category_ids );
 
     foreach ( $order->get_items( 'line_item' ) as $item ) {
@@ -309,6 +354,7 @@ function viswiz_commerce_builder_matching_items( WC_Order $order, $product_ids, 
 
         $product_id   = (int) $item->get_product_id();
         $variation_id = (int) $item->get_variation_id();
+        $product      = $item->get_product();
         $matches_product = empty( $product_ids ) || in_array( $product_id, $product_ids, true ) || ( $variation_id && in_array( $variation_id, $product_ids, true ) );
         $matches_category = empty( $category_ids );
 
@@ -317,7 +363,17 @@ function viswiz_commerce_builder_matching_items( WC_Order $order, $product_ids, 
             $matches_category = (bool) array_intersect( $category_ids, array_map( 'absint', $term_ids ) );
         }
 
-        if ( $matches_product && $matches_category ) {
+        $matches_subscription = true;
+        if ( $subscription_only ) {
+            $matches_subscription = false;
+            if ( $product && function_exists( 'wcs_is_subscription' ) ) {
+                $matches_subscription = (bool) wcs_is_subscription( $product );
+            } elseif ( $product ) {
+                $matches_subscription = $product->is_type( array( 'subscription', 'variable-subscription', 'subscription_variation' ) );
+            }
+        }
+
+        if ( $matches_product && $matches_category && $matches_subscription ) {
             $matching[] = $item;
         }
     }
