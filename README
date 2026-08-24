@@ -1,10 +1,96 @@
-VisWiz is a WordPress plugin for building real-time WooCommerce dashboards and reusable data visualizations.
+VisWiz WooCommerce Visualizer
+=============================
 
-It provides a dedicated Visualization custom post type for building progress bars, pie charts, bar/column/line/area/scatter-style charts, counters, timelines, maps, diagrams, flow diagrams, org charts, and graph-style relationships. Visualizations can be driven by live WooCommerce sales data, visualization-specific manual data, or reusable datasets stored in custom database tables.
+Version 1.7.4 Full Info Modal Label Settings
 
-Key features include:
-- Real-time WooCommerce sales progress and breakdowns with configurable date ranges.
-- A Visualization CPT with an editing interface for type selection, data entry, legend/label/theme settings, preview, and shortcode embedding.
-- Custom tables for visualization containers, reusable datasets, data points, and graph/flow/org-chart relationships.
-- Relationship attributes for graph-like visualizations including direction, intensity, and relation type.
-- Saved visualization library with copy-ready shortcodes and a Gutenberg block selector.
+Backend/editor improvements in 1.6.9:
+- Removed the redundant mini graph preview from the Nodes editing tab.
+- Reorganized global Settings into Overview, Commerce Defaults, Manual Fallback Data, Legacy Diagram Defaults, and Legacy Graph Defaults.
+- Added clearer settings cards, explanations, and quick links to the dedicated Visualizations/Datasets/Schema screens.
+
+
+- Node detail modal now shows a gallery carousel with the featured image first.
+- Left/right arrows appear when a node has multiple images.
+- Gallery data is exported in the graph payload as ordered image objects while preserving legacy image URL fields.
+
+This build focuses on graph-data entry UX:
+
+- Builder-style admin IA: Dashboard, Visualizations, Datasets, Node Types, Relation Types, Settings.
+- Dedicated dataset management and JSON export.
+- Canonical node type schema with editable subtypes.
+- Relation type schema with label, inverse label, default direction, default intensity, and usual source/target node types/subtypes.
+- Node editor improvements:
+  - auto-generated readable node IDs from titles,
+  - manual node ID editing with relation updates,
+  - duplicate node hints,
+  - per-node validation status,
+  - relation cards grouped into incoming/outgoing relations,
+  - quick outgoing/incoming relation creation,
+  - create connected node + relation in one flow,
+  - save/add-relation and save/add-connected-node actions.
+- Relation editor improvements:
+  - default direction/intensity from relation type,
+  - reverse relation action,
+  - relation type mismatch warnings,
+  - relation cards in node context.
+- Dataset validation panel for missing titles/types/endpoints, duplicates, and relation-schema warnings.
+- Quick add drawers for pasted nodes and relations with preflight validation.
+- Proposed subtype approval now registers real subtypes into the global Node Types schema.
+- Gutenberg block picker, shortcode copy buttons, dirty-change warning, and improved admin polish.
+
+Additional 1.6.1 fixes:
+
+- Rebuilt the visualization editor guide so it updates dynamically by visualization type and data source.
+- Removed contradictory guide/manual-section visibility for timeline, flow diagram, and org chart.
+- Timeline now consistently uses chart-style type-aware rows; legacy diagram sections are only shown for the legacy Diagram type.
+- Flow Diagram and Org Chart now consistently follow the graph workflow: nodes, type usage/proposals, relations, validation, and preview.
+- Builder workflow steps now follow the active editor tab instead of remaining stuck on Data source.
+- Preview now handles all chart-like types with a generic chart preview instead of only Pie.
+
+This build has been syntax-checked but should be tested on a WordPress staging site before wider use.
+
+Additional 1.6.2 fixes:
+
+- Fixed node autosave so updating a node no longer wipes existing graph relations when the autosave payload contains no meaningful relation data.
+- Added safer preservation/remapping of existing relation endpoints during node-only autosaves, including node ID changes.
+- Relation modal “Save & close” now uses the graph autosave path.
+- Frontend graph node detail modals now render formatted node descriptions as sanitized rich HTML with paragraph/list spacing, instead of falling back to flat/plain text.
+
+
+Additional 1.6.3 fixes:
+- Relation fields that point to existing dataset/schema values now use smart searchable comboboxes while keeping the original select fields for safe saving.
+- From/To node fields in standalone relation cards, node inline relation editors, and quick relation creation now search by title, label, and node ID.
+- Relation type fields now use the same smart search and show slug, direction, source/target expectations, and description where available.
+
+
+Additional 1.6.6 fixes:
+
+- Node-only autosave no longer replaces or deletes relations. It preserves existing links and only remaps endpoints when node IDs change.
+- Full graph saves now defend against empty/partial relation payloads caused by hidden/modal UI state.
+- Replaced fragile wp_editor-in-hidden-details node descriptions with a lightweight HTML-capable description editor and formatting toolbar.
+- Public graph detail modals now receive cleaner sanitized rich description HTML and preserve paragraphs, links, lists, emphasis, and blockquotes.
+- Fixed admin and public modal layout issues where close buttons could appear outside the visible modal frame.
+
+
+Keyboard/WYSIWYG improvements in 1.7.0:
+
+Modal deletion fixes in 1.7.1:
+- Remove node/relation actions now cleanly close editor modals and remove overlays.
+- Deleting a node also removes its attached relations to avoid orphan graph edges.
+
+- Modal-safe WYSIWYG editor for node descriptions, initialized only while the node editor modal is open.
+- Keyboard trap and focus restoration for node/relation editing modals.
+- Smart searchable relation fields support Arrow Up/Down, Home/End, Enter selection, Escape close.
+- Ctrl/Cmd+Enter saves and closes the active node/relation modal.
+- Builder tabs support arrow-key navigation.
+
+Additional 1.7.3 fixes:
+- Round and compact graph nodes now calculate their own dimensions from the full node title, avoiding title truncation/ellipsis in those node styles.
+- Added optional relation-count sizing for graph nodes: round nodes grow by radius and basic info cards grow in width/height according to each node’s number of relations.
+- Added global and per-visualization controls for relation-count sizing, per-relation size step, maximum size increase, and the public full screen toggle.
+- Added a Full screen / Exit full screen toggle for public progress, chart, diagram, and graph visualizations, with graph re-rendering after entering/exiting full screen so the layout uses the available viewport.
+
+Additional 1.7.4 fixes:
+- Added per-visualization full info modal label controls in the Display tab for graph-style visualizations.
+- Added matching global display defaults for node modal labels.
+- Public graph node modals now use the configured text for related-node headings, relation fallbacks, direction labels, image gallery labels, proposed subtype labels, custom field fallback labels, and type/subtype drill-down headings.
