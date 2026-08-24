@@ -70,7 +70,7 @@ function viswiz_commerce_builder_enqueue_assets( $hook ) {
             'restUrl'        => esc_url_raw( rest_url( 'viswiz/v1/commerce-builder' ) ),
             'nonce'          => wp_create_nonce( 'wp_rest' ),
             'currencySymbol' => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '',
-            'subscriptions'  => function_exists( 'wcs_is_subscription' ),
+            'subscriptions'  => class_exists( 'WC_Subscriptions_Product' ),
             'i18n'           => array(
                 'building'    => __( 'Building data…', 'viswiz' ),
                 'build'       => __( 'Build visualization data', 'viswiz' ),
@@ -90,7 +90,7 @@ function viswiz_commerce_builder_render_meta_box( $post ) {
     }
 
     $year                 = (int) wp_date( 'Y' );
-    $subscriptions_active = function_exists( 'wcs_is_subscription' );
+    $subscriptions_active = class_exists( 'WC_Subscriptions_Product' );
     ?>
     <div class="viswiz-commerce-builder" data-viswiz-commerce-builder>
         <p class="description">
@@ -366,8 +366,8 @@ function viswiz_commerce_builder_matching_items( WC_Order $order, $product_ids, 
         $matches_subscription = true;
         if ( $subscription_only ) {
             $matches_subscription = false;
-            if ( $product && function_exists( 'wcs_is_subscription' ) ) {
-                $matches_subscription = (bool) wcs_is_subscription( $product );
+            if ( $product && class_exists( 'WC_Subscriptions_Product' ) ) {
+                $matches_subscription = (bool) WC_Subscriptions_Product::is_subscription( $product );
             } elseif ( $product ) {
                 $matches_subscription = $product->is_type( array( 'subscription', 'variable-subscription', 'subscription_variation' ) );
             }
