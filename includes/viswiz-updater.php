@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once __DIR__ . '/viswiz-commerce-builder.php';
+
 add_filter( 'pre_set_site_transient_update_plugins', 'viswiz_updater_check_for_update' );
 add_filter( 'plugins_api', 'viswiz_updater_plugin_information', 20, 3 );
 add_filter( 'auto_update_plugin', 'viswiz_updater_enable_automatic_updates', 10, 2 );
