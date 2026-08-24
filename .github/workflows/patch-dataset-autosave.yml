@@ -1,0 +1,74 @@
+name: Patch dataset autosave sync
+
+on:
+  push:
+    branches:
+      - feature/dataset-manager-ux
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/dataset-manager-ux
+          fetch-depth: 0
+      - name: Patch node type dataset autosave
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('includes/viswiz-dataset-manager.php')
+          text = path.read_text()
+          hook_anchor = "add_action( 'wp_ajax_viswiz_autosave_graph_node', 'viswiz_dataset_manager_prepare_ajax_touch', 1 );"
+          hook_line = "add_action( 'wp_ajax_viswiz_autosave_node_type', 'viswiz_dataset_manager_prepare_node_type_ajax_sync', 1 );"
+          if hook_line not in text:
+              text = text.replace(hook_anchor, hook_anchor + "\n" + hook_line, 1)
+
+          anchor = "function viswiz_dataset_manager_validate_graph( $payload ) {"
+          function_text = r'''function viswiz_dataset_manager_prepare_node_type_ajax_sync() {
+    $post_id = absint( $_POST['post_id'] ?? 0 );
+    if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+        return;
+    }
+
+    add_action(
+        'shutdown',
+        function () use ( $post_id ) {
+            $dataset_id = (int) get_post_meta( $post_id, 'viswiz_dataset_id', true );
+            if ( ! $dataset_id ) {
+                return;
+            }
+            $graph_data = json_decode( get_post_meta( $post_id, 'viswiz_graph_data', true ) ?: '[]', true );
+            if ( ! is_array( $graph_data ) ) {
+                return;
+            }
+            viswiz_sync_graph_tables_from_saved_meta( $post_id, $graph_data );
+            viswiz_dataset_manager_touch_dataset( $dataset_id );
+        }
+    );
+}
+
+'''
+          if 'function viswiz_dataset_manager_prepare_node_type_ajax_sync()' not in text:
+              if anchor not in text:
+                  raise SystemExit('Validation function anchor not found')
+              text = text.replace(anchor, function_text + anchor, 1)
+          path.write_text(text)
+          PY
+
+          if git diff --quiet; then
+            echo 'Autosave patch already applied.'
+            exit 0
+          fi
+          php -l includes/viswiz-dataset-manager.php
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add includes/viswiz-dataset-manager.php
+          git commit -m "Sync node type autosaves to linked datasets"
+          git push origin HEAD:feature/dataset-manager-ux
