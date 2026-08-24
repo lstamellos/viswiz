@@ -1,0 +1,78 @@
+name: Patch dataset editor selection
+
+on:
+  push:
+    branches:
+      - feature/dataset-manager-ux
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/dataset-manager-ux
+          fetch-depth: 0
+      - name: Prefer compatible linked visualization and clean workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('includes/viswiz-dataset-manager.php')
+          text = path.read_text()
+          start = text.index('function viswiz_dataset_manager_get_editor_url(')
+          end = text.index('function viswiz_dataset_manager_render_page()', start)
+          replacement = '''function viswiz_dataset_manager_get_editor_url( $dataset, $usage = array() ) {
+    $dataset_id = absint( $dataset->id ?? 0 );
+    $dataset_type = sanitize_key( $dataset->data_type ?? 'generic' );
+    $graph_like = viswiz_is_graph_like_type( $dataset_type ) || viswiz_dataset_manager_dataset_has_relations( $dataset_id );
+    $tab = $graph_like ? 'nodes' : 'data';
+
+    foreach ( $usage as $item ) {
+        $post_id = absint( $item->post_id ?? 0 );
+        $usage_type = sanitize_key( $item->visualization_type ?? '' );
+        $compatible = false;
+
+        if ( $graph_like ) {
+            $compatible = viswiz_is_graph_like_type( $usage_type );
+        } elseif ( viswiz_is_chart_like_type( $dataset_type ) ) {
+            $compatible = viswiz_is_chart_like_type( $usage_type );
+        } elseif ( 'generic' === $dataset_type || '' === $dataset_type ) {
+            $compatible = true;
+        } else {
+            $compatible = ( $usage_type === $dataset_type );
+        }
+
+        if ( ! $compatible ) {
+            continue;
+        }
+        if ( $post_id && get_post( $post_id ) && current_user_can( 'edit_post', $post_id ) ) {
+            return add_query_arg( 'viswiz_tab', $tab, get_edit_post_link( $post_id, 'raw' ) );
+        }
+    }
+
+    return add_query_arg(
+        array(
+            'post_type' => 'viswiz_visualization',
+            'viswiz_dataset_id' => $dataset_id,
+            'viswiz_tab' => $tab,
+        ),
+        admin_url( 'post-new.php' )
+    );
+}
+
+'''
+          path.write_text(text[:start] + replacement + text[end:])
+          PY
+          php -l includes/viswiz-dataset-manager.php
+          git diff --check
+          git rm .github/workflows/patch-dataset-editor-selection.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add includes/viswiz-dataset-manager.php
+          git commit -m "Prefer compatible visualization when editing datasets"
+          git push origin HEAD:feature/dataset-manager-ux
