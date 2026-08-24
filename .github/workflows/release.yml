@@ -48,7 +48,7 @@ jobs:
             node --check "$file"
           done < <(find assets -type f -name '*.js' -print0)
 
-          git diff --check
+          git diff --check HEAD^ HEAD
 
           DIST_ROOT="${RUNNER_TEMP}/viswiz-release-${VERSION}"
           rm -rf "$DIST_ROOT"
