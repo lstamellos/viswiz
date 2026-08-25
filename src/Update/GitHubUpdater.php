@@ -148,9 +148,9 @@ final class GitHubUpdater {
         $update->package     = $release['package'];
 
         /*
-         * Do not set autoupdate/disable_autoupdate and do not hook auto_update_plugin.
-         * WordPress core owns the per-plugin decision through its Plugins list-table
-         * toggle and the auto_update_plugins site option.
+         * Do not set plugin-specific automatic-update flags and do not hook the
+         * automatic-update decision. WordPress core owns the per-plugin choice
+         * through the Plugins list-table toggle and its native site option.
          */
         return $update;
     }
