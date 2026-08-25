@@ -47,9 +47,45 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( 'show_type_badges', $javascript );
         self::assertStringContainsString( 'function ensureDefs', $javascript );
         self::assertStringContainsString( "fill: 'rgba(0,0,0,.72)'", $javascript );
-        self::assertStringContainsString( "fill: 'rgba(15,23,42,.82)'", $javascript );
+        self::assertStringContainsString( "fill: 'rgba(15,23,42,.84)'", $javascript );
         self::assertStringContainsString( "fill: '#ffffff'", $javascript );
-        self::assertStringContainsString( "'pointer-events': 'none'", $javascript );
+    }
+
+    public function test_node_titles_are_wrapped_without_frontend_truncation(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
+        self::assertStringContainsString( 'function wrapTitle', $javascript );
+        self::assertStringContainsString( 'title.replaceChildren()', $javascript );
+        self::assertStringContainsString( "const width = 200", $javascript );
+        self::assertStringContainsString( "const tspan = svgEl('tspan'", $javascript );
+        self::assertStringNotContainsString( 'truncate(titleValue', $javascript );
+    }
+
+    public function test_graph_property_tags_are_keyboard_accessible_facets_with_fade_or_hide_modes(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
+        $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
+        self::assertStringContainsString( 'viswiz-property-filter-mode', $javascript );
+        self::assertStringContainsString( "new Option(tr('fadeOthers'", $javascript );
+        self::assertStringContainsString( "new Option(tr('hideOthers'", $javascript );
+        self::assertStringContainsString( "group.style.filter = active && !match && state.mode === 'fade' ? 'grayscale(1)'", $javascript );
+        self::assertStringContainsString( "group.style.display = active && !match && state.mode === 'hide' ? 'none'", $javascript );
+        self::assertStringContainsString( "role: 'button'", $javascript );
+        self::assertStringContainsString( "tabindex: '0'", $javascript );
+        self::assertStringContainsString( 'viswiz-property-filter-clear', $stylesheet );
+        self::assertStringContainsString( '.viswiz-node-card-tag.is-active', $stylesheet );
+    }
+
+    public function test_node_properties_open_property_views_with_linked_node_lists(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
+        $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
+        self::assertStringContainsString( 'function showPropertyView', $javascript );
+        self::assertStringContainsString( 'viswiz-property-overlay', $javascript );
+        self::assertStringContainsString( 'viswiz-property-node-list', $javascript );
+        self::assertStringContainsString( 'viswiz-property-node-link', $javascript );
+        self::assertStringContainsString( 'viswiz-node-property-link', $javascript );
+        self::assertStringContainsString( "addPropertyLink('node_type'", $javascript );
+        self::assertStringContainsString( "addPropertyLink('node_subtype'", $javascript );
+        self::assertStringContainsString( 'viswiz-property-node-link', $stylesheet );
+        self::assertStringContainsString( 'viswiz-node-property-link', $stylesheet );
     }
 
     public function test_node_modal_is_portaled_without_breaking_fullscreen_or_scroll_position(): void {
