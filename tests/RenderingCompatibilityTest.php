@@ -35,9 +35,8 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( 'show_node_images', $javascript );
     }
 
-    public function test_node_cards_use_full_bleed_images_dark_title_panel_and_type_tags(): void {
+    public function test_node_cards_use_self_contained_full_bleed_svg_presentation(): void {
         $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
-        $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
         self::assertStringContainsString( 'preserveAspectRatio', $javascript );
         self::assertStringContainsString( 'xMidYMid slice', $javascript );
         self::assertStringContainsString( 'viswiz-node-card-cover', $javascript );
@@ -46,9 +45,11 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( 'node.node_type', $javascript );
         self::assertStringContainsString( 'node.node_subtype', $javascript );
         self::assertStringContainsString( 'show_type_badges', $javascript );
-        self::assertStringContainsString( '.viswiz-node-card-title-panel', $stylesheet );
-        self::assertStringContainsString( '.viswiz-node-card-tag-bg', $stylesheet );
-        self::assertStringContainsString( 'fill:#fff!important', $stylesheet );
+        self::assertStringContainsString( 'function ensureDefs', $javascript );
+        self::assertStringContainsString( "fill: 'rgba(0,0,0,.72)'", $javascript );
+        self::assertStringContainsString( "fill: 'rgba(15,23,42,.82)'", $javascript );
+        self::assertStringContainsString( "fill: '#ffffff'", $javascript );
+        self::assertStringContainsString( "'pointer-events': 'none'", $javascript );
     }
 
     public function test_node_modal_is_portaled_without_breaking_fullscreen_or_scroll_position(): void {

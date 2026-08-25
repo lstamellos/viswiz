@@ -10,15 +10,11 @@
     const payloadNode = $('#viswiz-dataset-payload');
     const editor = $('#viswiz-dataset-editor');
     if (!payloadNode || !editor || editor.dataset.schema !== 'graph') return null;
-
     try {
       return {
         id: `dataset-${Number(editor.dataset.datasetId || 0)}`,
         schema: 'graph',
-        settings: {
-          show_node_images: true,
-          show_type_badges: true,
-        },
+        settings: { show_node_images: true, show_type_badges: true },
         data: JSON.parse(payloadNode.textContent || '{}'),
       };
     } catch (_) {
@@ -28,7 +24,6 @@
 
   function getSpec(container) {
     if (specCache.has(container)) return specCache.get(container);
-
     let promise;
     if (container.matches('[data-viswiz-inline-spec]')) {
       promise = Promise.resolve(datasetPreviewSpec());
@@ -42,7 +37,6 @@
     } else {
       promise = Promise.resolve(null);
     }
-
     specCache.set(container, promise);
     return promise;
   }
@@ -53,7 +47,6 @@
     const query = (toolbar?.querySelector('input[type="search"]')?.value || '').trim().toLowerCase();
     const selects = toolbar ? [...toolbar.querySelectorAll('select')] : [];
     const nodeType = selects[0]?.value || '';
-
     return allNodes.filter((node) => {
       if (nodeType && node.node_type !== nodeType) return false;
       if (!query) return true;
@@ -68,8 +61,20 @@
 
   function svgEl(tag, attrs = {}) {
     const element = document.createElementNS(svgNS, tag);
-    Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, String(value)));
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') element.setAttribute(key, String(value));
+    });
     return element;
+  }
+
+  function ensureDefs(svg) {
+    if (!svg) return null;
+    let defs = svg.querySelector(':scope > defs');
+    if (!defs) {
+      defs = svgEl('defs');
+      svg.insertBefore(defs, svg.firstChild);
+    }
+    return defs;
   }
 
   function safeId(value) {
@@ -97,19 +102,29 @@
     if (!label) return 0;
     const textValue = truncateTag(label, maxChars);
     const width = tagWidth(textValue);
-    const tag = svgEl('g', { class: 'viswiz-node-card-tag' });
+    const tag = svgEl('g', {
+      class: 'viswiz-node-card-tag',
+      'pointer-events': 'none',
+    });
     tag.appendChild(svgEl('rect', {
       x,
       y,
       width,
       height: 17,
       rx: 8.5,
+      fill: 'rgba(15,23,42,.82)',
+      stroke: 'rgba(255,255,255,.55)',
+      'stroke-width': '.55',
       class: 'viswiz-node-card-tag-bg',
     }));
     const text = svgEl('text', {
       x: x + width / 2,
       y: y + 11.5,
       'text-anchor': 'middle',
+      fill: '#ffffff',
+      'font-size': '8.5',
+      'font-weight': '600',
+      'font-family': 'inherit',
       class: 'viswiz-node-card-tag-text',
     });
     text.textContent = textValue;
@@ -118,13 +133,34 @@
     return width;
   }
 
+  function enforcePresentation(group) {
+    group.querySelectorAll('.viswiz-node-card-cover,.viswiz-node-card-shade,.viswiz-node-card-title-panel,.viswiz-node-card-tag').forEach((element) => {
+      element.setAttribute('pointer-events', 'none');
+    });
+    const cover = group.querySelector('.viswiz-node-card-cover');
+    if (cover) cover.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    const shade = group.querySelector('.viswiz-node-card-shade');
+    if (shade) shade.setAttribute('fill', 'rgba(0,0,0,.13)');
+    const panel = group.querySelector('.viswiz-node-card-title-panel');
+    if (panel) panel.setAttribute('fill', 'rgba(0,0,0,.72)');
+    group.querySelectorAll('.viswiz-node-card-tag-bg').forEach((tag) => {
+      tag.setAttribute('fill', 'rgba(15,23,42,.82)');
+      tag.setAttribute('stroke', 'rgba(255,255,255,.55)');
+      tag.setAttribute('stroke-width', '.55');
+    });
+    group.querySelectorAll('.viswiz-node-card-tag-text').forEach((text) => {
+      text.setAttribute('fill', '#ffffff');
+      text.setAttribute('font-size', '8.5');
+      text.setAttribute('font-weight', '600');
+    });
+  }
+
   function styleNode(group, node, spec, index) {
     if (!group || !node) return;
 
     const alreadyStyled = group.dataset.viswizNodeCardStyled === '1';
     group.classList.add('viswiz-node-card-styled');
     group.setAttribute('data-viswiz-node-uuid', String(node.uuid || ''));
-
     group.querySelectorAll('.viswiz-graph-node-image-frame,.viswiz-graph-node-image').forEach((element) => element.remove());
 
     const background = [...group.children].find((child) => child.tagName?.toLowerCase() === 'rect' && !child.classList.contains('viswiz-node-card-title-panel') && !child.classList.contains('viswiz-node-card-shade'));
@@ -144,23 +180,31 @@
     const title = group.querySelector('.viswiz-graph-node-title');
     if (title) {
       title.setAttribute('x', '0');
-      title.setAttribute('y', '20');
+      title.setAttribute('y', '21');
       title.setAttribute('text-anchor', 'middle');
+      title.setAttribute('fill', '#ffffff');
+      title.setAttribute('font-weight', '700');
+      title.setAttribute('font-size', '11');
+      title.setAttribute('pointer-events', 'none');
     }
 
     const oldType = group.querySelector('.viswiz-graph-node-type-label');
     if (oldType) oldType.setAttribute('display', 'none');
 
-    if (alreadyStyled) return;
+    if (alreadyStyled) {
+      enforcePresentation(group);
+      return;
+    }
     group.dataset.viswizNodeCardStyled = '1';
 
     const svg = group.ownerSVGElement;
-    const defs = svg?.querySelector('defs');
+    const defs = ensureDefs(svg);
     const image = spec.settings?.show_node_images === false ? null : primaryImage(node);
     const suffix = `${safeId(spec.id)}-${safeId(node.uuid || index)}`;
     const clipId = `viswiz-node-clip-${suffix}`;
 
     if (image && defs) {
+      defs.querySelector(`#${CSS.escape(clipId)}`)?.remove();
       const clip = svgEl('clipPath', { id: clipId });
       clip.appendChild(svgEl('rect', { x, y, width, height, rx }));
       defs.appendChild(clip);
@@ -173,34 +217,35 @@
         preserveAspectRatio: 'xMidYMid slice',
         href: image.url,
         'clip-path': `url(#${clipId})`,
+        'pointer-events': 'none',
         class: 'viswiz-node-card-cover',
       });
       picture.setAttributeNS('http://www.w3.org/1999/xlink', 'href', image.url);
       background.after(picture);
     }
 
-    const titlePanelAttrs = {
-      x,
-      y: 0,
-      width,
-      height: 35,
-      rx,
-      class: 'viswiz-node-card-title-panel',
-    };
-    const shadeAttrs = {
+    const clipPath = image ? `url(#${clipId})` : null;
+    const shade = svgEl('rect', {
       x,
       y,
       width,
       height,
       rx,
+      fill: 'rgba(0,0,0,.13)',
+      'clip-path': clipPath,
+      'pointer-events': 'none',
       class: 'viswiz-node-card-shade',
-    };
-    if (image) {
-      titlePanelAttrs['clip-path'] = `url(#${clipId})`;
-      shadeAttrs['clip-path'] = `url(#${clipId})`;
-    }
-    const titlePanel = svgEl('rect', titlePanelAttrs);
-    const shade = svgEl('rect', shadeAttrs);
+    });
+    const titlePanel = svgEl('rect', {
+      x,
+      y: 2,
+      width,
+      height: 33,
+      fill: 'rgba(0,0,0,.72)',
+      'clip-path': clipPath,
+      'pointer-events': 'none',
+      class: 'viswiz-node-card-title-panel',
+    });
     const insertionPoint = group.querySelector('.viswiz-node-card-cover') || background;
     insertionPoint.after(shade, titlePanel);
 
@@ -213,6 +258,7 @@
         addTag(group, node.node_subtype, x + 13 + firstWidth, y + 7, subtypeMax);
       }
     }
+    enforcePresentation(group);
   }
 
   async function enhance(container) {
