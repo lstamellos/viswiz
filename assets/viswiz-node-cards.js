@@ -274,7 +274,8 @@
       clear.hidden = !active;
       if (active) {
         const count = allNodes.filter((node) => String(node[state.kind] || '') === String(state.value)).length;
-        clear.textContent = `× ${labelize(state.value)} (${count})`;
+        const nextLabel = `× ${labelize(state.value)} (${count})`;
+        if (clear.textContent !== nextLabel) clear.textContent = nextLabel;
         clear.title = tr('clearPropertyFilter', 'Clear property filter');
       }
     }
@@ -366,7 +367,6 @@
     if (!background) return;
     if (alreadyStyled) {
       enforcePresentation(group);
-      applyFacet(container, spec);
       return;
     }
 
@@ -475,7 +475,6 @@
       }
     }
     enforcePresentation(group);
-    applyFacet(container, spec);
   }
 
   function ensureNodeVisible(container, spec, uuid) {
@@ -662,15 +661,24 @@
     node.querySelectorAll?.('.viswiz-modal-overlay').forEach((overlay) => Promise.resolve().then(() => enhanceNodeModal(overlay)));
   }
 
+  function mutationNeedsEnhancement(mutation) {
+    const selector = '.viswiz-visualization,.viswiz-graph-svg,.viswiz-graph-node,.viswiz-graph-toolbar';
+    return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => {
+      if (!(node instanceof Element)) return false;
+      return node.matches(selector) || Boolean(node.querySelector?.(selector));
+    });
+  }
+
   function start() {
     scan(document);
     document.querySelectorAll('.viswiz-modal-overlay').forEach((overlay) => enhanceNodeModal(overlay));
     if (!('MutationObserver' in window)) return;
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach(processAddedNode);
+        if (!mutationNeedsEnhancement(mutation)) return;
         const owner = mutation.target instanceof Element ? mutation.target.closest('.viswiz-visualization') : null;
         if (owner) queue(owner);
-        mutation.addedNodes.forEach(processAddedNode);
       });
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
