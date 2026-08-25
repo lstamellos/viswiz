@@ -1,0 +1,40 @@
+name: Materialize VisWiz v2 refactor
+
+on:
+  push:
+    branches:
+      - refactor/v2-architecture
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out refactor branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Materialize clean v2 source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/v2-payload.part00
+          cat .github/v2-payload.part* > /tmp/viswiz-v2.b64
+          base64 --decode /tmp/viswiz-v2.b64 > /tmp/viswiz-v2.tar.gz
+          mkdir -p /tmp/viswiz-v2
+          tar -xzf /tmp/viswiz-v2.tar.gz -C /tmp/viswiz-v2
+          test -f /tmp/viswiz-v2/viswiz.php
+          test -f /tmp/viswiz-v2/src/Plugin.php
+          test -f /tmp/viswiz-v2/blocks/visualization/block.json
+          rsync -a --delete --exclude '.git' /tmp/viswiz-v2/ ./
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Rebuild VisWiz 2.0 architecture'
+          git push origin HEAD:${GITHUB_REF_NAME}
