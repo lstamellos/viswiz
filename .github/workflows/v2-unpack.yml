@@ -30,7 +30,11 @@ jobs:
           test -f /tmp/viswiz-v2/viswiz.php
           test -f /tmp/viswiz-v2/src/Plugin.php
           test -f /tmp/viswiz-v2/blocks/visualization/block.json
-          rsync -a --delete --exclude '.git' /tmp/viswiz-v2/ ./
+
+          # GitHub Actions tokens cannot modify workflow files in this repository.
+          # Keep the current workflow directory during this push; the final v2
+          # CI/release workflows are installed through the GitHub connector next.
+          rsync -a --delete --exclude '.git' --exclude '.github/workflows' /tmp/viswiz-v2/ ./
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
