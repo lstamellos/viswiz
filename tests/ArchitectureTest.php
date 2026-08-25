@@ -37,8 +37,9 @@ final class ArchitectureTest extends TestCase {
 
     public function test_database_version_is_independent_from_plugin_version(): void {
         $bootstrap = file_get_contents( $this->root . '/viswiz.php' );
-        $this->assertStringContainsString( "VISWIZ_VERSION', '2.0.0'", $bootstrap );
-        $this->assertStringContainsString( "VISWIZ_DB_VERSION', 20000", $bootstrap );
+        $this->assertMatchesRegularExpression( "/define\( 'VISWIZ_VERSION', '\\d+\\.\\d+\\.\\d+' \);/", $bootstrap );
+        $this->assertMatchesRegularExpression( "/define\( 'VISWIZ_DB_VERSION', \\d+ \);/", $bootstrap );
+        $this->assertStringNotContainsString( "define( 'VISWIZ_DB_VERSION', VISWIZ_VERSION );", $bootstrap );
     }
 
     public function test_dataset_storage_uses_immutable_node_references_and_revision_locking(): void {
