@@ -9,7 +9,7 @@ use VisWiz\Update\GitHubUpdater;
 use VisWiz\WooCommerce\Compatibility;
 
 final class Plugin {
-    private const CAPABILITIES_VERSION = 1;
+    private const CAPABILITIES_VERSION = 2;
 
     public static function register(): void {
         register_activation_hook( VISWIZ_FILE, array( self::class, 'activate' ) );
@@ -37,7 +37,6 @@ final class Plugin {
         GitHubUpdater::register();
         Compatibility::register();
     }
-
 
     public static function maybe_upgrade_capabilities(): void {
         if ( (int) get_option( 'viswiz_capabilities_version', 0 ) >= self::CAPABILITIES_VERSION ) {
@@ -115,9 +114,10 @@ final class Plugin {
 
         $admin = get_role( 'administrator' );
         if ( $admin ) {
-            foreach ( array( 'manage_viswiz_schema', 'manage_viswiz_settings', 'manage_viswiz_updates' ) as $cap ) {
+            foreach ( array( 'manage_viswiz_schema', 'manage_viswiz_settings' ) as $cap ) {
                 $admin->add_cap( $cap );
             }
+            $admin->remove_cap( 'manage_viswiz_updates' );
         }
     }
 }
