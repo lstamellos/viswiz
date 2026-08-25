@@ -22,33 +22,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate, package and release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install test dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Validate source
         shell: bash
         run: |
-          set -euo pipefail
+          find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+          find assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          composer test
+          git diff --check HEAD^ HEAD
 
-          VERSION="$(sed -n "s/^const VISWIZ_VERSION = '\([^']*\)';/\1/p" viswiz.php | head -n1)"
+      - name: Validate version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(sed -n "s/^define( 'VISWIZ_VERSION', '\\([^']*\\)' );/\\1/p" viswiz.php | head -n1)"
           HEADER_VERSION="$(sed -n 's/^ \* Version: //p' viswiz.php | head -n1)"
           test -n "$VERSION"
           test "$VERSION" = "$HEADER_VERSION"
-          TAG="v${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Package and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          TAG="v${VERSION}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; nothing to do."
             exit 0
           fi
-
-          while IFS= read -r -d '' file; do
-            php -l "$file"
-          done < <(find . -type f -name '*.php' -not -path './.git/*' -print0)
-
-          while IFS= read -r -d '' file; do
-            node --check "$file"
-          done < <(find assets -type f -name '*.js' -print0)
-
-          git diff --check HEAD^ HEAD
 
           DIST_ROOT="${RUNNER_TEMP}/viswiz-release-${VERSION}"
           rm -rf "$DIST_ROOT"
@@ -57,8 +69,19 @@ jobs:
             --exclude '.git' \
             --exclude '.github' \
             --exclude '.replit' \
+            --exclude 'tests' \
+            --exclude 'vendor' \
+            --exclude '.phpunit.cache' \
+            --exclude 'phpunit.xml.dist' \
+            --exclude 'composer.lock' \
             ./ "$DIST_ROOT/viswiz/"
+
+          test -f "$DIST_ROOT/viswiz/viswiz.php"
+          test -f "$DIST_ROOT/viswiz/src/Plugin.php"
+          test -f "$DIST_ROOT/viswiz/blocks/visualization/block.json"
           (cd "$DIST_ROOT" && zip -qr "viswiz-${VERSION}.zip" viswiz)
+          unzip -t "$DIST_ROOT/viswiz-${VERSION}.zip"
+          sha256sum "$DIST_ROOT/viswiz-${VERSION}.zip"
 
           gh release create "$TAG" \
             "$DIST_ROOT/viswiz-${VERSION}.zip#WordPress installable plugin ZIP" \
