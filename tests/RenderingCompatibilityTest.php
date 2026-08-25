@@ -14,6 +14,8 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( "add_action( 'admin_enqueue_scripts'", $runtime );
         self::assertStringContainsString( 'wp_register_style', $runtime );
         self::assertStringContainsString( 'viswiz-rendering-compat.css', $runtime );
+        self::assertStringContainsString( 'viswiz-node-cards.js', $runtime );
+        self::assertStringContainsString( 'viswiz-node-cards', $runtime );
     }
 
     public function test_runtime_js_recovers_admin_preview_and_late_frontend_blocks(): void {
@@ -31,6 +33,22 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( 'viswiz-graph-node-image', $javascript );
         self::assertStringContainsString( 'data-viswiz-node-uuid', $javascript );
         self::assertStringContainsString( 'show_node_images', $javascript );
+    }
+
+    public function test_node_cards_use_full_bleed_images_dark_title_panel_and_type_tags(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
+        $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
+        self::assertStringContainsString( 'preserveAspectRatio', $javascript );
+        self::assertStringContainsString( 'xMidYMid slice', $javascript );
+        self::assertStringContainsString( 'viswiz-node-card-cover', $javascript );
+        self::assertStringContainsString( 'viswiz-node-card-title-panel', $javascript );
+        self::assertStringContainsString( 'viswiz-node-card-tag', $javascript );
+        self::assertStringContainsString( 'node.node_type', $javascript );
+        self::assertStringContainsString( 'node.node_subtype', $javascript );
+        self::assertStringContainsString( 'show_type_badges', $javascript );
+        self::assertStringContainsString( '.viswiz-node-card-title-panel', $stylesheet );
+        self::assertStringContainsString( '.viswiz-node-card-tag-bg', $stylesheet );
+        self::assertStringContainsString( 'fill:#fff!important', $stylesheet );
     }
 
     public function test_node_modal_is_portaled_without_breaking_fullscreen_or_scroll_position(): void {
