@@ -74,6 +74,21 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( '.viswiz-node-card-tag.is-active', $stylesheet );
     }
 
+    public function test_graph_property_facets_do_not_reenter_through_the_mutation_observer(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
+        self::assertStringContainsString( 'const nextLabel = `× ${labelize(state.value)} (${count})`', $javascript );
+        self::assertStringContainsString( 'if (clear.textContent !== nextLabel) clear.textContent = nextLabel;', $javascript );
+        self::assertStringContainsString( 'function mutationNeedsEnhancement', $javascript );
+        self::assertStringContainsString( 'if (!mutationNeedsEnhancement(mutation)) return;', $javascript );
+
+        $start = strpos( $javascript, 'function styleNode(' );
+        $end   = strpos( $javascript, 'function ensureNodeVisible(', $start );
+        self::assertNotFalse( $start );
+        self::assertNotFalse( $end );
+        $style_node = substr( $javascript, $start, $end - $start );
+        self::assertStringNotContainsString( 'applyFacet(', $style_node );
+    }
+
     public function test_node_properties_open_property_views_with_linked_node_lists(): void {
         $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-node-cards.js' );
         $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
