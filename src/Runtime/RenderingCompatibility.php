@@ -2,8 +2,9 @@
 namespace VisWiz\Runtime;
 
 final class RenderingCompatibility {
-    private const SCRIPT_HANDLE = 'viswiz-rendering-compat';
-    private const STYLE_HANDLE  = 'viswiz-rendering-compat';
+    private const SCRIPT_HANDLE    = 'viswiz-rendering-compat';
+    private const NODE_CARD_HANDLE = 'viswiz-node-cards';
+    private const STYLE_HANDLE     = 'viswiz-rendering-compat';
 
     public static function register(): void {
         add_action( 'init', array( self::class, 'register_assets' ), 30 );
@@ -25,11 +26,19 @@ final class RenderingCompatibility {
             VISWIZ_VERSION,
             true
         );
+        wp_register_script(
+            self::NODE_CARD_HANDLE,
+            VISWIZ_URL . 'assets/viswiz-node-cards.js',
+            array( self::SCRIPT_HANDLE ),
+            VISWIZ_VERSION,
+            true
+        );
     }
 
     private static function enqueue_assets(): void {
         wp_enqueue_style( self::STYLE_HANDLE );
         wp_enqueue_script( self::SCRIPT_HANDLE );
+        wp_enqueue_script( self::NODE_CARD_HANDLE );
     }
 
     public static function enqueue_admin(): void {
