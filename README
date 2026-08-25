@@ -1,128 +1,218 @@
 VisWiz WooCommerce Visualizer
 =============================
 
-Version 1.8.1 Dataset Manager & Graph Workflow
+Version 2.0.0 — Dataset-first architecture
+------------------------------------------
 
-- Reworked Datasets into an inspect/manage screen with search, type filters, usage, safer actions, and editable dataset metadata.
-- Added graph dataset inspection with node/relation tables, relation-degree counts, and integrity validation for duplicate/missing node IDs and orphan endpoints.
-- Added direct Open graph editor / Edit graph actions that reuse the existing node/relation builder.
-- Dataset-backed visualizations now hydrate the builder from the canonical dataset instead of showing a stale visualization-specific copy.
-- Switching a visualization to another dataset is guarded so stale editor data cannot overwrite the newly selected dataset.
-- Added dataset duplication for safe structural revisions and synchronized dataset timestamps on visualization saves/autosaves.
-- Lightweight node type/subtype autosaves now synchronize to linked dataset graph tables.
-- Dataset deletion now clears the linked visualization post metadata as well as the dataset table link.
+VisWiz 2 is a structural rewrite of the 1.x plugin. The principal design rule is simple: **datasets own data; visualizations render data**.
 
-Version 1.8.0 Commerce Data Builder & Admin-Controlled Updates
+### What changed
 
-- Added Commerce Data Builder for creating stable visualization snapshots from WooCommerce CRUD/query APIs without direct order-table SQL.
-- Added revenue, order-count, and item-quantity metrics with total, monthly, and product grouping.
-- Added searchable WooCommerce product filters, enhanced category filters, child-category matching, and paid-order status handling.
-- Added WooCommerce Subscriptions-aware presets and filtering through `WC_Subscriptions_Product::is_subscription()` when the extension is available.
-- Added manual values that can be combined with WooCommerce data, including annual income/subscription revenue versus user-entered expenses.
-- Generated commerce data is copied into the existing VisWiz manual chart rows so published annual/financial visualizations remain stable snapshots.
-- Fixed automatic updates so VisWiz no longer forces them on. Without a configuration override, WordPress' native per-plugin auto-update preference is authoritative.
-- Added VisWiz → Updates in wp-admin, synchronized with the native WordPress `auto_update_plugins` setting. Multisite installations expose the control in Network Admin.
-- `define('VISWIZ_AUTO_UPDATES', true);` or `false` in `wp-config.php` remains available as a hard override and locks the wp-admin control.
-- Expanded release validation so all PHP and JavaScript plugin sources are syntax-checked before an installable ZIP is published.
+- `viswiz.php` is now a small bootstrap with a namespaced `VisWiz\\` application under `src/`.
+- Plugin version and database schema version are independent (`VISWIZ_VERSION` / `VISWIZ_DB_VERSION`).
+- Canonical dataset schemas are separate from renderers:
+  - schemas: categorical, time series, X/Y, geographic, progress, graph, diagram
+  - renderers: pie, bar, column, line, area, scatter, progress, counter, timeline, map, graph, flow diagram, org chart, diagram
+- A categorical dataset can therefore be reused by Pie, Bar or Column visualizations without duplicating the data.
+- Visualizations no longer keep a second authoritative copy of dataset graph data in post meta.
 
-Version 1.7.5 GitHub Auto Updates
+### New persistence model
 
-- Added native WordPress update discovery from the latest GitHub Release.
-- Added automatic VisWiz plugin updates through the normal WordPress updater.
-- Release updates require the installable `viswiz-{version}.zip` asset, preventing unsafe GitHub source-archive upgrades.
-- Added release packaging automation for future version bumps on `main`.
-- Automatic updates can be disabled with `define('VISWIZ_AUTO_UPDATES', false);` in `wp-config.php`.
+VisWiz 2 introduces dedicated tables for:
 
-Version 1.7.4 Full Info Modal Label Settings
+- datasets
+- generic rows
+- graph nodes
+- graph relations/edges
+- dataset revisions
 
-Backend/editor improvements in 1.6.9:
-- Removed the redundant mini graph preview from the Nodes editing tab.
-- Reorganized global Settings into Overview, Commerce Defaults, Manual Fallback Data, Legacy Diagram Defaults, and Legacy Graph Defaults.
-- Added clearer settings cards, explanations, and quick links to the dedicated Visualizations/Datasets/Schema screens.
+Graph relations reference **immutable node UUIDs**, not editable slugs. Renaming a node or changing its readable slug no longer requires relation endpoint remapping.
 
+Every dataset carries a monotonically increasing **data revision**. Targeted node/row/relation changes use optimistic concurrency; a stale editor receives a conflict instead of overwriting newer work. Name/description edits do not create artificial data revisions.
 
-- Node detail modal now shows a gallery carousel with the featured image first.
-- Left/right arrows appear when a node has multiple images.
-- Gallery data is exported in the graph payload as ordered image objects while preserving legacy image URL fields.
+Full delete-and-reinsert is restricted to deliberate dataset replace/import/restore operations and is wrapped in a database transaction. Normal node, row and relation editing performs targeted writes.
 
-This build focuses on graph-data entry UX:
+### Dataset revisions
 
-- Builder-style admin IA: Dashboard, Visualizations, Datasets, Node Types, Relation Types, Settings.
-- Dedicated dataset management and JSON export.
-- Canonical node type schema with editable subtypes.
-- Relation type schema with label, inverse label, default direction, default intensity, and usual source/target node types/subtypes.
-- Node editor improvements:
-  - auto-generated readable node IDs from titles,
-  - manual node ID editing with relation updates,
-  - duplicate node hints,
-  - per-node validation status,
-  - relation cards grouped into incoming/outgoing relations,
-  - quick outgoing/incoming relation creation,
-  - create connected node + relation in one flow,
-  - save/add-relation and save/add-connected-node actions.
-- Relation editor improvements:
-  - default direction/intensity from relation type,
-  - reverse relation action,
-  - relation type mismatch warnings,
-  - relation cards in node context.
-- Dataset validation panel for missing titles/types/endpoints, duplicates, and relation-schema warnings.
-- Quick add drawers for pasted nodes and relations with preflight validation.
-- Proposed subtype approval now registers real subtypes into the global Node Types schema.
-- Gutenberg block picker, shortcode copy buttons, dirty-change warning, and improved admin polish.
+Every data mutation stores a dataset snapshot with:
 
-Additional 1.6.1 fixes:
+- revision number
+- actor user ID
+- note
+- timestamp
 
-- Rebuilt the visualization editor guide so it updates dynamically by visualization type and data source.
-- Removed contradictory guide/manual-section visibility for timeline, flow diagram, and org chart.
-- Timeline now consistently uses chart-style type-aware rows; legacy diagram sections are only shown for the legacy Diagram type.
-- Flow Diagram and Org Chart now consistently follow the graph workflow: nodes, type usage/proposals, relations, validation, and preview.
-- Builder workflow steps now follow the active editor tab instead of remaining stuck on Data source.
-- Preview now handles all chart-like types with a generic chart preview instead of only Pie.
+The Dataset editor exposes revision history and restore actions. Restore itself creates a new revision, so the state being replaced remains recoverable.
 
-This build has been syntax-checked but should be tested on a WordPress staging site before wider use.
+### Graph schema security
 
-Additional 1.6.2 fixes:
+Global Node Types and Relation Types are protected by the dedicated `manage_viswiz_schema` capability. Dataset editors can assign existing types but cannot approve or mutate the global schema through a node autosave path.
 
-- Fixed node autosave so updating a node no longer wipes existing graph relations when the autosave payload contains no meaningful relation data.
-- Added safer preservation/remapping of existing relation endpoints during node-only autosaves, including node ID changes.
-- Relation modal “Save & close” now uses the graph autosave path.
-- Frontend graph node detail modals now render formatted node descriptions as sanitized rich HTML with paragraph/list spacing, instead of falling back to flat/plain text.
+The default roles are:
 
+- Administrator: visualization editing, dataset editing, global schema/settings/update management
+- Editor: visualization editing and dataset editing, but not global schema/settings/update management
 
-Additional 1.6.3 fixes:
-- Relation fields that point to existing dataset/schema values now use smart searchable comboboxes while keeping the original select fields for safe saving.
-- From/To node fields in standalone relation cards, node inline relation editors, and quick relation creation now search by title, label, and node ID.
-- Relation type fields now use the same smart search and show slug, direction, source/target expectations, and description where available.
+### WooCommerce / HPOS
 
+The old anonymous generic endpoints (`/sales`, `/sales-breakdown`, `/sales-status`) are removed.
 
-Additional 1.6.6 fixes:
+Published live WooCommerce visualizations are now served only through:
 
-- Node-only autosave no longer replaces or deletes relations. It preserves existing links and only remaps endpoints when node IDs change.
-- Full graph saves now defend against empty/partial relation payloads caused by hidden/modal UI state.
-- Replaced fragile wp_editor-in-hidden-details node descriptions with a lightweight HTML-capable description editor and formatting toolbar.
-- Public graph detail modals now receive cleaner sanitized rich description HTML and preserve paragraphs, links, lists, emphasis, and blockquotes.
-- Fixed admin and public modal layout issues where close buttons could appear outside the visible modal frame.
+`GET /wp-json/viswiz/v2/visualizations/{id}`
 
+The request contains only the saved visualization ID. Visitors cannot supply arbitrary periods, product IDs or category IDs.
 
-Keyboard/WYSIWYG improvements in 1.7.0:
+Live WooCommerce queries and snapshot generation share the same `SalesQuery` service:
 
-Modal deletion fixes in 1.7.1:
-- Remove node/relation actions now cleanly close editor modals and remove overlays.
-- Deleting a node also removes its attached relations to avoid orphan graph edges.
+- WooCommerce CRUD/query APIs only
+- paginated `wc_get_orders()` calls (200 IDs/page)
+- paid order statuses
+- bounded date windows
+- server-side transient cache
+- product and category filtering at line-item level
+- variation-aware product IDs
+- total/month/product/status grouping
+- revenue/order-count/item-quantity metrics
+- created/paid/completed date basis
+- explicit gross / item-net / item-gross revenue basis
+- refund deduction for order gross totals and filtered item-level revenue/quantity
 
-- Modal-safe WYSIWYG editor for node descriptions, initialized only while the node editor modal is open.
-- Keyboard trap and focus restoration for node/relation editing modals.
-- Smart searchable relation fields support Arrow Up/Down, Home/End, Enter selection, Escape close.
-- Ctrl/Cmd+Enter saves and closes the active node/relation modal.
-- Builder tabs support arrow-key navigation.
+VisWiz declares HPOS compatibility through WooCommerce `FeaturesUtil`.
 
-Additional 1.7.3 fixes:
-- Round and compact graph nodes now calculate their own dimensions from the full node title, avoiding title truncation/ellipsis in those node styles.
-- Added optional relation-count sizing for graph nodes: round nodes grow by radius and basic info cards grow in width/height according to each node’s number of relations.
-- Added global and per-visualization controls for relation-count sizing, per-relation size step, maximum size increase, and the public full screen toggle.
-- Added a Full screen / Exit full screen toggle for public progress, chart, diagram, and graph visualizations, with graph re-rendering after entering/exiting full screen so the layout uses the available viewport.
+### Front-end rendering
 
-Additional 1.7.4 fixes:
-- Added per-visualization full info modal label controls in the Display tab for graph-style visualizations.
-- Added matching global display defaults for node modal labels.
-- Public graph node modals now use the configured text for related-node headings, relation fallbacks, direction labels, image gallery labels, proposed subtype labels, custom field fallback labels, and type/subtype drill-down headings.
+The public runtime no longer depends on D3 or a third-party CDN. Renderers are implemented locally in `assets/viswiz.js`.
+
+Implemented renderer paths are distinct rather than routing all chart-like types through Pie:
+
+- Pie
+- Bar
+- Column
+- Line
+- Area
+- Scatter
+- Progress
+- Counter
+- Timeline
+- Map (coordinate/equirectangular marker view)
+- Graph
+- Flow Diagram
+- Org Chart
+- Diagram
+
+Graph, Flow and Org Chart share graph primitives but use different layout strategies. The graph toolbar retains node search, node-type and relation-type filters, zoom/reset controls and pointer panning. Node detail dialogs retain keyboard operation and multi-image gallery navigation.
+
+Live data polling:
+
+- is never faster than one minute
+- uses server-side cached results
+- starts only when the visualization approaches the viewport
+- pauses while the document is hidden
+- deduplicates simultaneous requests to the same endpoint in the browser
+
+VisWiz CSS/JS is enqueued only when a VisWiz visualization is actually rendered.
+
+### Gutenberg
+
+The `viswiz/visualization` dynamic block is registered from `blocks/visualization/block.json` (Block API v3). The editor picker uses the authenticated VisWiz v2 REST endpoint and supports editing the selected visualization in a new tab.
+
+### Dataset manager
+
+Datasets have a single management surface with:
+
+- paginated/searchable dataset listing
+- pre-aggregated row/node/relation/visualization counts (no nodes × relations × visualizations Cartesian count query)
+- explicit dataset schema
+- targeted row/node/relation editors
+- graph validation
+- graph preview
+- JSON export/import
+- dataset duplication
+- WooCommerce snapshot replacement
+- revision history and restore
+- safe dataset deletion with visualization detachment
+
+### Migration from 1.x
+
+On the first 2.0.0 load, VisWiz creates the v2 tables and runs a one-time best-effort migration:
+
+- v2 data is written only to new `viswiz_v2_*` tables; legacy tables are never altered by the v2 schema installer
+- each legacy dataset ID is mapped to a new v2 dataset ID through an explicit migration map
+- legacy `viswiz_data_points` are copied to v2 rows or nodes
+- legacy `viswiz_relations` are copied to v2 edges using new immutable UUID references
+- existing Visualization posts are mapped to `_viswiz_renderer`, `_viswiz_source_type`, `_viswiz_dataset_id` and `_viswiz_settings`
+- recognized visualization-local manual/graph data without an existing dataset is migrated into a private dataset
+
+The old 1.x data tables are deliberately **not dropped** by the migration. They remain available as a rollback/reference source until migration has been verified on the actual WordPress installation.
+
+### Update system
+
+The GitHub Releases updater is now an independent subsystem rather than the bootstrapper for the rest of the plugin.
+
+- exact asset name required: `viswiz-{version}.zip`
+- WordPress native per-plugin auto-update preference is authoritative
+- `VISWIZ_AUTO_UPDATES` remains an optional hard override
+- update metadata is cached for six hours and can be force-refreshed from VisWiz → Updates
+
+### Tests and release validation
+
+Pull requests and pushes to `main` now run:
+
+- PHP syntax checks on all active/test PHP files
+- JavaScript syntax checks
+- PHPUnit domain + architecture regression tests
+- block/composer JSON validation
+- whitespace validation
+- a real WordPress + MySQL integration smoke job
+- WooCommerce installation in the smoke job
+- activation / DB migration tests
+- canonical graph storage tests
+- node UUID/relation identity tests
+- optimistic concurrency tests
+- schema authorization tests
+- dataset duplication/deletion tests
+- WooCommerce live query smoke tests
+
+The release workflow repeats source/unit validation before producing the installable ZIP and verifies the archive before publishing the GitHub Release.
+
+Repository architecture
+-----------------------
+
+```
+viswiz.php
+src/
+  Plugin.php
+  Support.php
+  Admin/
+    Admin.php
+  Database/
+    Migrator.php
+    DatasetRepository.php
+  Domain/
+    Registry.php
+    GraphValidator.php
+  Frontend/
+    Frontend.php
+  Rest/
+    Api.php
+  Update/
+    GitHubUpdater.php
+  WooCommerce/
+    Compatibility.php
+    SalesQuery.php
+assets/
+  viswiz.js
+  viswiz.css
+  viswiz-admin.js
+  viswiz-admin.css
+  viswiz-block.js
+blocks/
+  visualization/
+    block.json
+tests/
+```
+
+Operational note
+----------------
+
+2.0.0 is a major architectural release. The migration preserves 1.x tables, but a real wp-admin smoke test with the existing large graph datasets should be performed before the legacy tables are ever removed in a later release.

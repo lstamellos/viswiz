@@ -1,0 +1,19 @@
+{
+  "apiVersion": 3,
+  "name": "viswiz/visualization",
+  "version": "2.0.0",
+  "title": "VisWiz Visualization",
+  "category": "widgets",
+  "icon": "chart-area",
+  "description": "Render a saved VisWiz visualization.",
+  "textdomain": "viswiz",
+  "attributes": {
+    "visualizationId": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "supports": {
+    "html": false
+  }
+}
