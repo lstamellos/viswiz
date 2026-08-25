@@ -100,7 +100,10 @@ final class Frontend {
                 return $result;
             }
             $data = array( 'rows' => $result['rows'] );
-            $meta = $result['meta'];
+            $meta = array(
+                'currency' => sanitize_text_field( (string) ( $result['meta']['currency'] ?? '' ) ),
+                'cached'   => ! empty( $result['meta']['cached'] ),
+            );
         } else {
             $source     = 'dataset';
             $dataset_id = absint( get_post_meta( $post_id, '_viswiz_dataset_id', true ) );
@@ -147,6 +150,7 @@ final class Frontend {
                             'url'      => esc_url_raw( (string) ( $image['url'] ?? '' ) ),
                             'thumb'    => esc_url_raw( (string) ( $image['thumb'] ?? '' ) ),
                             'alt'      => sanitize_text_field( (string) ( $image['alt'] ?? '' ) ),
+                            'caption'  => sanitize_text_field( (string) ( $image['caption'] ?? '' ) ),
                             'featured' => ! empty( $image['featured'] ),
                         ),
                         array_values( array_filter( (array) ( $node['image_gallery'] ?? array() ), 'is_array' ) )
@@ -154,6 +158,31 @@ final class Frontend {
                     $public_meta = array();
                     if ( isset( $node['meta']['color'] ) ) {
                         $public_meta['color'] = Support::sanitize_color( $node['meta']['color'], '' );
+                    }
+                    $public_fields = array();
+                    foreach ( (array) ( $node['meta']['public_fields'] ?? array() ) as $field ) {
+                        if ( ! is_array( $field ) ) {
+                            continue;
+                        }
+                        $type = sanitize_key( (string) ( $field['type'] ?? 'short' ) );
+                        if ( ! in_array( $type, array( 'short', 'long', 'url', 'formatted' ), true ) ) {
+                            $type = 'short';
+                        }
+                        $value = (string) ( $field['value'] ?? '' );
+                        if ( 'url' === $type ) {
+                            $value = esc_url_raw( $value );
+                        } elseif ( 'formatted' === $type ) {
+                            $value = wp_kses_post( $value );
+                        } else {
+                            $value = sanitize_textarea_field( $value );
+                        }
+                        if ( '' !== $value ) {
+                            $public_fields[] = array(
+                                'label' => sanitize_text_field( (string) ( $field['label'] ?? $field['key'] ?? '' ) ),
+                                'type'  => $type,
+                                'value' => $value,
+                            );
+                        }
                     }
                     return array(
                         'uuid'             => sanitize_text_field( (string) ( $node['uuid'] ?? '' ) ),
@@ -166,6 +195,7 @@ final class Frontend {
                         'description'      => wp_kses_post( (string) ( $node['description'] ?? '' ) ),
                         'description_html' => wp_kses_post( (string) ( $node['description_html'] ?? $node['description'] ?? '' ) ),
                         'image_gallery'    => $images,
+                        'public_fields'    => $public_fields,
                         'meta'             => $public_meta,
                     );
                 },
@@ -227,7 +257,18 @@ final class Frontend {
             'full_screen'           => ! isset( $raw['full_screen'] ) || Support::bool( $raw['full_screen'] ),
             'show_legend'           => ! isset( $raw['show_legend'] ) || Support::bool( $raw['show_legend'] ),
             'show_graph_toolbar'    => ! isset( $raw['show_graph_toolbar'] ) || Support::bool( $raw['show_graph_toolbar'] ),
+            'show_graph_search'     => ! isset( $raw['show_graph_search'] ) || Support::bool( $raw['show_graph_search'] ),
+            'show_graph_filters'    => ! isset( $raw['show_graph_filters'] ) || Support::bool( $raw['show_graph_filters'] ),
+            'show_graph_zoom'       => ! isset( $raw['show_graph_zoom'] ) || Support::bool( $raw['show_graph_zoom'] ),
+            'show_node_images'      => ! isset( $raw['show_node_images'] ) || Support::bool( $raw['show_node_images'] ),
+            'show_type_badges'      => ! isset( $raw['show_type_badges'] ) || Support::bool( $raw['show_type_badges'] ),
             'show_relation_labels'  => ! isset( $raw['show_relation_labels'] ) || Support::bool( $raw['show_relation_labels'] ),
+            'node_modal_title_fallback'       => sanitize_text_field( (string) ( $raw['node_modal_title_fallback'] ?? __( 'Node details', 'viswiz' ) ) ),
+            'node_modal_close_label'          => sanitize_text_field( (string) ( $raw['node_modal_close_label'] ?? __( 'Close node details', 'viswiz' ) ) ),
+            'node_modal_previous_image_label' => sanitize_text_field( (string) ( $raw['node_modal_previous_image_label'] ?? __( 'Previous image', 'viswiz' ) ) ),
+            'node_modal_next_image_label'     => sanitize_text_field( (string) ( $raw['node_modal_next_image_label'] ?? __( 'Next image', 'viswiz' ) ) ),
+            'node_modal_related_heading'      => sanitize_text_field( (string) ( $raw['node_modal_related_heading'] ?? __( 'Related nodes', 'viswiz' ) ) ),
+            'node_modal_relation_fallback'    => sanitize_text_field( (string) ( $raw['node_modal_relation_fallback'] ?? __( 'Relation', 'viswiz' ) ) ),
             'target'                => isset( $raw['target'] ) ? (float) $raw['target'] : 0.0,
             'refresh_ms'            => max( 60000, min( 1800000, absint( $raw['refresh_ms'] ?? 120000 ) ) ),
         );
@@ -249,9 +290,21 @@ final class Frontend {
             array(
                 'i18n' => array(
                     'visualization' => __( 'Visualization', 'viswiz' ),
-                    'searchNodes'   => __( 'Search nodes', 'viswiz' ),
-                    'nodeGraph'     => __( 'Node graph', 'viswiz' ),
-                    'viewNode'      => __( 'View node', 'viswiz' ),
+                    'searchNodes'       => __( 'Search nodes', 'viswiz' ),
+                    'filterNodeType'    => __( 'Filter node type', 'viswiz' ),
+                    'allNodeTypes'      => __( 'All node types', 'viswiz' ),
+                    'filterRelationType'=> __( 'Filter relation type', 'viswiz' ),
+                    'allRelationTypes'  => __( 'All relation types', 'viswiz' ),
+                    'zoomIn'            => __( 'Zoom in', 'viswiz' ),
+                    'zoomOut'           => __( 'Zoom out', 'viswiz' ),
+                    'resetZoom'         => __( 'Reset zoom', 'viswiz' ),
+                    'nodes'             => __( 'nodes', 'viswiz' ),
+                    'relations'         => __( 'relations', 'viswiz' ),
+                    'noMatchingNodes'   => __( 'No matching nodes', 'viswiz' ),
+                    'previousImage'     => __( 'Previous image', 'viswiz' ),
+                    'nextImage'         => __( 'Next image', 'viswiz' ),
+                    'nodeGraph'         => __( 'Node graph', 'viswiz' ),
+                    'viewNode'          => __( 'View node', 'viswiz' ),
                     'close'         => __( 'Close', 'viswiz' ),
                     'node'          => __( 'Node', 'viswiz' ),
                     'relatedNodes'  => __( 'Related nodes', 'viswiz' ),

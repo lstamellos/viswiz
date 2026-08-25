@@ -16,7 +16,8 @@ final class SalesQuery {
         }
 
         $config = $this->sanitize_config( $raw_config );
-        $key    = 'viswiz_woo_' . md5( wp_json_encode( $config ) );
+        $epoch  = (int) get_option( 'viswiz_woo_cache_epoch', 1 );
+        $key    = 'viswiz_woo_' . md5( wp_json_encode( array( $epoch, $config ) ) );
         $ttl    = $this->cache_ttl();
         if ( $use_cache ) {
             $cached = get_transient( $key );
@@ -64,7 +65,11 @@ final class SalesQuery {
             if ( 'quantity' === $config['metric'] ) {
                 foreach ( $items as $item ) {
                     $key_name = $this->group_key( $config['group_by'], $order, $item, $start, $config['date_basis'] );
-                    $series[ $key_name ] = ( $series[ $key_name ] ?? 0 ) + (float) $item->get_quantity();
+                    $quantity = (float) $item->get_quantity();
+                    if ( $config['deduct_refunds'] && method_exists( $order, 'get_qty_refunded_for_item' ) ) {
+                        $quantity = max( 0.0, $quantity - abs( (float) $order->get_qty_refunded_for_item( $item->get_id() ) ) );
+                    }
+                    $series[ $key_name ] = ( $series[ $key_name ] ?? 0 ) + $quantity;
                 }
                 continue;
             }
@@ -77,7 +82,7 @@ final class SalesQuery {
 
             foreach ( $items as $item ) {
                 $key_name = $this->group_key( $config['group_by'], $order, $item, $start, $config['date_basis'] );
-                $series[ $key_name ] = ( $series[ $key_name ] ?? 0 ) + $this->item_revenue( $item, $config );
+                $series[ $key_name ] = ( $series[ $key_name ] ?? 0 ) + $this->item_revenue( $item, $config, $order );
             }
         }
 
@@ -176,8 +181,10 @@ final class SalesQuery {
                 [ $start, $end ] = array( $end, $start );
             }
             $five_years_ago = $now->modify( '-5 years' );
-            if ( $start < $five_years_ago ) {
-                $start = $five_years_ago;
+            $start = max( $five_years_ago, min( $start, $now ) );
+            $end   = max( $five_years_ago, min( $end, $now ) );
+            if ( $end < $start ) {
+                $start = $end;
             }
             return array( $start->setTime( 0, 0, 0 ), $end->setTime( 23, 59, 59 ) );
         }
@@ -266,7 +273,7 @@ final class SalesQuery {
         if ( 'net_items' === $config['revenue_basis'] || 'gross_items' === $config['revenue_basis'] ) {
             $total = 0.0;
             foreach ( $order->get_items( 'line_item' ) as $item ) {
-                $total += $this->item_revenue( $item, $config );
+                $total += $this->item_revenue( $item, $config, $order );
             }
             return $total;
         }
@@ -277,12 +284,21 @@ final class SalesQuery {
         return max( 0.0, $total );
     }
 
-    private function item_revenue( $item, array $config ): float {
+    private function item_revenue( $item, array $config, $order = null ): float {
         $total = (float) $item->get_total();
         if ( 'gross_items' === $config['revenue_basis'] ) {
             $total += (float) $item->get_total_tax();
         }
-        return $total;
+        if ( $config['deduct_refunds'] && $order && method_exists( $order, 'get_total_refunded_for_item' ) ) {
+            $total -= (float) $order->get_total_refunded_for_item( $item->get_id() );
+            if ( 'gross_items' === $config['revenue_basis'] && method_exists( $order, 'get_tax_refunded_for_item' ) ) {
+                $taxes = $item->get_taxes();
+                foreach ( array_keys( (array) ( $taxes['total'] ?? array() ) ) as $tax_id ) {
+                    $total -= (float) $order->get_tax_refunded_for_item( $item->get_id(), (int) $tax_id );
+                }
+            }
+        }
+        return max( 0.0, $total );
     }
 
     private function group_key( string $group, $order, $item, DateTimeImmutable $start, string $date_basis ): string {

@@ -46,8 +46,19 @@ final class ArchitectureTest extends TestCase {
         $migrator   = file_get_contents( $this->root . '/src/Database/Migrator.php' );
         $this->assertStringContainsString( 'from_node_uuid', $repository );
         $this->assertStringContainsString( 'FOR UPDATE', $repository );
-        $this->assertStringContainsString( 'viswiz_dataset_revisions', $migrator );
+        $support = file_get_contents( $this->root . '/src/Support.php' );
+        $this->assertStringContainsString( "'viswiz_v2_'", $support );
+        $this->assertStringContainsString( "'viswiz_'", $support );
+        $this->assertStringContainsString( "Support::legacy_table( 'datasets' )", $migrator );
+        $this->assertStringContainsString( 'dataset_revisions', $migrator );
         $this->assertStringNotContainsString( 'visualization_id', $repository );
+    }
+
+
+    public function test_v2_tables_are_namespaced_away_from_legacy_tables(): void {
+        $support = file_get_contents( $this->root . '/src/Support.php' );
+        $this->assertStringContainsString( "return \$wpdb->prefix . 'viswiz_v2_' . \$suffix;", $support );
+        $this->assertStringContainsString( "return \$wpdb->prefix . 'viswiz_' . \$suffix;", $support );
     }
 
     public function test_block_metadata_is_valid_json(): void {

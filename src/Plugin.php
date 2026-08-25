@@ -17,10 +17,10 @@ final class Plugin {
     }
 
     public static function activate(): void {
-        Migrator::install();
+        self::register_post_type();
         self::grant_capabilities();
         update_option( 'viswiz_capabilities_version', self::CAPABILITIES_VERSION, false );
-        self::register_post_type();
+        Migrator::install();
         flush_rewrite_rules();
     }
 

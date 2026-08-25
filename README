@@ -28,13 +28,13 @@ VisWiz 2 introduces dedicated tables for:
 
 Graph relations reference **immutable node UUIDs**, not editable slugs. Renaming a node or changing its readable slug no longer requires relation endpoint remapping.
 
-Every dataset carries a monotonically increasing revision. Targeted node/row/relation changes use optimistic concurrency; a stale editor receives a conflict instead of overwriting newer work.
+Every dataset carries a monotonically increasing **data revision**. Targeted node/row/relation changes use optimistic concurrency; a stale editor receives a conflict instead of overwriting newer work. Name/description edits do not create artificial data revisions.
 
 Full delete-and-reinsert is restricted to deliberate dataset replace/import/restore operations and is wrapped in a database transaction. Normal node, row and relation editing performs targeted writes.
 
 ### Dataset revisions
 
-Every mutation stores a dataset snapshot with:
+Every data mutation stores a dataset snapshot with:
 
 - revision number
 - actor user ID
@@ -75,7 +75,7 @@ Live WooCommerce queries and snapshot generation share the same `SalesQuery` ser
 - revenue/order-count/item-quantity metrics
 - created/paid/completed date basis
 - explicit gross / item-net / item-gross revenue basis
-- refund deduction for order gross totals
+- refund deduction for order gross totals and filtered item-level revenue/quantity
 
 VisWiz declares HPOS compatibility through WooCommerce `FeaturesUtil`.
 
@@ -100,7 +100,7 @@ Implemented renderer paths are distinct rather than routing all chart-like types
 - Org Chart
 - Diagram
 
-Graph, Flow and Org Chart share graph primitives but use different layout strategies.
+Graph, Flow and Org Chart share graph primitives but use different layout strategies. The graph toolbar retains node search, node-type and relation-type filters, zoom/reset controls and pointer panning. Node detail dialogs retain keyboard operation and multi-image gallery navigation.
 
 Live data polling:
 
@@ -136,7 +136,8 @@ Datasets have a single management surface with:
 
 On the first 2.0.0 load, VisWiz creates the v2 tables and runs a one-time best-effort migration:
 
-- existing `viswiz_datasets` rows are extended with v2 schema/source/revision metadata
+- v2 data is written only to new `viswiz_v2_*` tables; legacy tables are never altered by the v2 schema installer
+- each legacy dataset ID is mapped to a new v2 dataset ID through an explicit migration map
 - legacy `viswiz_data_points` are copied to v2 rows or nodes
 - legacy `viswiz_relations` are copied to v2 edges using new immutable UUID references
 - existing Visualization posts are mapped to `_viswiz_renderer`, `_viswiz_source_type`, `_viswiz_dataset_id` and `_viswiz_settings`

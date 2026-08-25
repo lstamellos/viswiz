@@ -297,85 +297,278 @@
   }
 
   function renderGraph(container, spec) {
+    container.__viswizSpecSettings = spec.settings || {};
     addHeader(container, spec);
     const allNodes = Array.isArray(spec.data?.nodes) ? spec.data.nodes : [];
     const allRelations = Array.isArray(spec.data?.relations) ? spec.data.relations : [];
     if (!allNodes.length) return empty(container);
+
     const frame = el('div', { class: 'viswiz-graph-frame' });
+    const stage = el('div', { class: 'viswiz-graph-stage' });
     let query = '';
+    let nodeType = '';
+    let relationType = '';
+    let activeSvg = null;
+    let baseView = null;
+    let view = null;
+    let status = null;
+
+    const applyView = () => {
+      if (activeSvg && view) activeSvg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
+    };
+    const zoom = (factor) => {
+      if (!view || !baseView) return;
+      const nextW = Math.max(baseView.w * 0.32, Math.min(baseView.w * 3, view.w * factor));
+      const nextH = Math.max(baseView.h * 0.32, Math.min(baseView.h * 3, view.h * factor));
+      view.x += (view.w - nextW) / 2;
+      view.y += (view.h - nextH) / 2;
+      view.w = nextW;
+      view.h = nextH;
+      applyView();
+    };
+    const resetView = () => {
+      if (!baseView) return;
+      view = { ...baseView };
+      applyView();
+    };
+
     if (spec.settings?.show_graph_toolbar !== false) {
       const toolbar = el('div', { class: 'viswiz-graph-toolbar' });
       const search = el('input', { type: 'search', placeholder: tr('searchNodes', 'Search nodes'), 'aria-label': tr('searchNodes', 'Search nodes') });
-      toolbar.appendChild(search); frame.appendChild(toolbar);
-      search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); draw(); });
+      const typeSelect = el('select', { 'aria-label': tr('filterNodeType', 'Filter node type') });
+      typeSelect.appendChild(el('option', { value: '' }, tr('allNodeTypes', 'All node types')));
+      [...new Set(allNodes.map((n) => n.node_type).filter(Boolean))].sort().forEach((type) => typeSelect.appendChild(el('option', { value: type }, type)));
+      const relationSelect = el('select', { 'aria-label': tr('filterRelationType', 'Filter relation type') });
+      relationSelect.appendChild(el('option', { value: '' }, tr('allRelationTypes', 'All relation types')));
+      [...new Set(allRelations.map((r) => r.relation_type).filter(Boolean))].sort().forEach((type) => relationSelect.appendChild(el('option', { value: type }, type)));
+      const zoomOut = el('button', { type: 'button', class: 'viswiz-graph-tool', title: tr('zoomOut', 'Zoom out'), 'aria-label': tr('zoomOut', 'Zoom out') }, '−');
+      const zoomReset = el('button', { type: 'button', class: 'viswiz-graph-tool', title: tr('resetZoom', 'Reset zoom'), 'aria-label': tr('resetZoom', 'Reset zoom') }, '100%');
+      const zoomIn = el('button', { type: 'button', class: 'viswiz-graph-tool', title: tr('zoomIn', 'Zoom in'), 'aria-label': tr('zoomIn', 'Zoom in') }, '+');
+      status = el('span', { class: 'viswiz-graph-status', 'aria-live': 'polite' });
+      if (spec.settings?.show_graph_search !== false) toolbar.appendChild(search);
+      if (spec.settings?.show_graph_filters !== false) toolbar.append(typeSelect, relationSelect);
+      if (spec.settings?.show_graph_zoom !== false) toolbar.append(zoomOut, zoomReset, zoomIn);
+      toolbar.appendChild(status);
+      frame.appendChild(toolbar);
+      search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); view = null; draw(); });
+      typeSelect.addEventListener('change', () => { nodeType = typeSelect.value; view = null; draw(); });
+      relationSelect.addEventListener('change', () => { relationType = relationSelect.value; draw(); });
+      zoomOut.addEventListener('click', () => zoom(1.25));
+      zoomReset.addEventListener('click', resetView);
+      zoomIn.addEventListener('click', () => zoom(0.8));
     }
-    const stage = el('div', { class: 'viswiz-graph-stage' }); frame.appendChild(stage); container.appendChild(frame);
+
+    frame.appendChild(stage);
+    container.appendChild(frame);
+
     function draw() {
       stage.replaceChildren();
-      const nodes = query ? allNodes.filter((n) => `${n.title || ''} ${n.label || ''} ${n.slug || ''} ${n.node_type || ''} ${n.node_subtype || ''}`.toLowerCase().includes(query)) : allNodes;
+      const nodes = allNodes.filter((node) => {
+        if (nodeType && node.node_type !== nodeType) return false;
+        if (!query) return true;
+        return `${node.title || ''} ${node.label || ''} ${node.slug || ''} ${node.node_type || ''} ${node.node_subtype || ''}`.toLowerCase().includes(query);
+      });
+      if (!nodes.length) {
+        if (status) status.textContent = tr('noMatchingNodes', 'No matching nodes');
+        stage.appendChild(el('p', { class: 'viswiz-empty' }, tr('noMatchingNodes', 'No matching nodes')));
+        activeSvg = null;
+        return;
+      }
       const ids = new Set(nodes.map((n) => n.uuid));
-      const relations = allRelations.filter((r) => ids.has(r.from_node_uuid) && ids.has(r.to_node_uuid));
-      const width = 1000, height = Math.max(560, Math.min(900, 420 + nodes.length * 3));
+      const relations = allRelations.filter((r) => ids.has(r.from_node_uuid) && ids.has(r.to_node_uuid) && (!relationType || r.relation_type === relationType));
+      if (status) status.textContent = `${nodes.length}/${allNodes.length} ${tr('nodes', 'nodes')} · ${relations.length}/${allRelations.length} ${tr('relations', 'relations')}`;
+
+      const width = 1000;
+      const height = Math.max(560, Math.min(1100, 440 + nodes.length * 4));
       const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'viswiz-graph-svg', role: 'img', 'aria-label': tr('nodeGraph', 'Node graph') });
-      const defs = svgEl('defs'); const marker = svgEl('marker', { id: `vw-arrow-${spec.id}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }); marker.appendChild(svgEl('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: 'currentColor' })); defs.appendChild(marker); svg.appendChild(defs);
+      activeSvg = svg;
+      baseView = { x: 0, y: 0, w: width, h: height };
+      if (!view) view = { ...baseView };
+      applyView();
+
+      const defs = svgEl('defs');
+      const markerId = `vw-arrow-${spec.id}-${Math.random().toString(36).slice(2)}`;
+      const marker = svgEl('marker', { id: markerId, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+      marker.appendChild(svgEl('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: 'currentColor' }));
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+      const graphLayer = svgEl('g', { class: 'viswiz-graph-layer' });
+      svg.appendChild(graphLayer);
+
       const layout = graphLayout(nodes, relations, spec.renderer, width, height);
       const nodeMap = new Map(nodes.map((n) => [n.uuid, n]));
       relations.forEach((rel) => {
         const a = layout.get(rel.from_node_uuid), b = layout.get(rel.to_node_uuid); if (!a || !b) return;
-        const line = svgEl('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'viswiz-graph-edge', 'stroke-width': Math.max(1, Math.min(6, Number(rel.intensity || 1))), 'marker-end': rel.direction === 'undirected' ? '' : `url(#vw-arrow-${spec.id})` }); svg.appendChild(line);
-        if (rel.direction === 'bidirectional') line.setAttribute('marker-start', `url(#vw-arrow-${spec.id})`);
+        const line = svgEl('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'viswiz-graph-edge', 'stroke-width': Math.max(1, Math.min(6, Number(rel.intensity || 1))), 'marker-end': rel.direction === 'undirected' ? '' : `url(#${markerId})` });
+        graphLayer.appendChild(line);
+        if (rel.direction === 'bidirectional') line.setAttribute('marker-start', `url(#${markerId})`);
         if (spec.settings?.show_relation_labels !== false && (rel.label || rel.relation_type)) {
-          const label = svgEl('text', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 5, class: 'viswiz-graph-edge-label', 'text-anchor': 'middle' }, rel.label || rel.relation_type); svg.appendChild(label);
+          const label = svgEl('text', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 6, class: 'viswiz-graph-edge-label', 'text-anchor': 'middle' }, rel.label || rel.relation_type);
+          graphLayer.appendChild(label);
         }
       });
       nodes.forEach((node, i) => {
         const pos = layout.get(node.uuid); if (!pos) return;
         const g = svgEl('g', { class: 'viswiz-graph-node', transform: `translate(${pos.x},${pos.y})`, tabindex: 0, role: 'button', 'aria-label': `${tr('viewNode', 'View node')}: ${node.title || node.label || tr('node', 'Node')}` });
-        const rect = svgEl('rect', { x: -72, y: -30, width: 144, height: 60, rx: 14, fill: node.meta?.color || color(spec.settings, i), opacity: 0.96 }); g.appendChild(rect);
-        const t = svgEl('text', { x: 0, y: 4, 'text-anchor': 'middle', class: 'viswiz-graph-node-title' }, truncate(node.title || node.label || node.slug || '', 24)); g.appendChild(t);
-        const open = () => showNodeModal(container, node, relations, nodeMap);
-        g.addEventListener('click', open); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-        svg.appendChild(g);
+        const rect = svgEl('rect', { x: -76, y: -35, width: 152, height: 70, rx: 14, fill: node.meta?.color || color(spec.settings, i), opacity: 0.96 });
+        g.appendChild(rect);
+        g.appendChild(svgEl('text', { x: 0, y: -3, 'text-anchor': 'middle', class: 'viswiz-graph-node-title' }, truncate(node.title || node.label || node.slug || '', 24)));
+        if (spec.settings?.show_type_badges !== false && node.node_type) g.appendChild(svgEl('text', { x: 0, y: 17, 'text-anchor': 'middle', class: 'viswiz-graph-node-type-label' }, truncate(`${node.node_type}${node.node_subtype ? ` / ${node.node_subtype}` : ''}`, 27)));
+        const open = () => showNodeModal(container, node, relations, nodeMap, g);
+        g.addEventListener('click', open);
+        g.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+        graphLayer.appendChild(g);
       });
+
+      let dragging = false;
+      let last = null;
+      svg.addEventListener('pointerdown', (event) => {
+        if (event.target.closest?.('.viswiz-graph-node')) return;
+        dragging = true;
+        last = { x: event.clientX, y: event.clientY };
+        svg.classList.add('is-panning');
+        svg.setPointerCapture?.(event.pointerId);
+      });
+      svg.addEventListener('pointermove', (event) => {
+        if (!dragging || !last || !view) return;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        view.x -= (event.clientX - last.x) * (view.w / rect.width);
+        view.y -= (event.clientY - last.y) * (view.h / rect.height);
+        last = { x: event.clientX, y: event.clientY };
+        applyView();
+      });
+      const endPan = () => { dragging = false; last = null; svg.classList.remove('is-panning'); };
+      svg.addEventListener('pointerup', endPan);
+      svg.addEventListener('pointercancel', endPan);
+      svg.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoom(event.deltaY < 0 ? 0.88 : 1.14);
+      }, { passive: false });
       stage.appendChild(svg);
     }
     draw();
   }
 
-  function showNodeModal(container, node, relations, nodeMap) {
-    const overlay = el('div', { class: 'viswiz-modal-overlay', role: 'dialog', 'aria-modal': 'true' });
+  function showNodeModal(container, node, relations, nodeMap, opener = null) {
+    const settings = container.__viswizSpecSettings || {};
+    const titleFallback = settings.node_modal_title_fallback || tr('node', 'Node');
+    const overlay = el('div', { class: 'viswiz-modal-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': node.title || node.label || titleFallback });
     const modal = el('div', { class: 'viswiz-node-modal' });
-    const close = el('button', { type: 'button', class: 'viswiz-modal-close', 'aria-label': tr('close', 'Close') }, '×');
-    modal.append(close, el('h3', {}, node.title || node.label || node.slug || tr('node', 'Node')));
-    if (node.image_gallery?.length) {
-      const img = el('img', { class: 'viswiz-node-image', src: node.image_gallery[0].url, alt: node.image_gallery[0].alt || node.title || '' }); modal.appendChild(img);
+    const close = el('button', { type: 'button', class: 'viswiz-modal-close', 'aria-label': settings.node_modal_close_label || tr('close', 'Close') }, '×');
+    modal.append(close, el('h3', {}, node.title || node.label || node.slug || titleFallback));
+
+    const images = container.__viswizSpecSettings?.show_node_images === false ? [] : (Array.isArray(node.image_gallery) ? node.image_gallery.filter((image) => image?.url) : []);
+    if (images.length) {
+      const gallery = el('div', { class: 'viswiz-node-gallery' });
+      const image = el('img', { class: 'viswiz-node-image', src: images[0].url, alt: images[0].alt || node.title || '' });
+      const caption = el('div', { class: 'viswiz-node-image-caption' }, images[0].caption || '');
+      const count = el('span', { class: 'viswiz-node-image-count' });
+      let index = 0;
+      const updateImage = () => {
+        const current = images[index];
+        image.src = current.url;
+        image.alt = current.alt || node.title || '';
+        caption.textContent = current.caption || '';
+        caption.hidden = !current.caption;
+        count.textContent = `${index + 1}/${images.length}`;
+      };
+      gallery.appendChild(image);
+      if (images.length > 1) {
+        const controls = el('div', { class: 'viswiz-node-gallery-controls' });
+        const previous = el('button', { type: 'button', 'aria-label': settings.node_modal_previous_image_label || tr('previousImage', 'Previous image') }, '‹');
+        const next = el('button', { type: 'button', 'aria-label': settings.node_modal_next_image_label || tr('nextImage', 'Next image') }, '›');
+        previous.addEventListener('click', () => { index = (index - 1 + images.length) % images.length; updateImage(); });
+        next.addEventListener('click', () => { index = (index + 1) % images.length; updateImage(); });
+        controls.append(previous, count, next);
+        gallery.appendChild(controls);
+      }
+      gallery.appendChild(caption);
+      updateImage();
+      modal.appendChild(gallery);
     }
     if (node.node_type) modal.appendChild(el('p', { class: 'viswiz-node-type' }, `${node.node_type}${node.node_subtype ? ` · ${node.node_subtype}` : ''}`));
-    if (node.description_html || node.description) { const d = el('div', { class: 'viswiz-node-description' }); d.innerHTML = node.description_html || node.description; modal.appendChild(d); }
-    const related = relations.filter((r) => r.from_node_uuid === node.uuid || r.to_node_uuid === node.uuid);
-    if (related.length) {
-      modal.appendChild(el('h4', {}, tr('relatedNodes', 'Related nodes')));
-      const list = el('ul', { class: 'viswiz-related-list' });
-      related.forEach((r) => {
-        const other = nodeMap.get(r.from_node_uuid === node.uuid ? r.to_node_uuid : r.from_node_uuid);
-        if (other) list.appendChild(el('li', {}, `${r.label || r.relation_type || tr('relation', 'Relation')}: ${other.title || other.label || other.slug}`));
-      }); modal.appendChild(list);
+    if (node.description_html || node.description) {
+      const description = el('div', { class: 'viswiz-node-description' });
+      description.innerHTML = node.description_html || node.description;
+      modal.appendChild(description);
     }
-    overlay.appendChild(modal); container.appendChild(overlay); close.focus();
-    const dismiss = () => overlay.remove(); close.addEventListener('click', dismiss); overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
-    const key = (e) => { if (e.key === 'Escape') { dismiss(); document.removeEventListener('keydown', key); } }; document.addEventListener('keydown', key);
+    if (Array.isArray(node.public_fields) && node.public_fields.length) {
+      const details = el('dl', { class: 'viswiz-node-public-fields' });
+      node.public_fields.forEach((field) => {
+        if (!field?.value) return;
+        details.appendChild(el('dt', {}, field.label || ''));
+        const dd = el('dd');
+        if (field.type === 'url') {
+          const link = el('a', { href: field.value, target: '_blank', rel: 'noopener noreferrer' }, field.value); dd.appendChild(link);
+        } else if (field.type === 'formatted') {
+          dd.innerHTML = field.value;
+        } else {
+          dd.textContent = field.value;
+        }
+        details.appendChild(dd);
+      });
+      if (details.childElementCount) modal.appendChild(details);
+    }
+    const related = relations.filter((relation) => relation.from_node_uuid === node.uuid || relation.to_node_uuid === node.uuid);
+    if (related.length) {
+      modal.appendChild(el('h4', {}, settings.node_modal_related_heading || tr('relatedNodes', 'Related nodes')));
+      const list = el('ul', { class: 'viswiz-related-list' });
+      related.forEach((relation) => {
+        const outgoing = relation.from_node_uuid === node.uuid;
+        const other = nodeMap.get(outgoing ? relation.to_node_uuid : relation.from_node_uuid);
+        if (!other) return;
+        const relationLabel = outgoing
+          ? (relation.label || relation.relation_type || settings.node_modal_relation_fallback || tr('relation', 'Relation'))
+          : (relation.inverse_label || relation.label || relation.relation_type || settings.node_modal_relation_fallback || tr('relation', 'Relation'));
+        list.appendChild(el('li', {}, `${relationLabel}: ${other.title || other.label || other.slug}`));
+      });
+      modal.appendChild(list);
+    }
+    overlay.appendChild(modal);
+    container.appendChild(overlay);
+    close.focus();
+
+    const dismiss = () => {
+      document.removeEventListener('keydown', onKeydown);
+      overlay.remove();
+      if (opener?.isConnected) opener.focus();
+    };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        dismiss();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...modal.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter((item) => !item.disabled && !item.hidden);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    close.addEventListener('click', dismiss);
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) dismiss(); });
+    document.addEventListener('keydown', onKeydown);
   }
 
   function truncate(value, length) { const s = String(value || ''); return s.length > length ? `${s.slice(0, length - 1)}…` : s; }
   function empty(container) { container.appendChild(el('p', { class: 'viswiz-empty' }, tr('noData', 'No data available.'))); }
 
   function addFullscreen(container, spec) {
+    if (container.__viswizFullscreenHandler) {
+      document.removeEventListener('fullscreenchange', container.__viswizFullscreenHandler);
+      container.__viswizFullscreenHandler = null;
+    }
     if (!spec.settings?.full_screen || !document.fullscreenEnabled) return;
     const button = el('button', { type: 'button', class: 'viswiz-fullscreen' }, tr('fullScreen', 'Full screen'));
     button.addEventListener('click', async () => {
       if (document.fullscreenElement === container) await document.exitFullscreen(); else await container.requestFullscreen();
     });
-    document.addEventListener('fullscreenchange', () => { button.textContent = document.fullscreenElement === container ? tr('exitFullScreen', 'Exit full screen') : tr('fullScreen', 'Full screen'); });
+    const onFullscreen = () => { button.textContent = document.fullscreenElement === container ? tr('exitFullScreen', 'Exit full screen') : tr('fullScreen', 'Full screen'); };
+    container.__viswizFullscreenHandler = onFullscreen;
+    document.addEventListener('fullscreenchange', onFullscreen);
     container.prepend(button);
   }
 

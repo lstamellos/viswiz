@@ -2,12 +2,13 @@
 namespace VisWiz;
 
 final class Support {
+    public static function is_uuid( string $candidate ): bool {
+        return 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', strtolower( trim( $candidate ) ) );
+    }
+
     public static function uuid( string $candidate = '' ): string {
         $candidate = strtolower( trim( $candidate ) );
-        if ( preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $candidate ) ) {
-            return $candidate;
-        }
-        return wp_generate_uuid4();
+        return self::is_uuid( $candidate ) ? $candidate : wp_generate_uuid4();
     }
 
     public static function json_decode_array( mixed $value ): array {
@@ -67,6 +68,11 @@ final class Support {
     }
 
     public static function table( string $suffix ): string {
+        global $wpdb;
+        return $wpdb->prefix . 'viswiz_v2_' . $suffix;
+    }
+
+    public static function legacy_table( string $suffix ): string {
         global $wpdb;
         return $wpdb->prefix . 'viswiz_' . $suffix;
     }

@@ -76,10 +76,11 @@
       revision: Number(root.dataset.revision || 0),
       payload,
       query: '',
+      pages: { rows: 0, nodes: 0, relations: 0 },
       saving: false,
     };
     const search = $('[data-viswiz-dataset-search]');
-    if (search) search.addEventListener('input', () => { state.query = search.value.trim().toLowerCase(); renderEditor(root, state); });
+    if (search) search.addEventListener('input', () => { state.query = search.value.trim().toLowerCase(); state.pages = { rows: 0, nodes: 0, relations: 0 }; renderEditor(root, state); });
     renderEditor(root, state);
     bindImportAndRevisions(root, state);
     bindCommerceSnapshot(root, state);
@@ -125,15 +126,34 @@
     return Object.values(item || {}).map((value) => typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')).join(' ').toLowerCase();
   }
 
+  const EDITOR_PAGE_SIZE = 100;
+
+  function pageSlice(items, page) {
+    const maxPage = Math.max(0, Math.ceil(items.length / EDITOR_PAGE_SIZE) - 1);
+    const safePage = Math.max(0, Math.min(Number(page || 0), maxPage));
+    return { page: safePage, maxPage, items: items.slice(safePage * EDITOR_PAGE_SIZE, (safePage + 1) * EDITOR_PAGE_SIZE) };
+  }
+
+  function appendPager(root, total, pageInfo, onChange, noun) {
+    if (total <= EDITOR_PAGE_SIZE) return;
+    const pager = document.createElement('div'); pager.className = 'viswiz-editor-pager';
+    const previous = button('Previous', 'button button-small'); const next = button('Next', 'button button-small');
+    previous.disabled = pageInfo.page <= 0; next.disabled = pageInfo.page >= pageInfo.maxPage;
+    pager.append(previous, statusText(`Page ${pageInfo.page + 1} / ${pageInfo.maxPage + 1} · ${total} ${noun}`), next);
+    previous.addEventListener('click', () => onChange(pageInfo.page - 1)); next.addEventListener('click', () => onChange(pageInfo.page + 1));
+    root.appendChild(pager);
+  }
+
   function renderRowsEditor(root, state) {
     const rows = Array.isArray(state.payload.rows) ? state.payload.rows : [];
     const visible = state.query ? rows.filter((row) => filterText(row).includes(state.query)) : rows;
+    const pageInfo = pageSlice(visible, state.pages.rows); state.pages.rows = pageInfo.page;
     const bar = document.createElement('div'); bar.className = 'viswiz-editor-toolbar';
     const add = button('Add row', 'button button-primary'); bar.append(add, statusText(`${visible.length} / ${rows.length} rows · revision ${state.revision}`)); root.appendChild(bar);
     const table = document.createElement('table'); table.className = 'widefat striped viswiz-table';
     table.innerHTML = '<thead><tr><th>Label</th><th>Value</th><th>X/date</th><th>Y</th><th>Lat</th><th>Lng</th><th></th></tr></thead><tbody></tbody>';
     const tbody = $('tbody', table);
-    visible.forEach((row) => {
+    pageInfo.items.forEach((row) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td><strong>${esc(row.label || row.row_key || 'Untitled')}</strong></td><td>${esc(row.value ?? '')}</td><td>${esc(row.x_value ?? row.x_numeric ?? '')}</td><td>${esc(row.y_value ?? '')}</td><td>${esc(row.latitude ?? '')}</td><td>${esc(row.longitude ?? '')}</td><td class="viswiz-row-actions"></td>`;
       const edit = button('Edit', 'button button-small'), del = button('Delete', 'button-link-delete');
@@ -142,7 +162,9 @@
       del.addEventListener('click', async () => { if (!confirmDelete()) return; const res = await mutate(root, state, `/datasets/${state.id}/rows/${row.uuid}`, 'DELETE', {}); if (res) renderEditor(root, state); });
       tbody.appendChild(tr);
     });
-    root.appendChild(table); add.addEventListener('click', () => openRowDialog(root, state, null));
+    root.appendChild(table);
+    appendPager(root, visible.length, pageInfo, (page) => { state.pages.rows = page; renderEditor(root, state); }, 'rows');
+    add.addEventListener('click', () => openRowDialog(root, state, null));
   }
 
   function openRowDialog(root, state, row) {
@@ -170,6 +192,8 @@
     const visibleNodes = state.query ? nodes.filter((node) => filterText(node).includes(state.query)) : nodes;
     const visibleIds = new Set(visibleNodes.map((node) => node.uuid));
     const visibleRelations = state.query ? relations.filter((rel) => visibleIds.has(rel.from_node_uuid) || visibleIds.has(rel.to_node_uuid) || filterText(rel).includes(state.query)) : relations;
+    const nodePage = pageSlice(visibleNodes, state.pages.nodes); state.pages.nodes = nodePage.page;
+    const relationPage = pageSlice(visibleRelations, state.pages.relations); state.pages.relations = relationPage.page;
     const nodeMap = new Map(nodes.map((node) => [node.uuid, node]));
     const bar = document.createElement('div'); bar.className = 'viswiz-editor-toolbar';
     const addNode = button('Add node', 'button button-primary'), addRelation = button('Add relation', 'button');
@@ -179,15 +203,17 @@
     const table = document.createElement('table'); table.className = 'widefat striped viswiz-table'; table.innerHTML = '<thead><tr><th>Node</th><th>Type</th><th>Slug</th><th>Degree</th><th></th></tr></thead><tbody></tbody>';
     const tbody = $('tbody', table);
     const degree = new Map(nodes.map((n) => [n.uuid, 0])); relations.forEach((r) => { if (degree.has(r.from_node_uuid)) degree.set(r.from_node_uuid, degree.get(r.from_node_uuid)+1); if (degree.has(r.to_node_uuid)) degree.set(r.to_node_uuid, degree.get(r.to_node_uuid)+1); });
-    visibleNodes.forEach((node) => {
+    nodePage.items.forEach((node) => {
       const tr = document.createElement('tr'); tr.innerHTML = `<td><strong>${esc(node.title || node.label || node.slug)}</strong></td><td>${esc(node.node_type || '')}${node.node_subtype ? ` / ${esc(node.node_subtype)}` : ''}</td><td><code>${esc(node.slug || '')}</code></td><td>${esc(degree.get(node.uuid) || 0)}</td><td class="viswiz-row-actions"></td>`;
       const edit = button('Edit','button button-small'), del = button('Delete','button-link-delete'); $('.viswiz-row-actions',tr).append(edit,document.createTextNode(' '),del);
       edit.addEventListener('click',()=>openNodeDialog(root,state,node)); del.addEventListener('click',async()=>{if(!confirmDelete())return;const res=await mutate(root,state,`/datasets/${state.id}/nodes/${node.uuid}`,'DELETE',{});if(res)renderEditor(root,state);}); tbody.appendChild(tr);
     }); root.appendChild(table);
+    appendPager(root, visibleNodes.length, nodePage, (page) => { state.pages.nodes = page; renderEditor(root, state); }, 'nodes');
 
     const headingRelations = document.createElement('h3'); headingRelations.textContent='Relations'; root.appendChild(headingRelations);
     const rtable=document.createElement('table');rtable.className='widefat striped viswiz-table';rtable.innerHTML='<thead><tr><th>From</th><th>Relation</th><th>To</th><th>Direction</th><th></th></tr></thead><tbody></tbody>';
-    const rbody=$('tbody',rtable); visibleRelations.forEach((rel)=>{const from=nodeMap.get(rel.from_node_uuid),to=nodeMap.get(rel.to_node_uuid);const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(from?.title||from?.slug||'Missing')}</td><td>${esc(rel.label||rel.relation_type||'')}</td><td>${esc(to?.title||to?.slug||'Missing')}</td><td>${esc(rel.direction||'directed')}</td><td class="viswiz-row-actions"></td>`;const edit=button('Edit','button button-small'),del=button('Delete','button-link-delete');$('.viswiz-row-actions',tr).append(edit,document.createTextNode(' '),del);edit.addEventListener('click',()=>openRelationDialog(root,state,rel));del.addEventListener('click',async()=>{if(!confirmDelete())return;const res=await mutate(root,state,`/datasets/${state.id}/relations/${rel.uuid}`,'DELETE',{});if(res)renderEditor(root,state);});rbody.appendChild(tr);}); root.appendChild(rtable);
+    const rbody=$('tbody',rtable); relationPage.items.forEach((rel)=>{const from=nodeMap.get(rel.from_node_uuid),to=nodeMap.get(rel.to_node_uuid);const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(from?.title||from?.slug||'Missing')}</td><td>${esc(rel.label||rel.relation_type||'')}</td><td>${esc(to?.title||to?.slug||'Missing')}</td><td>${esc(rel.direction||'directed')}</td><td class="viswiz-row-actions"></td>`;const edit=button('Edit','button button-small'),del=button('Delete','button-link-delete');$('.viswiz-row-actions',tr).append(edit,document.createTextNode(' '),del);edit.addEventListener('click',()=>openRelationDialog(root,state,rel));del.addEventListener('click',async()=>{if(!confirmDelete())return;const res=await mutate(root,state,`/datasets/${state.id}/relations/${rel.uuid}`,'DELETE',{});if(res)renderEditor(root,state);});rbody.appendChild(tr);}); root.appendChild(rtable);
+    appendPager(root, visibleRelations.length, relationPage, (page) => { state.pages.relations = page; renderEditor(root, state); }, 'relations');
     addNode.addEventListener('click',()=>openNodeDialog(root,state,null)); addRelation.addEventListener('click',()=>openRelationDialog(root,state,null));
   }
 

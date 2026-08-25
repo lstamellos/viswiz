@@ -120,6 +120,8 @@ final class DatasetRepository {
         if ( '' === $name ) {
             return new WP_Error( 'viswiz_missing_name', __( 'Dataset name is required.', 'viswiz' ), array( 'status' => 400 ) );
         }
+
+        $wpdb->query( 'START TRANSACTION' );
         $now = current_time( 'mysql' );
         $ok  = $wpdb->insert(
             $table,
@@ -138,30 +140,42 @@ final class DatasetRepository {
             array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s' )
         );
         if ( false === $ok ) {
+            $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'viswiz_dataset_create_failed', __( 'Could not create dataset.', 'viswiz' ), array( 'status' => 500 ) );
         }
-        $dataset_id = (int) $wpdb->insert_id;
+        $dataset_id     = (int) $wpdb->insert_id;
         $initial_payload = 'graph' === $schema_type ? array( 'nodes' => array(), 'relations' => array() ) : array( 'rows' => array() );
-        $this->store_revision( $dataset_id, 1, $initial_payload, 'Dataset created' );
+        if ( ! $this->store_revision( $dataset_id, 1, $initial_payload, 'Dataset created' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return $this->db_error();
+        }
+        $wpdb->query( 'COMMIT' );
         return $dataset_id;
     }
 
     public function update_metadata( int $dataset_id, array $data, ?int $expected_revision = null ) {
         global $wpdb;
-        $dataset = $this->get( $dataset_id );
-        if ( ! $dataset ) {
-            return new WP_Error( 'viswiz_dataset_not_found', __( 'Dataset not found.', 'viswiz' ), array( 'status' => 404 ) );
+        $wpdb->query( 'START TRANSACTION' );
+        $dataset = $this->lock_dataset( $dataset_id );
+        if ( is_wp_error( $dataset ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return $dataset;
         }
         if ( null !== $expected_revision && $expected_revision !== (int) $dataset['revision'] ) {
+            $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $dataset );
         }
+
         $schema = sanitize_key( (string) ( $data['schema_type'] ?? $dataset['schema_type'] ) );
-        if ( $schema !== $dataset['schema_type'] && $this->has_v2_data( $dataset_id ) ) {
-            return new WP_Error( 'viswiz_schema_locked', __( 'The schema cannot be changed while the dataset contains data.', 'viswiz' ), array( 'status' => 409 ) );
+        if ( $schema !== $dataset['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_schema_locked', __( 'Dataset schema is immutable after creation. Duplicate the dataset to use another schema.', 'viswiz' ), array( 'status' => 409 ) );
         }
         if ( ! Registry::schema_exists( $schema ) ) {
+            $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'viswiz_invalid_schema', __( 'Unsupported dataset schema.', 'viswiz' ), array( 'status' => 400 ) );
         }
+
         $table = Support::table( 'datasets' );
         $ok    = $wpdb->update(
             $table,
@@ -170,14 +184,20 @@ final class DatasetRepository {
                 'description' => sanitize_textarea_field( (string) ( $data['description'] ?? $dataset['description'] ) ),
                 'schema_type' => $schema,
                 'source_type' => sanitize_key( (string) ( $data['source_type'] ?? $dataset['source_type'] ) ),
-                'settings'    => Support::json( Support::sanitize_meta( $data['settings'] ?? $dataset['settings'] ) ),
+                'settings'    => Support::json( Support::sanitize_meta( $data['settings'] ?? Support::json_decode_array( $dataset['settings'] ?? '' ) ) ),
                 'updated_at'  => current_time( 'mysql' ),
             ),
             array( 'id' => $dataset_id ),
             array( '%s', '%s', '%s', '%s', '%s', '%s' ),
             array( '%d' )
         );
-        return false === $ok ? new WP_Error( 'viswiz_dataset_update_failed', __( 'Could not update dataset.', 'viswiz' ), array( 'status' => 500 ) ) : $this->get( $dataset_id );
+        if ( false === $ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_dataset_update_failed', __( 'Could not update dataset.', 'viswiz' ), array( 'status' => 500 ) );
+        }
+
+        $wpdb->query( 'COMMIT' );
+        return $this->get( $dataset_id );
     }
 
     public function has_v2_data( int $dataset_id ): bool {
@@ -257,6 +277,10 @@ final class DatasetRepository {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
         }
+        if ( (string) $locked['schema_type'] !== (string) $dataset['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_schema_changed', __( 'The dataset schema changed while this payload was being prepared.', 'viswiz' ), array( 'status' => 409 ) );
+        }
 
         $rows_table  = Support::table( 'rows' );
         $nodes_table = Support::table( 'nodes' );
@@ -312,12 +336,20 @@ final class DatasetRepository {
         if ( ! $dataset || 'graph' !== $dataset['schema_type'] ) {
             return new WP_Error( 'viswiz_graph_dataset_required', __( 'A graph dataset is required.', 'viswiz' ), array( 'status' => 400 ) );
         }
+        $raw_uuid = strtolower( trim( (string) ( $node['uuid'] ?? '' ) ) );
+        if ( '' !== $raw_uuid && ! Support::is_uuid( $raw_uuid ) ) {
+            return new WP_Error( 'viswiz_invalid_uuid', __( 'Invalid node UUID.', 'viswiz' ), array( 'status' => 400 ) );
+        }
         $node = $this->sanitize_node( $node );
         if ( '' === $node['title'] || '' === $node['node_type'] ) {
             return new WP_Error( 'viswiz_invalid_node', __( 'Node title and type are required.', 'viswiz' ), array( 'status' => 422 ) );
         }
-        if ( ! isset( Registry::node_types()[ $node['node_type'] ] ) ) {
+        $node_types = Registry::node_types();
+        if ( ! isset( $node_types[ $node['node_type'] ] ) ) {
             return new WP_Error( 'viswiz_unknown_node_type', __( 'The selected node type is not registered in the global schema.', 'viswiz' ), array( 'status' => 422 ) );
+        }
+        if ( '' !== $node['node_subtype'] && ! isset( $node_types[ $node['node_type'] ]['subtypes'][ $node['node_subtype'] ] ) ) {
+            return new WP_Error( 'viswiz_unknown_node_subtype', __( 'The selected node subtype is not registered for this node type.', 'viswiz' ), array( 'status' => 422 ) );
         }
 
         global $wpdb;
@@ -330,6 +362,10 @@ final class DatasetRepository {
         if ( null !== $expected_revision && $expected_revision !== (int) $locked['revision'] ) {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
+        }
+        if ( 'graph' !== (string) $locked['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_graph_dataset_required', __( 'A graph dataset is required.', 'viswiz' ), array( 'status' => 409 ) );
         }
         $table = Support::table( 'nodes' );
         $id    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE dataset_id=%d AND uuid=%s", $dataset_id, $node['uuid'] ) );
@@ -363,7 +399,10 @@ final class DatasetRepository {
 
     public function delete_node( int $dataset_id, string $uuid, ?int $expected_revision = null ) {
         global $wpdb;
-        $uuid = Support::uuid( $uuid );
+        $uuid = strtolower( trim( $uuid ) );
+        if ( ! Support::is_uuid( $uuid ) ) {
+            return new WP_Error( 'viswiz_invalid_uuid', __( 'Invalid node UUID.', 'viswiz' ), array( 'status' => 400 ) );
+        }
         $wpdb->query( 'START TRANSACTION' );
         $locked = $this->lock_dataset( $dataset_id );
         if ( is_wp_error( $locked ) ) {
@@ -374,14 +413,26 @@ final class DatasetRepository {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
         }
+        if ( 'graph' !== (string) $locked['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_graph_dataset_required', __( 'A graph dataset is required.', 'viswiz' ), array( 'status' => 409 ) );
+        }
         $nodes = Support::table( 'nodes' );
         $edges = Support::table( 'edges' );
-        $wpdb->delete( $edges, array( 'dataset_id' => $dataset_id, 'from_node_uuid' => $uuid ) );
-        $wpdb->delete( $edges, array( 'dataset_id' => $dataset_id, 'to_node_uuid' => $uuid ) );
-        $ok = $wpdb->delete( $nodes, array( 'dataset_id' => $dataset_id, 'uuid' => $uuid ) );
-        if ( false === $ok ) {
+        $exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$nodes} WHERE dataset_id=%d AND uuid=%s", $dataset_id, $uuid ) );
+        if ( ! $exists ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_node_not_found', __( 'Node not found.', 'viswiz' ), array( 'status' => 404 ) );
+        }
+        if ( false === $wpdb->delete( $edges, array( 'dataset_id' => $dataset_id, 'from_node_uuid' => $uuid ) )
+            || false === $wpdb->delete( $edges, array( 'dataset_id' => $dataset_id, 'to_node_uuid' => $uuid ) ) ) {
             $wpdb->query( 'ROLLBACK' );
             return $this->db_error();
+        }
+        $ok = $wpdb->delete( $nodes, array( 'dataset_id' => $dataset_id, 'uuid' => $uuid ) );
+        if ( 1 !== $ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false === $ok ? $this->db_error() : new WP_Error( 'viswiz_node_not_found', __( 'Node not found.', 'viswiz' ), array( 'status' => 404 ) );
         }
         $revision = $this->bump_revision( $dataset_id, (int) $locked['revision'] );
         $snapshot = array( 'nodes' => $this->get_nodes( $dataset_id ), 'relations' => $this->get_edges( $dataset_id ) );
@@ -394,21 +445,19 @@ final class DatasetRepository {
     }
 
     public function save_edge( int $dataset_id, array $edge, ?int $expected_revision = null ) {
+        $raw_uuid = strtolower( trim( (string) ( $edge['uuid'] ?? '' ) ) );
+        if ( '' !== $raw_uuid && ! Support::is_uuid( $raw_uuid ) ) {
+            return new WP_Error( 'viswiz_invalid_uuid', __( 'Invalid relation UUID.', 'viswiz' ), array( 'status' => 400 ) );
+        }
         $edge = $this->sanitize_edge( $edge );
-        if ( '' === $edge['from_node_uuid'] || '' === $edge['to_node_uuid'] ) {
-            return new WP_Error( 'viswiz_invalid_relation', __( 'Both relation endpoints are required.', 'viswiz' ), array( 'status' => 422 ) );
+        if ( '' === $edge['from_node_uuid'] || '' === $edge['to_node_uuid'] || ! Support::is_uuid( $edge['from_node_uuid'] ) || ! Support::is_uuid( $edge['to_node_uuid'] ) ) {
+            return new WP_Error( 'viswiz_invalid_relation', __( 'Both relation endpoints must be valid node UUIDs.', 'viswiz' ), array( 'status' => 422 ) );
         }
         if ( '' !== $edge['relation_type'] && ! isset( Registry::relation_types()[ $edge['relation_type'] ] ) ) {
             return new WP_Error( 'viswiz_unknown_relation_type', __( 'The selected relation type is not registered in the global schema.', 'viswiz' ), array( 'status' => 422 ) );
         }
+
         global $wpdb;
-        $nodes = Support::table( 'nodes' );
-        foreach ( array( $edge['from_node_uuid'], $edge['to_node_uuid'] ) as $node_uuid ) {
-            $exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$nodes} WHERE dataset_id=%d AND uuid=%s", $dataset_id, $node_uuid ) );
-            if ( ! $exists ) {
-                return new WP_Error( 'viswiz_relation_endpoint_missing', __( 'A relation endpoint does not exist.', 'viswiz' ), array( 'status' => 422 ) );
-            }
-        }
         $wpdb->query( 'START TRANSACTION' );
         $locked = $this->lock_dataset( $dataset_id );
         if ( is_wp_error( $locked ) ) {
@@ -419,6 +468,20 @@ final class DatasetRepository {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
         }
+        if ( 'graph' !== (string) $locked['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_graph_dataset_required', __( 'A graph dataset is required.', 'viswiz' ), array( 'status' => 409 ) );
+        }
+
+        $nodes = Support::table( 'nodes' );
+        foreach ( array( $edge['from_node_uuid'], $edge['to_node_uuid'] ) as $node_uuid ) {
+            $exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$nodes} WHERE dataset_id=%d AND uuid=%s", $dataset_id, $node_uuid ) );
+            if ( ! $exists ) {
+                $wpdb->query( 'ROLLBACK' );
+                return new WP_Error( 'viswiz_relation_endpoint_missing', __( 'A relation endpoint does not exist in this dataset.', 'viswiz' ), array( 'status' => 422 ) );
+            }
+        }
+
         $table = Support::table( 'edges' );
         $id    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE dataset_id=%d AND uuid=%s", $dataset_id, $edge['uuid'] ) );
         $now   = current_time( 'mysql' );
@@ -446,7 +509,10 @@ final class DatasetRepository {
 
     public function delete_edge( int $dataset_id, string $uuid, ?int $expected_revision = null ) {
         global $wpdb;
-        $uuid = Support::uuid( $uuid );
+        $uuid = strtolower( trim( $uuid ) );
+        if ( ! Support::is_uuid( $uuid ) ) {
+            return new WP_Error( 'viswiz_invalid_uuid', __( 'Invalid relation UUID.', 'viswiz' ), array( 'status' => 400 ) );
+        }
         $wpdb->query( 'START TRANSACTION' );
         $locked = $this->lock_dataset( $dataset_id );
         if ( is_wp_error( $locked ) ) {
@@ -457,10 +523,18 @@ final class DatasetRepository {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
         }
+        if ( 'graph' !== (string) $locked['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_graph_dataset_required', __( 'A graph dataset is required.', 'viswiz' ), array( 'status' => 409 ) );
+        }
         $ok = $wpdb->delete( Support::table( 'edges' ), array( 'dataset_id' => $dataset_id, 'uuid' => $uuid ) );
         if ( false === $ok ) {
             $wpdb->query( 'ROLLBACK' );
             return $this->db_error();
+        }
+        if ( 0 === $ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_relation_not_found', __( 'Relation not found.', 'viswiz' ), array( 'status' => 404 ) );
         }
         $revision = $this->bump_revision( $dataset_id, (int) $locked['revision'] );
         $snapshot = array( 'nodes' => $this->get_nodes( $dataset_id ), 'relations' => $this->get_edges( $dataset_id ) );
@@ -477,6 +551,10 @@ final class DatasetRepository {
         if ( ! $dataset || 'graph' === $dataset['schema_type'] ) {
             return new WP_Error( 'viswiz_row_dataset_required', __( 'A non-graph dataset is required.', 'viswiz' ), array( 'status' => 400 ) );
         }
+        $raw_uuid = strtolower( trim( (string) ( $row['uuid'] ?? '' ) ) );
+        if ( '' !== $raw_uuid && ! Support::is_uuid( $raw_uuid ) ) {
+            return new WP_Error( 'viswiz_invalid_uuid', __( 'Invalid row UUID.', 'viswiz' ), array( 'status' => 400 ) );
+        }
         $row = $this->sanitize_row( $row );
         global $wpdb;
         $wpdb->query( 'START TRANSACTION' );
@@ -488,6 +566,10 @@ final class DatasetRepository {
         if ( null !== $expected_revision && $expected_revision !== (int) $locked['revision'] ) {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
+        }
+        if ( 'graph' === (string) $locked['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_row_dataset_required', __( 'A non-graph dataset is required.', 'viswiz' ), array( 'status' => 409 ) );
         }
         $table = Support::table( 'rows' );
         $id    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE dataset_id=%d AND uuid=%s", $dataset_id, $row['uuid'] ) );
@@ -516,7 +598,10 @@ final class DatasetRepository {
 
     public function delete_row( int $dataset_id, string $uuid, ?int $expected_revision = null ) {
         global $wpdb;
-        $uuid = Support::uuid( $uuid );
+        $uuid = strtolower( trim( $uuid ) );
+        if ( ! Support::is_uuid( $uuid ) ) {
+            return new WP_Error( 'viswiz_invalid_uuid', __( 'Invalid row UUID.', 'viswiz' ), array( 'status' => 400 ) );
+        }
         $wpdb->query( 'START TRANSACTION' );
         $locked = $this->lock_dataset( $dataset_id );
         if ( is_wp_error( $locked ) ) {
@@ -527,10 +612,18 @@ final class DatasetRepository {
             $wpdb->query( 'ROLLBACK' );
             return $this->conflict_error( $locked );
         }
+        if ( 'graph' === (string) $locked['schema_type'] ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_row_dataset_required', __( 'A non-graph dataset is required.', 'viswiz' ), array( 'status' => 409 ) );
+        }
         $ok = $wpdb->delete( Support::table( 'rows' ), array( 'dataset_id' => $dataset_id, 'uuid' => $uuid ) );
         if ( false === $ok ) {
             $wpdb->query( 'ROLLBACK' );
             return $this->db_error();
+        }
+        if ( 0 === $ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'viswiz_row_not_found', __( 'Row not found.', 'viswiz' ), array( 'status' => 404 ) );
         }
         $revision = $this->bump_revision( $dataset_id, (int) $locked['revision'] );
         $snapshot = array( 'rows' => $this->get_rows( $dataset_id ) );
@@ -560,24 +653,56 @@ final class DatasetRepository {
             return $new_id;
         }
         $result = $this->replace_payload( (int) $new_id, $this->get_payload( $dataset_id ), 1, 'Duplicated from dataset #' . $dataset_id );
-        return is_wp_error( $result ) ? $result : (int) $new_id;
+        if ( is_wp_error( $result ) ) {
+            $this->delete_with_usage_cleanup( (int) $new_id );
+            return $result;
+        }
+        return (int) $new_id;
     }
 
     public function delete_with_usage_cleanup( int $dataset_id ): bool {
         global $wpdb;
-        $post_ids = $wpdb->get_col(
+        $wpdb->query( 'START TRANSACTION' );
+        $locked = $this->lock_dataset( $dataset_id );
+        if ( is_wp_error( $locked ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+        $post_ids = array_map(
+            'absint',
+            $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='_viswiz_dataset_id' AND CAST(meta_value AS UNSIGNED)=%d",
+                    $dataset_id
+                )
+            ) ?: array()
+        );
+        $postmeta_deleted = $wpdb->query(
             $wpdb->prepare(
-                "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='_viswiz_dataset_id' AND CAST(meta_value AS UNSIGNED)=%d",
+                "DELETE FROM {$wpdb->postmeta} WHERE meta_key='_viswiz_dataset_id' AND CAST(meta_value AS UNSIGNED)=%d",
                 $dataset_id
             )
         );
-        foreach ( $post_ids as $post_id ) {
-            delete_post_meta( (int) $post_id, '_viswiz_dataset_id' );
+        if ( false === $postmeta_deleted ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
         }
         foreach ( array( 'rows', 'edges', 'nodes', 'dataset_revisions' ) as $suffix ) {
-            $wpdb->delete( Support::table( $suffix ), array( 'dataset_id' => $dataset_id ), array( '%d' ) );
+            if ( false === $wpdb->delete( Support::table( $suffix ), array( 'dataset_id' => $dataset_id ), array( '%d' ) ) ) {
+                $wpdb->query( 'ROLLBACK' );
+                return false;
+            }
         }
-        return false !== $wpdb->delete( Support::table( 'datasets' ), array( 'id' => $dataset_id ), array( '%d' ) );
+        $deleted = $wpdb->delete( Support::table( 'datasets' ), array( 'id' => $dataset_id ), array( '%d' ) );
+        if ( 1 !== $deleted ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+        $wpdb->query( 'COMMIT' );
+        foreach ( $post_ids as $post_id ) {
+            clean_post_cache( $post_id );
+        }
+        return true;
     }
 
     public function revisions( int $dataset_id, int $limit = 30 ): array {
@@ -724,8 +849,39 @@ final class DatasetRepository {
             'description'     => Support::sanitize_html( $node['description'] ?? $node['description_html'] ?? '' ),
             'main_image_id'   => absint( $node['main_image_id'] ?? $node['main_image'] ?? 0 ),
             'other_image_ids' => Support::int_list( $node['other_image_ids'] ?? $node['other_images'] ?? array() ),
-            'meta'            => Support::sanitize_meta( $node['meta'] ?? $node ),
+            'meta'            => $this->sanitize_node_meta( $node['meta'] ?? array() ),
         );
+    }
+
+    private function sanitize_node_meta( mixed $value ): array {
+        $meta = Support::json_decode_array( $value );
+        $public_fields = (array) ( $meta['public_fields'] ?? array() );
+        unset( $meta['public_fields'] );
+        $meta = Support::sanitize_recursive( $meta );
+        $safe_fields = array();
+        foreach ( $public_fields as $field ) {
+            if ( ! is_array( $field ) ) {
+                continue;
+            }
+            $type = sanitize_key( (string) ( $field['type'] ?? 'short' ) );
+            if ( ! in_array( $type, array( 'short', 'long', 'url', 'formatted' ), true ) ) {
+                $type = 'short';
+            }
+            $raw = (string) ( $field['value'] ?? '' );
+            $safe = 'url' === $type ? esc_url_raw( $raw ) : ( 'formatted' === $type ? wp_kses_post( $raw ) : sanitize_textarea_field( $raw ) );
+            if ( '' === $safe ) {
+                continue;
+            }
+            $safe_fields[] = array(
+                'label' => sanitize_text_field( (string) ( $field['label'] ?? $field['key'] ?? '' ) ),
+                'type'  => $type,
+                'value' => $safe,
+            );
+        }
+        if ( $safe_fields ) {
+            $meta['public_fields'] = $safe_fields;
+        }
+        return is_array( $meta ) ? $meta : array();
     }
 
     private function sanitize_edge( array $edge ): array {
@@ -849,6 +1005,7 @@ final class DatasetRepository {
                     'url'      => esc_url_raw( $url ),
                     'thumb'    => esc_url_raw( wp_get_attachment_image_url( $image_id, 'medium' ) ?: $url ),
                     'alt'      => sanitize_text_field( (string) get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ),
+                    'caption'  => sanitize_text_field( (string) wp_get_attachment_caption( $image_id ) ),
                     'featured' => $image_id === $main_image_id,
                 );
             }

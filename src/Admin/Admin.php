@@ -175,10 +175,23 @@ final class Admin {
                     <label><span><?php esc_html_e( 'Progress target', 'viswiz' ); ?></span><input type="number" step="0.01" name="viswiz_settings[target]" value="<?php echo esc_attr( (string) $settings['target'] ); ?>"></label>
                     <label><span><?php esc_html_e( 'Live refresh (ms)', 'viswiz' ); ?></span><input type="number" min="60000" max="1800000" step="1000" name="viswiz_settings[refresh_ms]" value="<?php echo esc_attr( (string) $settings['refresh_ms'] ); ?>"></label>
                 </div>
+                <div class="viswiz-form-grid viswiz-graph-modal-labels">
+                    <label><span><?php esc_html_e( 'Node modal fallback title', 'viswiz' ); ?></span><input type="text" name="viswiz_settings[node_modal_title_fallback]" value="<?php echo esc_attr( $settings['node_modal_title_fallback'] ); ?>"></label>
+                    <label><span><?php esc_html_e( 'Node modal close label', 'viswiz' ); ?></span><input type="text" name="viswiz_settings[node_modal_close_label]" value="<?php echo esc_attr( $settings['node_modal_close_label'] ); ?>"></label>
+                    <label><span><?php esc_html_e( 'Previous image label', 'viswiz' ); ?></span><input type="text" name="viswiz_settings[node_modal_previous_image_label]" value="<?php echo esc_attr( $settings['node_modal_previous_image_label'] ); ?>"></label>
+                    <label><span><?php esc_html_e( 'Next image label', 'viswiz' ); ?></span><input type="text" name="viswiz_settings[node_modal_next_image_label]" value="<?php echo esc_attr( $settings['node_modal_next_image_label'] ); ?>"></label>
+                    <label><span><?php esc_html_e( 'Related nodes heading', 'viswiz' ); ?></span><input type="text" name="viswiz_settings[node_modal_related_heading]" value="<?php echo esc_attr( $settings['node_modal_related_heading'] ); ?>"></label>
+                    <label><span><?php esc_html_e( 'Relation fallback label', 'viswiz' ); ?></span><input type="text" name="viswiz_settings[node_modal_relation_fallback]" value="<?php echo esc_attr( $settings['node_modal_relation_fallback'] ); ?>"></label>
+                </div>
                 <div class="viswiz-checks">
                     <?php self::checkbox( 'viswiz_settings[full_screen]', $settings['full_screen'], __( 'Full-screen control', 'viswiz' ) ); ?>
                     <?php self::checkbox( 'viswiz_settings[show_legend]', $settings['show_legend'], __( 'Legend', 'viswiz' ) ); ?>
-                    <?php self::checkbox( 'viswiz_settings[show_graph_toolbar]', $settings['show_graph_toolbar'], __( 'Graph toolbar/search', 'viswiz' ) ); ?>
+                    <?php self::checkbox( 'viswiz_settings[show_graph_toolbar]', $settings['show_graph_toolbar'], __( 'Graph exploration toolbar', 'viswiz' ) ); ?>
+                    <?php self::checkbox( 'viswiz_settings[show_graph_search]', $settings['show_graph_search'], __( 'Graph text search', 'viswiz' ) ); ?>
+                    <?php self::checkbox( 'viswiz_settings[show_graph_filters]', $settings['show_graph_filters'], __( 'Graph type/relation filters', 'viswiz' ) ); ?>
+                    <?php self::checkbox( 'viswiz_settings[show_graph_zoom]', $settings['show_graph_zoom'], __( 'Graph zoom controls', 'viswiz' ) ); ?>
+                    <?php self::checkbox( 'viswiz_settings[show_node_images]', $settings['show_node_images'], __( 'Node images in detail dialogs', 'viswiz' ) ); ?>
+                    <?php self::checkbox( 'viswiz_settings[show_type_badges]', $settings['show_type_badges'], __( 'Node type/subtype labels', 'viswiz' ) ); ?>
                     <?php self::checkbox( 'viswiz_settings[show_relation_labels]', $settings['show_relation_labels'], __( 'Relation labels', 'viswiz' ) ); ?>
                 </div>
             </section>
@@ -307,7 +320,7 @@ final class Admin {
                     <section class="viswiz-card">
                         <h2><?php esc_html_e( 'Dataset metadata', 'viswiz' ); ?></h2>
                         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-                            <input type="hidden" name="action" value="viswiz_dataset_update"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( (string) $dataset_id ); ?>"><?php wp_nonce_field( 'viswiz_dataset_update_' . $dataset_id ); ?>
+                            <input type="hidden" name="action" value="viswiz_dataset_update"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( (string) $dataset_id ); ?>"><input type="hidden" name="expected_revision" value="<?php echo esc_attr( (string) $dataset['revision'] ); ?>"><?php wp_nonce_field( 'viswiz_dataset_update_' . $dataset_id ); ?>
                             <div class="viswiz-form-grid"><label><span><?php esc_html_e( 'Name', 'viswiz' ); ?></span><input required name="name" value="<?php echo esc_attr( $dataset['name'] ); ?>"></label><label><span><?php esc_html_e( 'Schema', 'viswiz' ); ?></span><input readonly value="<?php echo esc_attr( $dataset['schema_type'] ); ?>"></label></div>
                             <label class="viswiz-field"><span><?php esc_html_e( 'Description', 'viswiz' ); ?></span><textarea name="description" rows="3"><?php echo esc_textarea( $dataset['description'] ); ?></textarea></label>
                             <button class="button button-primary"><?php esc_html_e( 'Save metadata', 'viswiz' ); ?></button>
@@ -331,7 +344,7 @@ final class Admin {
                     </section>
                     <section class="viswiz-card"><h2><?php esc_html_e( 'Import / export', 'viswiz' ); ?></h2><p><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_export&dataset_id=' . $dataset_id ), 'viswiz_dataset_export_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Export JSON', 'viswiz' ); ?></a></p><label class="viswiz-field"><span><?php esc_html_e( 'Replace from JSON', 'viswiz' ); ?></span><textarea rows="7" data-viswiz-import-json placeholder='{"rows": [...]}'></textarea></label><button type="button" class="button" data-viswiz-import-button><?php esc_html_e( 'Validate & replace', 'viswiz' ); ?></button></section>
                     <section class="viswiz-card"><h2><?php esc_html_e( 'WooCommerce snapshot', 'viswiz' ); ?></h2><?php self::render_woo_fields( array() ); ?><button type="button" class="button" data-viswiz-commerce-snapshot><?php esc_html_e( 'Replace dataset with snapshot', 'viswiz' ); ?></button></section>
-                    <section class="viswiz-card"><h2><?php esc_html_e( 'Revisions', 'viswiz' ); ?></h2><div data-viswiz-revisions><?php foreach ( $revisions as $revision ) : ?><p><strong>r<?php echo esc_html( (string) $revision['revision'] ); ?></strong> — <?php echo esc_html( $revision['note'] ); ?><br><small><?php echo esc_html( $revision['created_at'] ); ?></small> <?php if ( (int) $revision['revision'] !== (int) $dataset['revision'] ) : ?><button type="button" class="button-link" data-viswiz-restore-revision="<?php echo esc_attr( (string) $revision['revision'] ); ?>"><?php esc_html_e( 'Restore', 'viswiz' ); ?></button><?php endif; ?></p><?php endforeach; ?></div></section>
+                    <section class="viswiz-card"><h2><?php esc_html_e( 'Data revisions', 'viswiz' ); ?></h2><div data-viswiz-revisions><?php foreach ( $revisions as $revision ) : ?><p><strong>r<?php echo esc_html( (string) $revision['revision'] ); ?></strong> — <?php echo esc_html( $revision['note'] ); ?><br><small><?php echo esc_html( $revision['created_at'] ); ?></small> <?php if ( (int) $revision['revision'] !== (int) $dataset['revision'] ) : ?><button type="button" class="button-link" data-viswiz-restore-revision="<?php echo esc_attr( (string) $revision['revision'] ); ?>"><?php esc_html_e( 'Restore', 'viswiz' ); ?></button><?php endif; ?></p><?php endforeach; ?></div></section>
                     <section class="viswiz-card viswiz-danger-zone"><h2><?php esc_html_e( 'Dataset actions', 'viswiz' ); ?></h2><p><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_duplicate&dataset_id=' . $dataset_id ), 'viswiz_dataset_duplicate_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Duplicate', 'viswiz' ); ?></a></p><p><a class="button button-link-delete" data-viswiz-confirm href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_delete&dataset_id=' . $dataset_id ), 'viswiz_dataset_delete_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Delete dataset', 'viswiz' ); ?></a></p></section>
                 </aside>
             </div>
@@ -350,7 +363,7 @@ final class Admin {
 
     public static function update_dataset(): void {
         self::require_dataset_cap(); $id = absint( $_POST['dataset_id'] ?? 0 ); check_admin_referer( 'viswiz_dataset_update_' . $id );
-        $repo = new DatasetRepository(); $result = $repo->update_metadata( $id, array( 'name' => wp_unslash( $_POST['name'] ?? '' ), 'description' => wp_unslash( $_POST['description'] ?? '' ) ) );
+        $repo = new DatasetRepository(); $result = $repo->update_metadata( $id, array( 'name' => wp_unslash( $_POST['name'] ?? '' ), 'description' => wp_unslash( $_POST['description'] ?? '' ) ), absint( $_POST['expected_revision'] ?? 0 ) ?: null );
         if ( is_wp_error( $result ) ) { wp_die( esc_html( $result->get_error_message() ) ); }
         wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&dataset_id=' . $id . '&updated=1' ) ); exit;
     }
