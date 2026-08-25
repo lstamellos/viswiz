@@ -10,25 +10,89 @@ permissions:
   contents: read
 
 jobs:
-  syntax:
+  unit-and-static:
+    name: PHP ${{ matrix.php }} unit/static
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3']
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Install test dependencies
+        run: composer install --no-interaction --prefer-dist
+
       - name: PHP syntax
         shell: bash
         run: |
-          set -euo pipefail
           find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 
       - name: JavaScript syntax
         shell: bash
         run: |
-          set -euo pipefail
           find assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
+      - name: Unit and architecture tests
+        run: composer test
+
+      - name: JSON validation
+        shell: bash
+        run: |
+          php -r '$files=["composer.json","blocks/visualization/block.json"]; foreach($files as $file){json_decode(file_get_contents($file),true,512,JSON_THROW_ON_ERROR); echo "$file OK\n";}'
+
       - name: Whitespace errors
-        run: git diff --check HEAD^ HEAD
+        shell: bash
+        run: git diff --check ${{ github.event_name == 'pull_request' && format('{0}...HEAD', github.event.pull_request.base.sha) || 'HEAD^ HEAD' }}
+
+  wordpress-smoke:
+    name: WordPress + WooCommerce smoke
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP and WP-CLI
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: wp-cli
+          coverage: none
+
+      - name: Install WordPress
+        shell: bash
+        run: |
+          wp core download --path=/tmp/wordpress --allow-root
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check --allow-root
+          wp core install --path=/tmp/wordpress --url=http://viswiz.test --title=VisWiz --admin_user=admin --admin_password=admin --admin_email=admin@example.invalid --skip-email --allow-root
+          ln -s "$GITHUB_WORKSPACE" /tmp/wordpress/wp-content/plugins/viswiz
+          wp plugin activate viswiz --path=/tmp/wordpress --allow-root
+
+      - name: Install WooCommerce
+        run: wp plugin install woocommerce --activate --path=/tmp/wordpress --allow-root
+
+      - name: Run integration smoke tests
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/wp-smoke.php" --path=/tmp/wordpress --allow-root
