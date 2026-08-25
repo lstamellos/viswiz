@@ -119,14 +119,15 @@
   }
 
   function styleNode(group, node, spec, index) {
-    if (!group || !node || group.dataset.viswizNodeCardStyled === '1') return;
-    group.dataset.viswizNodeCardStyled = '1';
+    if (!group || !node) return;
+
+    const alreadyStyled = group.dataset.viswizNodeCardStyled === '1';
     group.classList.add('viswiz-node-card-styled');
     group.setAttribute('data-viswiz-node-uuid', String(node.uuid || ''));
 
     group.querySelectorAll('.viswiz-graph-node-image-frame,.viswiz-graph-node-image').forEach((element) => element.remove());
 
-    const background = [...group.children].find((child) => child.tagName?.toLowerCase() === 'rect' && !child.classList.contains('viswiz-node-card-title-panel'));
+    const background = [...group.children].find((child) => child.tagName?.toLowerCase() === 'rect' && !child.classList.contains('viswiz-node-card-title-panel') && !child.classList.contains('viswiz-node-card-shade'));
     if (!background) return;
 
     const x = -76;
@@ -139,6 +140,19 @@
     background.setAttribute('width', String(width));
     background.setAttribute('height', String(height));
     background.setAttribute('rx', String(rx));
+
+    const title = group.querySelector('.viswiz-graph-node-title');
+    if (title) {
+      title.setAttribute('x', '0');
+      title.setAttribute('y', '20');
+      title.setAttribute('text-anchor', 'middle');
+    }
+
+    const oldType = group.querySelector('.viswiz-graph-node-type-label');
+    if (oldType) oldType.setAttribute('display', 'none');
+
+    if (alreadyStyled) return;
+    group.dataset.viswizNodeCardStyled = '1';
 
     const svg = group.ownerSVGElement;
     const defs = svg?.querySelector('defs');
@@ -165,41 +179,34 @@
       background.after(picture);
     }
 
-    const titlePanel = svgEl('rect', {
+    const titlePanelAttrs = {
       x,
       y: 0,
       width,
       height: 35,
       rx,
       class: 'viswiz-node-card-title-panel',
-      'clip-path': image ? `url(#${clipId})` : '',
-    });
-    const shade = svgEl('rect', {
+    };
+    const shadeAttrs = {
       x,
       y,
       width,
       height,
       rx,
       class: 'viswiz-node-card-shade',
-      'clip-path': image ? `url(#${clipId})` : '',
-    });
+    };
+    if (image) {
+      titlePanelAttrs['clip-path'] = `url(#${clipId})`;
+      shadeAttrs['clip-path'] = `url(#${clipId})`;
+    }
+    const titlePanel = svgEl('rect', titlePanelAttrs);
+    const shade = svgEl('rect', shadeAttrs);
     const insertionPoint = group.querySelector('.viswiz-node-card-cover') || background;
     insertionPoint.after(shade, titlePanel);
 
-    const title = group.querySelector('.viswiz-graph-node-title');
-    if (title) {
-      title.setAttribute('x', '0');
-      title.setAttribute('y', '20');
-      title.setAttribute('text-anchor', 'middle');
-    }
-
-    const oldType = group.querySelector('.viswiz-graph-node-type-label');
-    if (oldType) oldType.setAttribute('display', 'none');
-
     if (spec.settings?.show_type_badges !== false && node.node_type) {
       const hasSubtype = Boolean(node.node_subtype);
-      const firstLabel = truncateTag(node.node_type, hasSubtype ? 11 : 18);
-      const firstWidth = addTag(group, firstLabel, x + 7, y + 7, hasSubtype ? 11 : 18);
+      const firstWidth = addTag(group, node.node_type, x + 7, y + 7, hasSubtype ? 11 : 18);
       if (hasSubtype) {
         const remaining = Math.max(7, width - firstWidth - 24);
         const subtypeMax = Math.max(6, Math.floor((remaining - 14) / 5.2));
