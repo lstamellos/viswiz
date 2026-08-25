@@ -39,7 +39,7 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( 'document.body', $javascript );
         self::assertStringContainsString( 'preventScroll', $javascript );
         self::assertStringContainsString( 'window.scrollTo', $javascript );
-        self::assertStringContainsString( 'data-viswiz-portaled', $javascript );
+        self::assertStringContainsString( "overlay.dataset.viswizPortaled = '1'", $javascript );
     }
 
     public function test_related_nodes_become_interactive_navigation_controls(): void {
