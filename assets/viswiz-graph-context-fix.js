@@ -95,7 +95,11 @@
   }
 
   function fixCards(root = document) {
-    if (root instanceof Element && root.matches('.viswiz-graph-node')) fixCardClip(root);
+    if (root instanceof Element) {
+      if (root.matches('.viswiz-graph-node')) fixCardClip(root);
+      const parentGroup = root.closest('.viswiz-graph-node');
+      if (parentGroup) fixCardClip(parentGroup);
+    }
     root.querySelectorAll?.('.viswiz-graph-node').forEach(fixCardClip);
   }
 
@@ -156,12 +160,16 @@
     if (!modal) return;
 
     let list = $('.viswiz-related-list', modal);
-    if (list) return;
-
-    const heading = document.createElement('h4');
-    heading.textContent = spec.settings?.node_modal_related_heading || 'Related nodes';
-    list = document.createElement('ul');
-    list.className = 'viswiz-related-list';
+    let heading = list?.previousElementSibling?.matches?.('h4') ? list.previousElementSibling : null;
+    const isNewSection = !list;
+    if (!list) {
+      heading = document.createElement('h4');
+      list = document.createElement('ul');
+      list.className = 'viswiz-related-list';
+    } else {
+      list.replaceChildren();
+    }
+    if (heading) heading.textContent = spec.settings?.node_modal_related_heading || 'Related nodes';
 
     related.forEach((relation) => {
       const outgoing = String(relation.from_node_uuid) === String(node.uuid);
@@ -187,7 +195,7 @@
       list.appendChild(item);
     });
 
-    if (list.childElementCount) modal.append(heading, list);
+    if (isNewSection && list.childElementCount) modal.append(heading, list);
   }
 
   async function enhanceModal(overlay) {
