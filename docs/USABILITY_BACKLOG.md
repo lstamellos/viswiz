@@ -1,0 +1,345 @@
+# VisWiz stabilization and usability backlog
+
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26.
+
+This backlog consolidates the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, without undoing the dataset-first storage model introduced in VisWiz 2.
+
+Priority meanings:
+
+- **P0** — required before the plugin should be treated as reliably usable for routine production work.
+- **P1** — strong usability/maintainability improvement after the core path is stable.
+- **P2** — useful extension once workflow and architecture have settled.
+
+## P0 — stabilize the current runtime
+
+### 1. Consolidate graph compatibility layers
+
+Current graph behavior is spread across the main renderer plus a dependency chain of compatibility/UX scripts:
+
+- `viswiz-rendering-compat.js`
+- `viswiz-node-cards.js`
+- `viswiz-graph-context-fix.js`
+- `viswiz-toolbar-ux.js`
+- `viswiz-connection-focus.js`
+
+Compatibility CSS is also injected into the main front-end stylesheet at runtime.
+
+This patch-on-patch structure has already required regressions around MutationObserver re-entry, filtered modal navigation, graph cards, toolbar layout and filter state. Move stabilized behavior into a single graph runtime/state model, remove obsolete compatibility code, and keep one source of truth for search/filter/facet/focus state.
+
+Acceptance target:
+
+- one documented graph state model
+- no duplicate/competing filter implementations
+- no compatibility script whose sole purpose is to repair another compatibility script
+- no self-triggering observer paths
+- graph preview and public graph use the same stable behavior
+
+### 2. Add real browser/end-to-end tests
+
+Current CI has strong PHP/integration coverage and JavaScript syntax/source regression checks, but it does not exercise the complete browser interaction path.
+
+Add automated browser coverage for at least:
+
+- create/edit/delete row
+- create/edit/delete node and relation
+- dialog open/close and focus return
+- keyboard-only node/relation editing
+- graph search and clear
+- multi-select type/subtype filters
+- relation filters
+- property views
+- related-node navigation while filters are active
+- 1-hop/2-hop connection focus
+- zoom/reset/pan
+- fullscreen enter/exit
+- multiple visualizations on one page
+- dynamically/late-rendered visualization containers
+
+### 3. Verify 1.x → 2.x migration with production-shaped data
+
+The automated migration tests prove important invariants, but the retained legacy tables are intentionally still the rollback/reference source.
+
+Before legacy cleanup is considered:
+
+- run migration against copies of the largest real graph datasets
+- compare node/relation counts and representative records
+- verify images, descriptions, types/subtypes and relation labels/directions
+- verify visualizations point to the intended migrated datasets
+- document rollback and recovery procedure
+
+### 4. Replace JSON-only import as the normal import workflow
+
+JSON replace is appropriate as an interchange/backup format, not as the primary everyday import experience.
+
+Add a guided importer with:
+
+- CSV and TSV upload
+- paste-from-spreadsheet input
+- encoding/delimiter detection where practical
+- column mapping to the selected schema
+- validation preview before any write
+- explicit **append / merge-upsert / replace** modes
+- duplicate and missing-ID handling
+- row-level error reporting
+- import summary before commit
+- automatic revision/snapshot before destructive replace
+
+For graph datasets, support node and relation imports with stable external keys mapped to internal UUIDs.
+
+### 5. Make large dataset editing server-aware
+
+The current admin page embeds the entire dataset payload and applies search/pagination in the browser. That is not a scalable editing model.
+
+Add paged/searchable REST endpoints and lazy loading for rows/nodes/relations.
+
+Acceptance target:
+
+- opening a large dataset does not serialize the whole dataset into page HTML
+- search is server-side or incrementally fetched
+- relation endpoint selection does not render thousands of node `<option>` elements
+- revision/conflict semantics remain intact
+
+### 6. Fix preview state ownership
+
+The admin dataset editor and compatibility graph enhancements must consume the same live state after a targeted mutation. Avoid separate caches or re-reading the initial serialized payload after the editor state has changed.
+
+The preview should update deterministically after node/relation edits without page reload and without stale facet/card data.
+
+## P0 — make creation/editing usable
+
+### 7. Build a schema-aware dataset editor
+
+Generic raw fields and metadata JSON are too low-level for routine use.
+
+Provide schema-specific editing surfaces:
+
+- categorical: label/value/color
+- time series: date/time/value/label
+- X/Y: X/Y/label
+- geographic: latitude/longitude/label/value
+- progress: value/target/text
+- graph: node/relation domain fields
+- diagram: structured section fields
+
+Support efficient keyboard navigation and batch data entry.
+
+### 8. Spreadsheet-like editing and batch paste
+
+For row-based datasets, add an editable grid with:
+
+- Tab/Shift+Tab cell navigation
+- arrow-key movement where appropriate
+- Enter to edit/commit
+- multi-row paste from spreadsheet software
+- add/remove rows without modal churn
+- validation inline with the affected cell/row
+- clear save/pending/conflict state
+
+Keep the revision model as the safety net rather than relying on a fragile autosave queue.
+
+### 9. Improve graph node/relation editing
+
+The graph editor should optimize repeated investigative data entry.
+
+Add:
+
+- searchable/autocomplete node selectors in relations
+- create relation directly from a node context
+- quick creation of a missing node while creating a relation
+- relation-type defaults applied predictably
+- clear validation when type/subtype constraints do not match
+- visible incoming/outgoing relations in the node editor
+- optional duplicate node / duplicate relation actions
+
+### 10. Use a WordPress-native rich editor for node descriptions
+
+Replace the safe-HTML textarea with an accessible WordPress-native rich-text editing experience. Preserve sanitized HTML through `wp_kses_post` and avoid reintroducing the previous editor initialization/modal lifecycle problems.
+
+The editor must survive repeated modal open/close cycles and keyboard-only use.
+
+### 11. Remove raw metadata JSON from normal workflows
+
+Raw metadata can remain an advanced/debug interface, but commonly used metadata should have structured fields.
+
+For graph nodes, provide a UI for public fields with:
+
+- label
+- type (`short`, `long`, `url`, `formatted`)
+- value
+- ordering
+- add/remove/reorder
+
+Reserve raw JSON for an explicitly marked advanced section.
+
+## P1 — visualization creation workflow
+
+### 12. Create visualization from dataset in one action
+
+From a dataset page, add **Create visualization** and show only compatible renderer choices.
+
+After creation, open a focused visualization editor with the dataset already connected.
+
+### 13. Add live visualization preview to the visualization editor
+
+The current configuration screen should show the actual renderer while display settings change.
+
+Requirements:
+
+- uses the same renderer/runtime as public output
+- does not maintain a duplicate rendering implementation
+- clearly distinguishes unsaved preview settings from saved state
+- works for dataset and supported WooCommerce live sources
+
+### 14. Simplify visualization settings by renderer
+
+Do not show graph-only controls for charts or irrelevant controls for other renderer families.
+
+Group settings into predictable sections such as:
+
+- Data/source
+- Appearance
+- Labels/content
+- Interaction
+- Advanced
+
+Use renderer-specific defaults rather than one expanding generic form.
+
+### 15. Improve WooCommerce source selection
+
+Replace raw Product ID / Category ID text fields with searchable product/category pickers.
+
+Clarify the distinction between:
+
+- **Live query** — recalculated/cached data
+- **Snapshot** — data copied into a canonical dataset and then edited independently
+
+### 16. Add visualization duplication and presets
+
+Allow a visualization to be duplicated while reusing the same dataset. Later, consider reusable display presets only after settings stabilize.
+
+## P1 — accessibility, localization and responsive behavior
+
+### 17. Complete keyboard behavior for admin dialogs
+
+Target behavior:
+
+- native Tab/Shift+Tab focus order
+- arrow keys in native selects/listboxes
+- Enter commits the intended action where unambiguous
+- Escape closes without saving
+- focus returns to the invoking control
+- destructive actions require an explicit confirmation path
+
+Avoid global key handlers that override expected browser/form behavior.
+
+### 18. Accessibility audit for public graph UI
+
+Audit:
+
+- accessible names/roles for SVG interaction targets
+- keyboard activation of node cards and tags
+- focus visibility
+- dialog semantics/focus return
+- screen-reader status updates for filtering/focus state
+- color contrast
+- reduced-motion behavior
+- fullscreen state announcement
+
+### 19. Centralize JavaScript localization
+
+Compatibility scripts currently contain local English/Greek fallback strings and some hard-coded admin strings. Move user-visible strings into the WordPress translation pipeline and keep one i18n source per runtime.
+
+### 20. Responsive/theme compatibility matrix
+
+Test representative WordPress themes and widths for:
+
+- graph toolbar wrapping
+- fullscreen
+- modals/galleries
+- chart labels
+- Gutenberg embedding
+- multiple visualizations in constrained containers
+
+## P1 — performance and observability
+
+### 21. Establish performance budgets
+
+Create representative benchmarks for:
+
+- row datasets: 1k / 10k / 50k rows
+- graphs: 100 / 500 / 1k / 5k nodes with realistic edge densities
+
+Measure:
+
+- admin page payload
+- initial render time
+- filter/search latency
+- memory use
+- layout/interaction responsiveness
+
+Use measurements to decide whether SVG remains appropriate at every graph size or whether Canvas/WebGL/layout workers are needed for larger tiers.
+
+### 22. Avoid duplicate data fetch/state derivation
+
+Every visualization instance should have one payload acquisition path and one state owner. Compatibility/enhancement modules should receive state rather than independently refetching the visualization endpoint.
+
+### 23. Add useful diagnostics
+
+For administrators, expose concise diagnostics for failed visualization loads/imports/migrations without leaking sensitive query data publicly.
+
+## P2 — extensibility after stabilization
+
+### 24. Formalize renderer/schema extension APIs
+
+`Registry` is currently static. Once core renderer behavior stabilizes, define supported WordPress filters/actions or registration APIs for:
+
+- dataset schemas
+- renderers
+- display settings
+- import adapters
+
+Do not expose an extension API before its contracts are stable.
+
+### 25. Additional import adapters
+
+Only after CSV/paste import is mature, consider:
+
+- remote CSV/JSON URL
+- scheduled refresh
+- Google Sheets or other connectors
+
+These should map into canonical datasets rather than introduce a parallel data model.
+
+### 26. Export/share formats
+
+Potential later additions:
+
+- CSV export for row datasets
+- graph CSV pair (nodes/relations)
+- SVG/PNG export where renderer semantics permit it
+
+### 27. Legacy-table retirement policy
+
+After production migration has been verified and backups/rollback are documented, define an explicit versioned policy for optional cleanup of 1.x tables. Do not silently remove them during routine updates.
+
+## Already implemented / no longer open requirements
+
+The following earlier requirements are substantially present in the 2.0.14 baseline and should be treated as regression requirements rather than new backlog items:
+
+- canonical dataset ownership of graph data
+- targeted node/relation writes and revision conflict detection
+- graph validation and revision restore
+- full node-title wrapping on current graph cards
+- node images and node detail modal/gallery
+- customizable node-modal labels in visualization display settings
+- public fullscreen control
+- graph search/type/relation filtering
+- multi-select type/subtype facets
+- property views
+- related-node navigation through filtered graphs
+- graph zoom/reset/panning
+- 1-hop/2-hop connection focus
+- WordPress-native per-plugin auto-update preference with GitHub release package delivery
+- automated release ZIP creation and WordPress/WooCommerce smoke testing
+
+These items still require browser regression coverage and should not be considered permanently solved merely because a recent patch implements them.
