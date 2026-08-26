@@ -44,10 +44,14 @@ final class GraphRuntimeTest extends TestCase {
 
     public function test_admin_preview_can_supply_the_live_editor_spec(): void {
         $javascript = file_get_contents( $this->root . '/assets/viswiz-graph-runtime.js' );
+        $runtime = file_get_contents( $this->root . '/src/Runtime/GraphRuntime.php' );
 
         self::assertStringContainsString( 'if (isGraphSpec(spec)) setSpec(container, spec);', $javascript );
         self::assertStringContainsString( 'state.spec = spec;', $javascript );
         self::assertStringContainsString( 'window.VisWizGraphRuntime', $javascript );
+        self::assertStringContainsString( 'wp_add_inline_script( self::SCRIPT_HANDLE, $bootstrap,', $runtime );
+        self::assertStringContainsString( 'window.VisWizGraphRuntime?.setSpec(container, spec);', $runtime );
+        self::assertStringContainsString( "container.querySelector('.viswiz-graph-frame')", $runtime );
     }
 
     public function test_runtime_preserves_graph_card_facets_modal_navigation_and_focus(): void {
