@@ -1,0 +1,137 @@
+name: Materialize VisWiz 2.0.13 layout fix
+
+on:
+  push:
+    branches:
+      - fix/2.0.13-toolbar-dom
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.event.head_commit.message != 'Materialize 2.0.13 layout fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/2.0.13-toolbar-dom
+      - name: Patch source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected text not found in {path}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+              p.write_text(text)
+
+          runtime = Path('src/Runtime/RenderingCompatibility.php')
+          text = runtime.read_text()
+          old = """        wp_register_style(
+            self::STYLE_HANDLE,
+            VISWIZ_URL . 'assets/viswiz-rendering-compat.css',
+            array( 'viswiz-frontend' ),
+            VISWIZ_VERSION
+        );
+"""
+          new = """        // Attach compatibility CSS to the main frontend stylesheet. Graph blocks can
+        // enqueue assets after wp_head, so a stylesheet first enqueued from wp_footer
+        // is not guaranteed to be printed. Inline data follows viswiz-frontend wherever
+        // WordPress ultimately prints that registered stylesheet.
+        if ( wp_style_is( 'viswiz-frontend', 'registered' ) ) {
+            $css_file = VISWIZ_DIR . 'assets/viswiz-rendering-compat.css';
+            if ( is_readable( $css_file ) ) {
+                $css = file_get_contents( $css_file );
+                if ( false !== $css && '' !== $css ) {
+                    wp_add_inline_style( 'viswiz-frontend', $css );
+                }
+            }
+        }
+"""
+          if old not in text:
+              raise SystemExit('Expected compatibility style registration block not found')
+          text = text.replace(old, new, 1)
+          text = text.replace("        wp_enqueue_style( self::STYLE_HANDLE );\n", "", 1)
+          runtime.write_text(text)
+
+          toolbar = Path('assets/viswiz-toolbar-ux.js')
+          text = toolbar.read_text()
+          text = text.replace(
+              """    nativeFilterSelects(toolbar).forEach((select) => group.appendChild(select));
+    const clear = toolbar.querySelector('.viswiz-clear-all-filters');
+    if (clear && clear.parentElement !== group) group.appendChild(clear);
+""",
+              """    nativeFilterSelects(toolbar).forEach((select) => group.appendChild(select));
+    const clear = toolbar.querySelector('.viswiz-clear-all-filters');
+    // Always append the reset control last. It may already be inside this group
+    // because ensureClearFiltersControl() inserts it after the relation select.
+    if (clear) group.appendChild(clear);
+""",
+              1,
+          )
+          text = text.replace(
+              """    const fullscreen = container.querySelector(':scope > .viswiz-fullscreen');
+    if (fullscreen) controls.appendChild(fullscreen);
+""",
+              """    const fullscreen = container.querySelector('.viswiz-fullscreen');
+    if (fullscreen && fullscreen.parentElement !== controls) controls.appendChild(fullscreen);
+""",
+              1,
+          )
+          toolbar.write_text(text)
+
+          replace_once('viswiz.php', 'Version: 2.0.12', 'Version: 2.0.13')
+          replace_once('viswiz.php', "define( 'VISWIZ_VERSION', '2.0.12' );", "define( 'VISWIZ_VERSION', '2.0.13' );")
+          replace_once('blocks/visualization/block.json', '"version": "2.0.12"', '"version": "2.0.13"')
+
+          test = Path('tests/GraphToolbarUxTest.php')
+          t = test.read_text()
+          marker = "\n}\n"
+          addition = r'''
+
+    public function test_compatibility_css_is_attached_to_the_main_frontend_style_before_footer_rendering(): void {
+        $runtime = file_get_contents( dirname( __DIR__ ) . '/src/Runtime/RenderingCompatibility.php' );
+        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', $css )", $runtime );
+        self::assertStringNotContainsString( 'wp_enqueue_style( self::STYLE_HANDLE )', $runtime );
+    }
+
+    public function test_filter_group_keeps_clear_control_after_both_selects(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-toolbar-ux.js' );
+        self::assertStringContainsString( 'if (clear) group.appendChild(clear);', $javascript );
+        self::assertStringNotContainsString( 'clear && clear.parentElement !== group', $javascript );
+    }
+
+    public function test_fullscreen_lookup_is_not_limited_to_a_direct_container_child(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-toolbar-ux.js' );
+        self::assertStringContainsString( "container.querySelector('.viswiz-fullscreen')", $javascript );
+        self::assertStringContainsString( 'fullscreen.parentElement !== controls', $javascript );
+    }
+'''
+          if addition.strip() not in t:
+              idx = t.rfind(marker)
+              if idx < 0:
+                  raise SystemExit('Could not locate test class closing brace')
+              t = t[:idx] + addition + t[idx:]
+              test.write_text(t)
+          PY
+      - name: Validate
+        run: |
+          php -l src/Runtime/RenderingCompatibility.php
+          php -l tests/GraphToolbarUxTest.php
+          node --check assets/viswiz-toolbar-ux.js
+          php -l viswiz.php
+          python3 -m json.tool blocks/visualization/block.json >/dev/null
+          git diff --check
+      - name: Commit materialized source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Runtime/RenderingCompatibility.php assets/viswiz-toolbar-ux.js viswiz.php blocks/visualization/block.json tests/GraphToolbarUxTest.php
+          git diff --cached --quiet && exit 0
+          git commit -m "Materialize 2.0.13 layout fix"
+          git push origin HEAD:fix/2.0.13-toolbar-dom
