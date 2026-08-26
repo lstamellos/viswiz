@@ -1,7 +1,7 @@
 {
   "apiVersion": 3,
   "name": "viswiz/visualization",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "title": "VisWiz Visualization",
   "category": "widgets",
   "icon": "chart-area",
