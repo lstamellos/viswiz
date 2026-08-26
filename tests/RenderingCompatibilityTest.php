@@ -7,13 +7,15 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( 'RenderingCompatibility::register()', $bootstrap );
     }
 
-    public function test_runtime_compatibility_waits_for_frontend_renderer_and_loads_styles(): void {
+    public function test_runtime_compatibility_waits_for_frontend_renderer_and_attaches_styles_to_main_handle(): void {
         $runtime = file_get_contents( dirname( __DIR__ ) . '/src/Runtime/RenderingCompatibility.php' );
         self::assertStringContainsString( "array( 'viswiz-frontend' )", $runtime );
         self::assertStringContainsString( "add_action( 'wp_footer'", $runtime );
         self::assertStringContainsString( "add_action( 'admin_enqueue_scripts'", $runtime );
-        self::assertStringContainsString( 'wp_register_style', $runtime );
+        self::assertStringContainsString( "wp_style_is( 'viswiz-frontend', 'registered' )", $runtime );
         self::assertStringContainsString( 'viswiz-rendering-compat.css', $runtime );
+        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', \$css )", $runtime );
+        self::assertStringNotContainsString( 'wp_enqueue_style( self::STYLE_HANDLE )', $runtime );
         self::assertStringContainsString( 'viswiz-node-cards.js', $runtime );
         self::assertStringContainsString( 'viswiz-node-cards', $runtime );
     }
