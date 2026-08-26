@@ -12,6 +12,7 @@ final class GraphToolbarUxTest extends TestCase {
 
     public function test_search_has_a_compact_x_clear_control_with_accessible_tooltip(): void {
         $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-toolbar-ux.js' );
+        $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
         self::assertStringContainsString( 'viswiz-search-group', $javascript );
         self::assertStringContainsString( 'viswiz-clear-search', $javascript );
         self::assertStringContainsString( "clear.textContent = '×'", $javascript );
@@ -19,6 +20,8 @@ final class GraphToolbarUxTest extends TestCase {
         self::assertStringContainsString( 'clear.title = labels.clearSearch', $javascript );
         self::assertStringContainsString( "search.value = ''", $javascript );
         self::assertStringContainsString( "search.dispatchEvent(new Event('input'", $javascript );
+        self::assertStringContainsString( 'flex-wrap:nowrap!important', $stylesheet );
+        self::assertStringContainsString( 'width:0!important', $stylesheet );
     }
 
     public function test_clear_all_filters_resets_native_filters_and_all_selected_facets_but_not_search(): void {
@@ -56,22 +59,35 @@ final class GraphToolbarUxTest extends TestCase {
         self::assertStringContainsString( '.some((tag) =>', $javascript );
         self::assertStringContainsString( 'viswiz-selected-facets', $javascript );
         self::assertStringContainsString( 'viswiz-selected-facet', $javascript );
-        self::assertStringContainsString( "event.stopImmediatePropagation()", $javascript );
+        self::assertStringContainsString( 'event.stopImmediatePropagation()', $javascript );
     }
 
-    public function test_zoom_controls_are_moved_out_of_filter_toolbar_beside_fullscreen(): void {
+    public function test_title_zoom_and_fullscreen_share_one_stable_header_row(): void {
         $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-toolbar-ux.js' );
         $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
-        self::assertStringContainsString( 'function moveZoomControls', $javascript );
+        self::assertStringContainsString( 'function ensureGraphHeader', $javascript );
+        self::assertStringContainsString( 'viswiz-graph-header', $javascript );
         self::assertStringContainsString( "['−', '+', '100%'].includes", $javascript );
         self::assertStringContainsString( 'viswiz-view-controls', $javascript );
         self::assertStringContainsString( "container.querySelector(':scope > .viswiz-fullscreen')", $javascript );
-        self::assertStringContainsString( 'group.appendChild(fullscreen)', $javascript );
-        self::assertStringContainsString( '.viswiz-view-controls{position:absolute', $stylesheet );
-        self::assertStringContainsString( '.viswiz-view-controls>.viswiz-fullscreen{position:static', $stylesheet );
+        self::assertStringContainsString( 'controls.appendChild(fullscreen)', $javascript );
+        self::assertStringNotContainsString( 'if (!zoomButtons.length) return;', $javascript );
+        self::assertStringContainsString( '.viswiz-graph-header{display:flex', $stylesheet );
+        self::assertStringContainsString( '.viswiz-view-controls{position:static!important', $stylesheet );
+        self::assertStringContainsString( '.viswiz-view-controls>.viswiz-fullscreen{position:static!important', $stylesheet );
     }
 
-    public function test_clear_all_filters_is_positioned_after_relation_filter(): void {
+    public function test_search_and_native_filters_are_grouped_as_indivisible_toolbar_units(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-toolbar-ux.js' );
+        $stylesheet = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-rendering-compat.css' );
+        self::assertStringContainsString( 'function ensureFilterGroup', $javascript );
+        self::assertStringContainsString( "group.className = 'viswiz-filter-group'", $javascript );
+        self::assertStringContainsString( 'nativeFilterSelects(toolbar).forEach((select) => group.appendChild(select))', $javascript );
+        self::assertStringContainsString( '.viswiz-filter-group{display:flex', $stylesheet );
+        self::assertStringContainsString( 'flex-wrap:nowrap', $stylesheet );
+    }
+
+    public function test_clear_all_filters_is_positioned_after_relation_filter_before_grouping(): void {
         $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-toolbar-ux.js' );
         self::assertStringContainsString( 'const relationSelect = selects[1] || null;', $javascript );
         self::assertStringContainsString( 'relationSelect.after(clear);', $javascript );
