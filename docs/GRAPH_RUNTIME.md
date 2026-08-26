@@ -19,11 +19,11 @@ Feature code must use `stateFor(container)` rather than create a feature-specifi
 
 ## Spec ownership
 
-The authoritative graph spec is supplied by the actual VisWiz render call whenever possible. The runtime wraps `window.VisWiz.render()` and stores the graph spec before enhancing the rendered DOM.
+The authoritative graph spec is supplied by the actual VisWiz render call whenever that call is exposed through `window.VisWiz.render()`. The runtime bridges that API and stores the graph spec before enhancing the rendered DOM.
 
-This is especially important for the dataset editor preview: `viswiz-admin.js` renders from its current in-memory dataset state after each revision. The runtime must use that live spec rather than re-reading the initial `#viswiz-dataset-payload` script.
+This is especially important for the dataset editor preview: `viswiz-admin.js` renders from its current in-memory dataset state after each revision. The runtime therefore uses that live spec rather than independently caching the initial `#viswiz-dataset-payload` script.
 
-Endpoint fetching and parsing the serialized admin payload are fallback paths only for an already-rendered graph whose render call happened before the runtime was able to bridge it.
+For a public graph that was loaded through the base frontend loader before the bridge can observe its render call, the saved visualization REST endpoint is the fallback source. Parsing the serialized admin payload is likewise only a fallback for an already-rendered inline preview. Regardless of acquisition path, all graph features consume the resulting spec from the same per-container runtime state.
 
 ## State application order
 
