@@ -5,6 +5,7 @@ final class RenderingCompatibility {
     private const SCRIPT_HANDLE        = 'viswiz-rendering-compat';
     private const NODE_CARD_HANDLE     = 'viswiz-node-cards';
     private const GRAPH_CONTEXT_HANDLE = 'viswiz-graph-context-fix';
+    private const TOOLBAR_UX_HANDLE    = 'viswiz-toolbar-ux';
     private const STYLE_HANDLE         = 'viswiz-rendering-compat';
 
     public static function register(): void {
@@ -41,6 +42,13 @@ final class RenderingCompatibility {
             VISWIZ_VERSION,
             true
         );
+        wp_register_script(
+            self::TOOLBAR_UX_HANDLE,
+            VISWIZ_URL . 'assets/viswiz-toolbar-ux.js',
+            array( self::GRAPH_CONTEXT_HANDLE ),
+            VISWIZ_VERSION,
+            true
+        );
     }
 
     private static function enqueue_assets(): void {
@@ -48,6 +56,7 @@ final class RenderingCompatibility {
         wp_enqueue_script( self::SCRIPT_HANDLE );
         wp_enqueue_script( self::NODE_CARD_HANDLE );
         wp_enqueue_script( self::GRAPH_CONTEXT_HANDLE );
+        wp_enqueue_script( self::TOOLBAR_UX_HANDLE );
     }
 
     public static function enqueue_admin(): void {
