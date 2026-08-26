@@ -99,7 +99,7 @@ final class GraphToolbarUxTest extends TestCase {
 
     public function test_compatibility_layout_css_is_attached_to_the_primary_frontend_style(): void {
         $runtime = file_get_contents( dirname( __DIR__ ) . '/src/Runtime/RenderingCompatibility.php' );
-        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', $css )", $runtime );
+        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', \$css )", $runtime );
         self::assertStringNotContainsString( 'wp_enqueue_style( self::STYLE_HANDLE )', $runtime );
     }
 }
