@@ -171,7 +171,8 @@
 
     nativeFilterSelects(toolbar).forEach((select) => group.appendChild(select));
     const clear = toolbar.querySelector('.viswiz-clear-all-filters');
-    if (clear && clear.parentElement !== group) group.appendChild(clear);
+    // Keep reset after both selects even when it was already inserted into this group.
+    if (clear) group.appendChild(clear);
   }
 
   function ensureSelectedFacetHost(toolbar) {
@@ -237,8 +238,8 @@
     ));
     zoomButtons.forEach((button) => controls.appendChild(button));
 
-    const fullscreen = container.querySelector(':scope > .viswiz-fullscreen');
-    if (fullscreen) controls.appendChild(fullscreen);
+    const fullscreen = container.querySelector('.viswiz-fullscreen');
+    if (fullscreen && fullscreen.parentElement !== controls) controls.appendChild(fullscreen);
   }
 
   function nodeMatchesSelected(group, selected) {
