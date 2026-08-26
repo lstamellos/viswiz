@@ -1,89 +1,67 @@
-VisWiz WooCommerce Visualizer
-=============================
+VisWiz
+======
 
-Version 2.0.0 — Dataset-first architecture
-------------------------------------------
+VisWiz is a dataset-first visualization plugin for WordPress, with optional WooCommerce data sources and an investigative graph explorer.
 
-VisWiz 2 is a structural rewrite of the 1.x plugin. The principal design rule is simple: **datasets own data; visualizations render data**.
+The core design rule is:
 
-### What changed
+> **Datasets own data. Visualizations render data.**
 
-- `viswiz.php` is now a small bootstrap with a namespaced `VisWiz\\` application under `src/`.
-- Plugin version and database schema version are independent (`VISWIZ_VERSION` / `VISWIZ_DB_VERSION`).
-- Canonical dataset schemas are separate from renderers:
-  - schemas: categorical, time series, X/Y, geographic, progress, graph, diagram
-  - renderers: pie, bar, column, line, area, scatter, progress, counter, timeline, map, graph, flow diagram, org chart, diagram
-- A categorical dataset can therefore be reused by Pie, Bar or Column visualizations without duplicating the data.
-- Visualizations no longer keep a second authoritative copy of dataset graph data in post meta.
+A dataset is the canonical source of truth and can be reused by multiple visualizations. Editing data does not require maintaining duplicate copies inside individual visualizations.
 
-### New persistence model
+Project status
+--------------
 
-VisWiz 2 introduces dedicated tables for:
+VisWiz 2.x is in active stabilization. The storage model, revision system, WordPress integration, WooCommerce querying and graph data model have been substantially rebuilt. Current work is focused on making visualization creation and dataset editing/import faster, clearer and more robust for everyday use.
 
-- datasets
-- generic rows
-- graph nodes
-- graph relations/edges
-- dataset revisions
+The plugin header and the latest GitHub Release are the source of truth for the current version.
 
-Graph relations reference **immutable node UUIDs**, not editable slugs. Renaming a node or changing its readable slug no longer requires relation endpoint remapping.
+Requirements
+------------
 
-Every dataset carries a monotonically increasing **data revision**. Targeted node/row/relation changes use optimistic concurrency; a stale editor receives a conflict instead of overwriting newer work. Name/description edits do not create artificial data revisions.
+- WordPress 6.5 or newer
+- PHP 8.1 or newer
+- WooCommerce only when WooCommerce live data or snapshots are used
 
-Full delete-and-reinsert is restricted to deliberate dataset replace/import/restore operations and is wrapped in a database transaction. Normal node, row and relation editing performs targeted writes.
+Core workflow
+-------------
 
-### Dataset revisions
+1. **Create or import a dataset.**
+2. **Choose a visualization renderer and connect it to the dataset** — or use a saved WooCommerce live query where supported.
+3. **Configure display and interaction options.**
+4. **Publish with the VisWiz block or shortcode.**
 
-Every data mutation stores a dataset snapshot with:
+Datasets
+--------
 
-- revision number
-- actor user ID
-- note
-- timestamp
+VisWiz currently supports these canonical dataset schemas:
 
-The Dataset editor exposes revision history and restore actions. Restore itself creates a new revision, so the state being replaced remains recoverable.
+- Categorical
+- Time series
+- X/Y points
+- Geographic points
+- Progress
+- Node graph
+- Diagram / sections
 
-### Graph schema security
+Dataset management includes:
 
-Global Node Types and Relation Types are protected by the dedicated `manage_viswiz_schema` capability. Dataset editors can assign existing types but cannot approve or mutate the global schema through a node autosave path.
+- targeted row, node and relation editing
+- dataset search and schema filtering
+- graph integrity validation
+- graph preview
+- JSON import/export
+- dataset duplication and safe deletion
+- revision history and restore
+- WooCommerce snapshot replacement for row-based datasets
+- optimistic concurrency checks to prevent stale editors from silently overwriting newer data
 
-The default roles are:
+Graph relations use immutable node UUIDs rather than editable slugs, so node renaming does not break relation identity.
 
-- Administrator: visualization editing, dataset editing, global schema/settings/update management
-- Editor: visualization editing and dataset editing, but not global schema/settings/update management
+Visualizations
+--------------
 
-### WooCommerce / HPOS
-
-The old anonymous generic endpoints (`/sales`, `/sales-breakdown`, `/sales-status`) are removed.
-
-Published live WooCommerce visualizations are now served only through:
-
-`GET /wp-json/viswiz/v2/visualizations/{id}`
-
-The request contains only the saved visualization ID. Visitors cannot supply arbitrary periods, product IDs or category IDs.
-
-Live WooCommerce queries and snapshot generation share the same `SalesQuery` service:
-
-- WooCommerce CRUD/query APIs only
-- paginated `wc_get_orders()` calls (200 IDs/page)
-- paid order statuses
-- bounded date windows
-- server-side transient cache
-- product and category filtering at line-item level
-- variation-aware product IDs
-- total/month/product/status grouping
-- revenue/order-count/item-quantity metrics
-- created/paid/completed date basis
-- explicit gross / item-net / item-gross revenue basis
-- refund deduction for order gross totals and filtered item-level revenue/quantity
-
-VisWiz declares HPOS compatibility through WooCommerce `FeaturesUtil`.
-
-### Front-end rendering
-
-The public runtime no longer depends on D3 or a third-party CDN. Renderers are implemented locally in `assets/viswiz.js`.
-
-Implemented renderer paths are distinct rather than routing all chart-like types through Pie:
+Available renderer families currently include:
 
 - Pie
 - Bar
@@ -94,125 +72,92 @@ Implemented renderer paths are distinct rather than routing all chart-like types
 - Progress
 - Counter
 - Timeline
-- Map (coordinate/equirectangular marker view)
+- Map
 - Graph
-- Flow Diagram
-- Org Chart
+- Flow diagram
+- Org chart
 - Diagram
 
-Graph, Flow and Org Chart share graph primitives but use different layout strategies. The graph toolbar retains node search, node-type and relation-type filters, zoom/reset controls and pointer panning. Node detail dialogs retain keyboard operation and multi-image gallery navigation.
+Renderer compatibility is validated against the connected dataset schema.
 
-Live data polling:
+Graph exploration
+-----------------
 
-- is never faster than one minute
-- uses server-side cached results
-- starts only when the visualization approaches the viewport
-- pauses while the document is hidden
-- deduplicates simultaneous requests to the same endpoint in the browser
+The graph renderer is intended for exploratory and investigative datasets. Current interaction features include:
 
-VisWiz CSS/JS is enqueued only when a VisWiz visualization is actually rendered.
+- text search
+- type and property facets
+- relation filtering
+- multi-select graph facets
+- zoom, reset and pointer panning
+- full-screen mode
+- node images and type/subtype labels
+- node detail dialogs and image galleries
+- related-node navigation
+- property views
+- one-hop and two-hop **Focus on connections** exploration
 
-### Gutenberg
+WooCommerce
+-----------
 
-The `viswiz/visualization` dynamic block is registered from `blocks/visualization/block.json` (Block API v3). The editor picker uses the authenticated VisWiz v2 REST endpoint and supports editing the selected visualization in a new tab.
+WooCommerce can be used either as a saved live data source or to replace a row-based dataset with a snapshot.
 
-### Dataset manager
+The WooCommerce query layer uses WooCommerce CRUD/query APIs rather than direct order-table queries and declares HPOS compatibility. Supported query dimensions include:
 
-Datasets have a single management surface with:
+- revenue, order count and item quantity
+- total, month, product and order-status grouping
+- relative or fixed date periods
+- created, paid or completed date basis
+- product and category filters
+- refund deduction
+- gross, item-net and item-gross revenue bases
 
-- paginated/searchable dataset listing
-- pre-aggregated row/node/relation/visualization counts (no nodes × relations × visualizations Cartesian count query)
-- explicit dataset schema
-- targeted row/node/relation editors
-- graph validation
-- graph preview
-- JSON export/import
-- dataset duplication
-- WooCommerce snapshot replacement
-- revision history and restore
-- safe dataset deletion with visualization detachment
+Live results are cached server-side and public requests execute only saved visualization queries.
 
-### Migration from 1.x
+Publishing and runtime
+----------------------
 
-On the first 2.0.0 load, VisWiz creates the v2 tables and runs a one-time best-effort migration:
+- Dynamic Gutenberg block: `viswiz/visualization`
+- Shortcode: `[viswiz_visualization id="123"]`
+- Legacy VisWiz shortcodes resolve through saved visualization IDs
+- Front-end assets are loaded only when a VisWiz visualization is rendered
+- Runtime renderers are local; no D3 or third-party visualization CDN is required
+- Public visualization payloads are exposed through the VisWiz v2 REST API
 
-- v2 data is written only to new `viswiz_v2_*` tables; legacy tables are never altered by the v2 schema installer
-- each legacy dataset ID is mapped to a new v2 dataset ID through an explicit migration map
-- legacy `viswiz_data_points` are copied to v2 rows or nodes
-- legacy `viswiz_relations` are copied to v2 edges using new immutable UUID references
-- existing Visualization posts are mapped to `_viswiz_renderer`, `_viswiz_source_type`, `_viswiz_dataset_id` and `_viswiz_settings`
-- recognized visualization-local manual/graph data without an existing dataset is migrated into a private dataset
+Data integrity and migration
+----------------------------
 
-The old 1.x data tables are deliberately **not dropped** by the migration. They remain available as a rollback/reference source until migration has been verified on the actual WordPress installation.
+VisWiz 2 uses dedicated v2 tables for datasets, rows, graph nodes, graph relations and revisions.
 
-### Update system
+Normal editing uses targeted writes. Full replacement is reserved for explicit import/replace/restore operations and is transactional. Every data mutation creates a recoverable dataset revision.
 
-The GitHub Releases updater is now an independent subsystem rather than the bootstrapper for the rest of the plugin.
+The 1.x-to-2.x migration writes into separate v2 tables and deliberately leaves legacy tables untouched as a rollback/reference source until migration has been verified on the real installation.
 
-- exact asset name required: `viswiz-{version}.zip`
-- WordPress native per-plugin auto-update preference is authoritative
-- `VISWIZ_AUTO_UPDATES` remains an optional hard override
-- update metadata is cached for six hours and can be force-refreshed from VisWiz → Updates
+Updates
+-------
 
-### Tests and release validation
+Releases are published through GitHub with an installable `viswiz-{version}.zip` asset. The updater supplies release metadata and packages to WordPress; WordPress core remains authoritative for the per-plugin automatic-update preference shown on the Installed Plugins screen.
 
-Pull requests and pushes to `main` now run:
+Development and validation
+--------------------------
 
-- PHP syntax checks on all active/test PHP files
-- JavaScript syntax checks
-- PHPUnit domain + architecture regression tests
+The repository includes automated checks for:
+
+- PHP syntax on supported PHP versions
+- JavaScript syntax
+- PHPUnit domain and architecture tests
 - block/composer JSON validation
-- whitespace validation
-- a real WordPress + MySQL integration smoke job
-- WooCommerce installation in the smoke job
-- activation / DB migration tests
-- canonical graph storage tests
-- node UUID/relation identity tests
-- optimistic concurrency tests
-- schema authorization tests
-- dataset duplication/deletion tests
-- WooCommerce live query smoke tests
+- whitespace errors
+- WordPress + MySQL integration smoke tests
+- WooCommerce installation and query smoke tests
+- v1-to-v2 migration behavior
+- graph UUID/relation identity and optimistic concurrency
+- graph rendering compatibility and interaction regressions
 
-The release workflow repeats source/unit validation before producing the installable ZIP and verifies the archive before publishing the GitHub Release.
+Documentation
+-------------
 
-Repository architecture
------------------------
+- `docs/PROJECT_REFERENCE.md` — authoritative upstream documentation and project engineering baseline
+- `docs/USABILITY_BACKLOG.md` — current stabilization and usability priorities
 
-```
-viswiz.php
-src/
-  Plugin.php
-  Support.php
-  Admin/
-    Admin.php
-  Database/
-    Migrator.php
-    DatasetRepository.php
-  Domain/
-    Registry.php
-    GraphValidator.php
-  Frontend/
-    Frontend.php
-  Rest/
-    Api.php
-  Update/
-    GitHubUpdater.php
-  WooCommerce/
-    Compatibility.php
-    SalesQuery.php
-assets/
-  viswiz.js
-  viswiz.css
-  viswiz-admin.js
-  viswiz-admin.css
-  viswiz-block.js
-blocks/
-  visualization/
-    block.json
-tests/
-```
-
-Operational note
-----------------
-
-2.0.0 is a major architectural release. The migration preserves 1.x tables, but a real wp-admin smoke test with the existing large graph datasets should be performed before the legacy tables are ever removed in a later release.
+Full user and developer documentation will be written after the editor, import workflow and front-end interaction model have stabilized.
