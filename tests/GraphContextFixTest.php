@@ -42,10 +42,12 @@ final class GraphContextFixTest extends TestCase {
         self::assertStringNotContainsString( 'clearVisibilityFilters(container)', $javascript );
     }
 
-    public function test_release_bump_does_not_change_database_schema_version(): void {
+    public function test_release_version_and_database_schema_version_are_independent(): void {
         $bootstrap = file_get_contents( dirname( __DIR__ ) . '/viswiz.php' );
-        self::assertStringContainsString( "Version: 2.0.9", $bootstrap );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.9' )", $bootstrap );
+        self::assertMatchesRegularExpression( "/Version:\\s+([0-9]+\\.[0-9]+\\.[0-9]+)/", $bootstrap );
+        preg_match( "/Version:\\s+([0-9]+\\.[0-9]+\\.[0-9]+)/", $bootstrap, $header_match );
+        preg_match( "/define\\( 'VISWIZ_VERSION', '([^']+)' \\)/", $bootstrap, $constant_match );
+        self::assertSame( $header_match[1] ?? null, $constant_match[1] ?? null );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 )", $bootstrap );
     }
 }
