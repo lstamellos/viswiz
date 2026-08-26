@@ -27,13 +27,25 @@ final class GraphContextFixTest extends TestCase {
         self::assertStringContainsString( 'relation.from_node_uuid', $javascript );
         self::assertStringContainsString( 'relation.to_node_uuid', $javascript );
         self::assertStringContainsString( 'viswiz-related-node-link', $javascript );
-        self::assertStringContainsString( 'clearVisibilityFilters(container)', $javascript );
+    }
+
+    public function test_related_node_navigation_waits_for_redraw_and_restores_search_filters(): void {
+        $javascript = file_get_contents( dirname( __DIR__ ) . '/assets/viswiz-graph-context-fix.js' );
+        self::assertStringContainsString( 'function captureVisibilityFilters', $javascript );
+        self::assertStringContainsString( 'function temporarilyRevealAllNodeTypes', $javascript );
+        self::assertStringContainsString( 'function waitForNode', $javascript );
+        self::assertStringContainsString( 'function findNewNodeModal', $javascript );
+        self::assertStringContainsString( 'restoreFilters()', $javascript );
+        self::assertStringContainsString( 'snapshot.searchValue', $javascript );
+        self::assertStringContainsString( 'snapshot.nodeTypeValue', $javascript );
+        self::assertStringContainsString( 'nextOverlay.dataset.viswizNodeUuid', $javascript );
+        self::assertStringNotContainsString( 'clearVisibilityFilters(container)', $javascript );
     }
 
     public function test_release_bump_does_not_change_database_schema_version(): void {
         $bootstrap = file_get_contents( dirname( __DIR__ ) . '/viswiz.php' );
-        self::assertStringContainsString( "Version: 2.0.8", $bootstrap );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.8' )", $bootstrap );
+        self::assertStringContainsString( "Version: 2.0.9", $bootstrap );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.9' )", $bootstrap );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 )", $bootstrap );
     }
 }
