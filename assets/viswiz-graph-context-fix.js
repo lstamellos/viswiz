@@ -113,37 +113,105 @@
     return nodes.find((node) => [node.title, node.label, node.slug].some((value) => String(value || '') === title)) || null;
   }
 
-  function clearVisibilityFilters(container) {
-    container.dispatchEvent(new CustomEvent('viswiz:clear-property-filter', { bubbles: false }));
+  function captureVisibilityFilters(container) {
     const toolbar = $('.viswiz-graph-toolbar', container);
-    const search = toolbar?.querySelector('input[type="search"]');
+    const search = toolbar?.querySelector('input[type="search"]') || null;
     const selects = toolbar ? [...toolbar.querySelectorAll('select:not(.viswiz-property-filter-mode)')] : [];
-    const nodeType = selects[0];
-
-    if (search?.value) {
-      search.value = '';
-      search.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (nodeType?.value) {
-      nodeType.value = '';
-      nodeType.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    const nodeType = selects[0] || null;
+    return {
+      search,
+      searchValue: search?.value || '',
+      nodeType,
+      nodeTypeValue: nodeType?.value || '',
+    };
   }
 
-  function openRelatedNode(overlay, container, uuid) {
+  function temporarilyRevealAllNodeTypes(container) {
+    const snapshot = captureVisibilityFilters(container);
+    if (snapshot.search?.value) {
+      snapshot.search.value = '';
+      snapshot.search.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (snapshot.nodeType?.value) {
+      snapshot.nodeType.value = '';
+      snapshot.nodeType.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    return () => {
+      if (snapshot.nodeType && snapshot.nodeType.value !== snapshot.nodeTypeValue) {
+        snapshot.nodeType.value = snapshot.nodeTypeValue;
+        snapshot.nodeType.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (snapshot.search && snapshot.search.value !== snapshot.searchValue) {
+        snapshot.search.value = snapshot.searchValue;
+        snapshot.search.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+  }
+
+  function waitForNode(container, uuid, timeout = 1500) {
+    const selector = `[data-viswiz-node-uuid="${CSS.escape(String(uuid))}"]`;
+    const immediate = container.querySelector(selector);
+    if (immediate) return Promise.resolve(immediate);
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (node) => {
+        if (settled) return;
+        settled = true;
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve(node);
+      };
+      const observer = new MutationObserver(() => {
+        const target = container.querySelector(selector);
+        if (target) finish(target);
+      });
+      observer.observe(container, { childList: true, subtree: true });
+      const timer = window.setTimeout(() => finish(container.querySelector(selector)), timeout);
+    });
+  }
+
+  function findNewNodeModal(existing, currentOverlay) {
+    return [...document.querySelectorAll('.viswiz-modal-overlay')]
+      .find((candidate) => candidate !== currentOverlay && !existing.has(candidate) && !candidate.classList.contains('viswiz-property-overlay')) || null;
+  }
+
+  async function openRelatedNode(overlay, container, uuid) {
     const position = { x: window.scrollX, y: window.scrollY };
-    clearVisibilityFilters(container);
+    const selector = `[data-viswiz-node-uuid="${CSS.escape(String(uuid))}"]`;
+    let target = container.querySelector(selector);
+    let restoreFilters = () => {};
+
+    if (!target) {
+      restoreFilters = temporarilyRevealAllNodeTypes(container);
+      target = await waitForNode(container, uuid);
+    }
+
+    if (!target) {
+      restoreFilters();
+      window.scrollTo(position.x, position.y);
+      return;
+    }
+
+    const existingOverlays = new Set(document.querySelectorAll('.viswiz-modal-overlay'));
+    container.__viswizOpeningNodeUuid = String(uuid);
+    container.__viswizOpeningScroll = position;
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+
+    const nextOverlay = findNewNodeModal(existingOverlays, overlay);
+    if (!nextOverlay) {
+      restoreFilters();
+      window.scrollTo(position.x, position.y);
+      return;
+    }
+
+    nextOverlay.dataset.viswizNodeUuid = String(uuid);
+    container.__viswizOpeningNodeUuid = '';
     const close = $('.viswiz-modal-close', overlay);
     close?.click();
-
-    Promise.resolve().then(() => {
-      window.scrollTo(position.x, position.y);
-      const target = container.querySelector(`[data-viswiz-node-uuid="${CSS.escape(String(uuid))}"]`);
-      if (!target) return;
-      container.__viswizOpeningNodeUuid = String(uuid);
-      container.__viswizOpeningScroll = position;
-      target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-    });
+    restoreFilters();
+    window.scrollTo(position.x, position.y);
   }
 
   function addRelatedSection(overlay, container, spec, node) {
