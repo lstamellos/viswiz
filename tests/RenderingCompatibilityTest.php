@@ -14,7 +14,7 @@ final class RenderingCompatibilityTest extends TestCase {
         self::assertStringContainsString( "add_action( 'admin_enqueue_scripts'", $runtime );
         self::assertStringContainsString( "wp_style_is( 'viswiz-frontend', 'registered' )", $runtime );
         self::assertStringContainsString( 'viswiz-rendering-compat.css', $runtime );
-        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', $css )", $runtime );
+        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', \$css )", $runtime );
         self::assertStringNotContainsString( 'wp_enqueue_style( self::STYLE_HANDLE )', $runtime );
         self::assertStringContainsString( 'viswiz-node-cards.js', $runtime );
         self::assertStringContainsString( 'viswiz-node-cards', $runtime );
