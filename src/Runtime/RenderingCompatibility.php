@@ -2,10 +2,11 @@
 namespace VisWiz\Runtime;
 
 final class RenderingCompatibility {
-    private const SCRIPT_HANDLE        = 'viswiz-rendering-compat';
-    private const NODE_CARD_HANDLE     = 'viswiz-node-cards';
-    private const GRAPH_CONTEXT_HANDLE = 'viswiz-graph-context-fix';
-    private const TOOLBAR_UX_HANDLE    = 'viswiz-toolbar-ux';
+    private const SCRIPT_HANDLE           = 'viswiz-rendering-compat';
+    private const NODE_CARD_HANDLE        = 'viswiz-node-cards';
+    private const GRAPH_CONTEXT_HANDLE    = 'viswiz-graph-context-fix';
+    private const TOOLBAR_UX_HANDLE       = 'viswiz-toolbar-ux';
+    private const CONNECTION_FOCUS_HANDLE = 'viswiz-connection-focus';
 
     public static function register(): void {
         add_action( 'init', array( self::class, 'register_assets' ), 30 );
@@ -14,12 +15,15 @@ final class RenderingCompatibility {
     }
 
     public static function register_assets(): void {
-        // The compatibility stylesheet must travel with the main frontend style.
-        // Graph blocks may enqueue their assets after wp_head; a new stylesheet
-        // first enqueued from wp_footer is therefore not guaranteed to be printed.
+        // Compatibility and graph interaction styles must travel with the main
+        // frontend style. Graph blocks may enqueue assets after wp_head, so a
+        // separate stylesheet first enqueued from wp_footer is not reliable.
         if ( wp_style_is( 'viswiz-frontend', 'registered' ) ) {
-            $css_file = VISWIZ_DIR . 'assets/viswiz-rendering-compat.css';
-            if ( is_readable( $css_file ) ) {
+            foreach ( array( 'viswiz-rendering-compat.css', 'viswiz-connection-focus.css' ) as $stylesheet ) {
+                $css_file = VISWIZ_DIR . 'assets/' . $stylesheet;
+                if ( ! is_readable( $css_file ) ) {
+                    continue;
+                }
                 $css = file_get_contents( $css_file );
                 if ( false !== $css && '' !== $css ) {
                     wp_add_inline_style( 'viswiz-frontend', $css );
@@ -55,6 +59,13 @@ final class RenderingCompatibility {
             VISWIZ_VERSION,
             true
         );
+        wp_register_script(
+            self::CONNECTION_FOCUS_HANDLE,
+            VISWIZ_URL . 'assets/viswiz-connection-focus.js',
+            array( self::TOOLBAR_UX_HANDLE ),
+            VISWIZ_VERSION,
+            true
+        );
     }
 
     private static function enqueue_assets(): void {
@@ -62,6 +73,7 @@ final class RenderingCompatibility {
         wp_enqueue_script( self::NODE_CARD_HANDLE );
         wp_enqueue_script( self::GRAPH_CONTEXT_HANDLE );
         wp_enqueue_script( self::TOOLBAR_UX_HANDLE );
+        wp_enqueue_script( self::CONNECTION_FOCUS_HANDLE );
     }
 
     public static function enqueue_admin(): void {
