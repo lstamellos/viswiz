@@ -159,14 +159,29 @@
     }
   }
 
+  function ensureFilterGroup(toolbar) {
+    let group = toolbar.querySelector(':scope > .viswiz-filter-group');
+    if (!group) {
+      group = document.createElement('div');
+      group.className = 'viswiz-filter-group';
+      const searchGroup = toolbar.querySelector(':scope > .viswiz-search-group');
+      if (searchGroup) searchGroup.after(group);
+      else toolbar.prepend(group);
+    }
+
+    nativeFilterSelects(toolbar).forEach((select) => group.appendChild(select));
+    const clear = toolbar.querySelector('.viswiz-clear-all-filters');
+    if (clear && clear.parentElement !== group) group.appendChild(clear);
+  }
+
   function ensureSelectedFacetHost(toolbar) {
-    let host = toolbar.querySelector('.viswiz-selected-facets');
+    let host = toolbar.querySelector(':scope > .viswiz-selected-facets');
     if (!host) {
       host = document.createElement('div');
       host.className = 'viswiz-selected-facets';
       host.setAttribute('aria-label', labels.selectedFilters);
-      const clearAll = toolbar.querySelector('.viswiz-clear-all-filters');
-      if (clearAll) clearAll.after(host);
+      const filterGroup = toolbar.querySelector(':scope > .viswiz-filter-group');
+      if (filterGroup) filterGroup.after(host);
       else toolbar.appendChild(host);
     }
     return host;
@@ -196,21 +211,34 @@
     });
   }
 
-  function moveZoomControls(container, toolbar) {
-    const zoomButtons = [...toolbar.querySelectorAll('button.viswiz-graph-tool')]
-      .filter((button) => ['−', '+', '100%'].includes(button.textContent.trim()));
-    if (!zoomButtons.length) return;
-
-    let group = container.querySelector(':scope > .viswiz-view-controls');
-    if (!group) {
-      group = document.createElement('div');
-      group.className = 'viswiz-view-controls';
-      container.insertBefore(group, container.firstChild);
+  function ensureGraphHeader(container, toolbar) {
+    let header = container.querySelector(':scope > .viswiz-graph-header');
+    if (!header) {
+      header = document.createElement('div');
+      header.className = 'viswiz-graph-header';
+      container.insertBefore(header, container.firstChild);
     }
 
-    zoomButtons.forEach((button) => group.appendChild(button));
+    const title = container.querySelector(':scope > .viswiz-title');
+    if (title) header.insertBefore(title, header.firstChild);
+
+    let controls = header.querySelector(':scope > .viswiz-view-controls');
+    if (!controls) {
+      controls = document.createElement('div');
+      controls.className = 'viswiz-view-controls';
+      header.appendChild(controls);
+    }
+
+    const zoomButtons = [
+      ...toolbar.querySelectorAll('button.viswiz-graph-tool'),
+      ...controls.querySelectorAll('button.viswiz-graph-tool'),
+    ].filter((button, index, list) => (
+      list.indexOf(button) === index && ['−', '+', '100%'].includes(button.textContent.trim())
+    ));
+    zoomButtons.forEach((button) => controls.appendChild(button));
+
     const fullscreen = container.querySelector(':scope > .viswiz-fullscreen');
-    if (fullscreen) group.appendChild(fullscreen);
+    if (fullscreen) controls.appendChild(fullscreen);
   }
 
   function nodeMatchesSelected(group, selected) {
@@ -331,8 +359,9 @@
     lockLegacyFacetUi(toolbar);
     ensureSearchControl(toolbar);
     ensureClearFiltersControl(container, toolbar);
+    ensureFilterGroup(toolbar);
     ensureSelectedFacetHost(toolbar);
-    moveZoomControls(container, toolbar);
+    ensureGraphHeader(container, toolbar);
     bindMultiFacetEvents(container);
     applyMultiFacet(container);
   }
@@ -356,8 +385,8 @@
       if (!(node instanceof Element)) return;
       const owner = node.closest('.viswiz-visualization');
       if (owner && (
-        node.matches('.viswiz-graph-toolbar,.viswiz-property-filter-mode,.viswiz-graph-node,.viswiz-fullscreen')
-        || node.querySelector?.('.viswiz-graph-toolbar,.viswiz-property-filter-mode,.viswiz-graph-node,.viswiz-fullscreen')
+        node.matches('.viswiz-graph-toolbar,.viswiz-property-filter-mode,.viswiz-graph-node,.viswiz-fullscreen,.viswiz-title')
+        || node.querySelector?.('.viswiz-graph-toolbar,.viswiz-property-filter-mode,.viswiz-graph-node,.viswiz-fullscreen,.viswiz-title')
       )) queue(owner);
       scan(node);
     });
