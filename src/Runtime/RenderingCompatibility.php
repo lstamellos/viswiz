@@ -6,7 +6,6 @@ final class RenderingCompatibility {
     private const NODE_CARD_HANDLE     = 'viswiz-node-cards';
     private const GRAPH_CONTEXT_HANDLE = 'viswiz-graph-context-fix';
     private const TOOLBAR_UX_HANDLE    = 'viswiz-toolbar-ux';
-    private const STYLE_HANDLE         = 'viswiz-rendering-compat';
 
     public static function register(): void {
         add_action( 'init', array( self::class, 'register_assets' ), 30 );
@@ -15,12 +14,19 @@ final class RenderingCompatibility {
     }
 
     public static function register_assets(): void {
-        wp_register_style(
-            self::STYLE_HANDLE,
-            VISWIZ_URL . 'assets/viswiz-rendering-compat.css',
-            array( 'viswiz-frontend' ),
-            VISWIZ_VERSION
-        );
+        // The compatibility stylesheet must travel with the main frontend style.
+        // Graph blocks may enqueue their assets after wp_head; a new stylesheet
+        // first enqueued from wp_footer is therefore not guaranteed to be printed.
+        if ( wp_style_is( 'viswiz-frontend', 'registered' ) ) {
+            $css_file = VISWIZ_DIR . 'assets/viswiz-rendering-compat.css';
+            if ( is_readable( $css_file ) ) {
+                $css = file_get_contents( $css_file );
+                if ( false !== $css && '' !== $css ) {
+                    wp_add_inline_style( 'viswiz-frontend', $css );
+                }
+            }
+        }
+
         wp_register_script(
             self::SCRIPT_HANDLE,
             VISWIZ_URL . 'assets/viswiz-rendering-compat.js',
@@ -52,7 +58,6 @@ final class RenderingCompatibility {
     }
 
     private static function enqueue_assets(): void {
-        wp_enqueue_style( self::STYLE_HANDLE );
         wp_enqueue_script( self::SCRIPT_HANDLE );
         wp_enqueue_script( self::NODE_CARD_HANDLE );
         wp_enqueue_script( self::GRAPH_CONTEXT_HANDLE );
