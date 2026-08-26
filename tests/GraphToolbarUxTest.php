@@ -69,7 +69,8 @@ final class GraphToolbarUxTest extends TestCase {
         self::assertStringContainsString( 'viswiz-graph-header', $javascript );
         self::assertStringContainsString( "['−', '+', '100%'].includes", $javascript );
         self::assertStringContainsString( 'viswiz-view-controls', $javascript );
-        self::assertStringContainsString( "container.querySelector(':scope > .viswiz-fullscreen')", $javascript );
+        self::assertStringContainsString( "container.querySelector('.viswiz-fullscreen')", $javascript );
+        self::assertStringContainsString( 'fullscreen.parentElement !== controls', $javascript );
         self::assertStringContainsString( 'controls.appendChild(fullscreen)', $javascript );
         self::assertStringNotContainsString( 'if (!zoomButtons.length) return;', $javascript );
         self::assertStringContainsString( '.viswiz-graph-header{display:flex', $stylesheet );
@@ -83,6 +84,8 @@ final class GraphToolbarUxTest extends TestCase {
         self::assertStringContainsString( 'function ensureFilterGroup', $javascript );
         self::assertStringContainsString( "group.className = 'viswiz-filter-group'", $javascript );
         self::assertStringContainsString( 'nativeFilterSelects(toolbar).forEach((select) => group.appendChild(select))', $javascript );
+        self::assertStringContainsString( 'if (clear) group.appendChild(clear);', $javascript );
+        self::assertStringNotContainsString( 'clear && clear.parentElement !== group', $javascript );
         self::assertStringContainsString( '.viswiz-filter-group{display:flex', $stylesheet );
         self::assertStringContainsString( 'flex-wrap:nowrap', $stylesheet );
     }
@@ -92,5 +95,11 @@ final class GraphToolbarUxTest extends TestCase {
         self::assertStringContainsString( 'const relationSelect = selects[1] || null;', $javascript );
         self::assertStringContainsString( 'relationSelect.after(clear);', $javascript );
         self::assertStringContainsString( 'viswiz-clear-all-filters', $javascript );
+    }
+
+    public function test_compatibility_layout_css_is_attached_to_the_primary_frontend_style(): void {
+        $runtime = file_get_contents( dirname( __DIR__ ) . '/src/Runtime/RenderingCompatibility.php' );
+        self::assertStringContainsString( "wp_add_inline_style( 'viswiz-frontend', $css )", $runtime );
+        self::assertStringNotContainsString( 'wp_enqueue_style( self::STYLE_HANDLE )', $runtime );
     }
 }
