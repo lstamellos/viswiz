@@ -8,7 +8,6 @@
 .viswiz-node-card-tag{cursor:pointer;outline:none}
 .viswiz-node-card-tag-bg{fill:rgba(15,23,42,.84);stroke:rgba(255,255,255,.62);stroke-width:.65;transition:fill .15s ease,stroke .15s ease,stroke-width .15s ease}
 .viswiz-node-card-tag-text{fill:#fff;font-size:8.7px;font-weight:600;letter-spacing:.15px;pointer-events:none}
-.viswiz-node-card-tag:hover .viswiz-node-card-tag:focus .viswiz-node-card-tag-bg{fill:rgba(30,41,59,.96);stroke:#fff;stroke-width:1.15}
 .viswiz-node-card-tag:hover .viswiz-node-card-tag-bg,.viswiz-node-card-tag:focus .viswiz-node-card-tag-bg{fill:rgba(30,41,59,.96);stroke:#fff;stroke-width:1.15}
 .viswiz-node-card-tag.is-active .viswiz-node-card-tag-bg{fill:var(--viswiz-primary,#2563eb);stroke:#fff;stroke-width:1.5}
 .viswiz-graph-node{transition:opacity .18s ease,filter .18s ease}
