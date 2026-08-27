@@ -257,8 +257,10 @@ test('public graph supports filtering, modal navigation, focus, zoom and late re
     await expect(fullscreen).toBeVisible();
     await fullscreen.click();
     await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
-    await page.keyboard.press('Escape');
+    await expect(fullscreen).toHaveText('Exit full screen');
+    await fullscreen.click();
     await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
+    await expect(fullscreen).toHaveText('Full screen');
   }
 
   const endpoint = await graph.getAttribute('data-viswiz-endpoint');
