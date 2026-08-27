@@ -2,9 +2,11 @@
 namespace VisWiz;
 
 use VisWiz\Admin\Admin;
+use VisWiz\Admin\ImportUi;
 use VisWiz\Database\Migrator;
 use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
+use VisWiz\Rest\ImportApi;
 use VisWiz\Update\GitHubUpdater;
 use VisWiz\WooCommerce\Compatibility;
 
@@ -32,7 +34,9 @@ final class Plugin {
         add_action( 'admin_init', array( self::class, 'maybe_upgrade_capabilities' ), 6 );
 
         Admin::register();
+        ImportUi::register();
         Api::register();
+        ImportApi::register();
         Frontend::register();
         GitHubUpdater::register();
         Compatibility::register();
