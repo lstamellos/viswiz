@@ -274,6 +274,7 @@ test('public graph supports filtering, modal navigation, focus, zoom and late re
     document.body.appendChild(container);
   }, endpoint);
   const dynamic = page.locator('[data-e2e-dynamic="1"]');
+  await dynamic.scrollIntoViewIfNeeded();
   await expect(dynamic.locator('.viswiz-graph-frame')).toBeVisible();
   await expect(dynamic.locator('.viswiz-graph-node')).toHaveCount(fixture.counts.nodes);
 
