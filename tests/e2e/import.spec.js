@@ -51,6 +51,19 @@ async function validateAndCommit(page, importer, expectedAction) {
   await commitAndWaitForReload(page, commit);
 }
 
+async function datasetPayload(page) {
+  return page.evaluate(async () => {
+    const editor = document.querySelector('#viswiz-dataset-editor');
+    const id = Number(editor?.dataset.datasetId || 0);
+    const response = await fetch(`${window.VisWizAdminV2.restUrl}/datasets/${id}`, {
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': window.VisWizAdminV2.nonce || '' },
+    });
+    if (!response.ok) throw new Error(`Dataset REST request failed: ${response.status}`);
+    return response.json();
+  });
+}
+
 test('guided row import supports spreadsheet paste, preview, commit and keyed upsert', async ({ page }) => {
   await login(page);
   await createDataset(page, 'E2E import rows', 'categorical');
@@ -80,6 +93,13 @@ test('guided row import supports spreadsheet paste, preview, commit and keyed up
   await expect(page.locator('#viswiz-dataset-editor tbody tr')).toContainText('99');
 
   importer = page.locator('[data-viswiz-guided-import]');
+  await importer.locator('[data-viswiz-import-mode]').selectOption('append');
+  await importer.locator('[data-viswiz-import-source]').fill('row_key\tlabel\tvalue\nimport-alpha\tDuplicate Alpha\t100');
+  await importer.locator('[data-viswiz-import-prepare]').click();
+  await importer.locator('[data-viswiz-import-preview-button]').click();
+  await expect(importer.locator('[data-viswiz-import-message]')).toContainText('import key mapping contains conflicts');
+  await expect(importer.locator('[data-viswiz-import-commit]')).not.toBeVisible();
+
   await importer.locator('[data-viswiz-import-source]').fill('row_key\tlabel\tvalue\nbad\tBad numeric\tnot-a-number');
   await importer.locator('[data-viswiz-import-prepare]').click();
   await importer.locator('[data-viswiz-import-preview-button]').click();
@@ -112,17 +132,21 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
 
   importer = page.locator('[data-viswiz-guided-import]');
   await importer.locator('[data-viswiz-import-kind]').selectOption('relations');
-  await importer.locator('[data-viswiz-import-source]').fill('external_key\tfrom_key\tto_key\trelation_type\nreporter-newsroom\treporter\tnewsroom\tmember_of');
+  await importer.locator('[data-viswiz-import-source]').fill('external_key\tfrom_key\tto_key\trelation_type\nreporter-newsroom\treporter\tnewsroom\tmember_of\nreporter-newsroom-linked\treporter\tnewsroom\tconnected_to');
   await importer.locator('[data-viswiz-import-prepare]').click();
   await expect(importer.locator('[data-viswiz-import-map="from_key"]')).toHaveValue('from_key');
   await expect(importer.locator('[data-viswiz-import-map="to_key"]')).toHaveValue('to_key');
   await importer.locator('[data-viswiz-import-preview-button]').click();
   await expect(importer.locator('.viswiz-import-issues.notice-error')).toHaveCount(0);
-  await expect(importer.locator('.viswiz-import-summary')).toContainText('1 Create');
+  await expect(importer.locator('.viswiz-import-summary')).toContainText('2 Create');
   await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
-  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toHaveCount(1);
-  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toContainText('Imported Reporter');
-  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toContainText('Imported Newsroom');
+  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toHaveCount(2);
+
+  let payload = await datasetPayload(page);
+  const member = payload.payload.relations.find((relation) => relation.meta?._viswiz_import_key === 'reporter-newsroom');
+  const connected = payload.payload.relations.find((relation) => relation.meta?._viswiz_import_key === 'reporter-newsroom-linked');
+  expect(member).toMatchObject({ relation_type: 'member_of', label: 'Member of', inverse_label: 'Has member', direction: 'directed', intensity: 1 });
+  expect(connected).toMatchObject({ relation_type: 'connected_to', label: 'Connected to', inverse_label: 'Connected to', direction: 'undirected', intensity: 1 });
 
   importer = page.locator('[data-viswiz-guided-import]');
   await importer.locator('[data-viswiz-import-kind]').selectOption('nodes');
@@ -136,6 +160,10 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   const nodeRows = page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr');
   await expect(nodeRows).toHaveCount(2);
   await expect(nodeRows.filter({ hasText: 'Imported Reporter Updated' })).toHaveCount(1);
-  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toHaveCount(1);
-  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toContainText('Imported Reporter Updated');
+  const relationRows = page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr');
+  await expect(relationRows).toHaveCount(2);
+  await expect(relationRows.filter({ hasText: 'Imported Reporter Updated' })).toHaveCount(2);
+
+  payload = await datasetPayload(page);
+  expect(payload.payload.relations).toHaveLength(2);
 });
