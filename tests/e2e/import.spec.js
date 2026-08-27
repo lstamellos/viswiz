@@ -133,8 +133,9 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   await expect(importer.locator('.viswiz-import-summary')).toContainText('1 Update');
   await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
-  await expect(page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr')).toHaveCount(2);
-  await expect(page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr')).toContainText('Imported Reporter Updated');
+  const nodeRows = page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr');
+  await expect(nodeRows).toHaveCount(2);
+  await expect(nodeRows.filter({ hasText: 'Imported Reporter Updated' })).toHaveCount(1);
   await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toHaveCount(1);
   await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toContainText('Imported Reporter Updated');
 });
