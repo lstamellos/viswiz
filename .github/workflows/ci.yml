@@ -41,7 +41,8 @@ jobs:
       - name: JavaScript syntax
         shell: bash
         run: |
-          find assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          find assets tests/e2e -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check playwright.config.js
 
       - name: Unit and architecture tests
         run: composer test
@@ -49,7 +50,7 @@ jobs:
       - name: JSON validation
         shell: bash
         run: |
-          php -r '$files=["composer.json","blocks/visualization/block.json"]; foreach($files as $file){json_decode(file_get_contents($file),true,512,JSON_THROW_ON_ERROR); echo "$file OK\n";}'
+          php -r '$files=["composer.json","package.json","blocks/visualization/block.json"]; foreach($files as $file){json_decode(file_get_contents($file),true,512,JSON_THROW_ON_ERROR); echo "$file OK\n";}'
 
       - name: Whitespace errors
         shell: bash
@@ -96,3 +97,97 @@ jobs:
 
       - name: Run integration smoke tests
         run: wp eval-file "$GITHUB_WORKSPACE/tests/wp-smoke.php" --path=/tmp/wordpress --allow-root
+
+  browser-e2e:
+    name: Chromium browser E2E
+    runs-on: ubuntu-latest
+    env:
+      VISWIZ_E2E_BASE_URL: http://127.0.0.1:8889
+      VISWIZ_E2E_FIXTURE: /tmp/viswiz-e2e-fixture.json
+      VISWIZ_E2E_ADMIN_USER: admin
+      VISWIZ_E2E_ADMIN_PASSWORD: admin
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP and WP-CLI
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: wp-cli
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Playwright
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Install WordPress and VisWiz
+        shell: bash
+        run: |
+          wp core download --path=/tmp/wordpress --allow-root
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check --allow-root
+          wp core install --path=/tmp/wordpress --url="$VISWIZ_E2E_BASE_URL" --title='VisWiz E2E' --admin_user="$VISWIZ_E2E_ADMIN_USER" --admin_password="$VISWIZ_E2E_ADMIN_PASSWORD" --admin_email=admin@example.invalid --skip-email --allow-root
+          ln -s "$GITHUB_WORKSPACE" /tmp/wordpress/wp-content/plugins/viswiz
+          wp plugin activate viswiz --path=/tmp/wordpress --allow-root
+          wp rewrite structure '/%postname%/' --path=/tmp/wordpress --allow-root
+
+      - name: Seed browser fixtures
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/e2e/seed.php" --path=/tmp/wordpress --allow-root
+
+      - name: Start WordPress HTTP server
+        shell: bash
+        run: |
+          php -S 127.0.0.1:8889 -t /tmp/wordpress "$GITHUB_WORKSPACE/tests/e2e/router.php" >/tmp/viswiz-e2e-server.log 2>&1 &
+          echo $! >/tmp/viswiz-e2e-server.pid
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$VISWIZ_E2E_BASE_URL/wp-login.php" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/viswiz-e2e-server.log
+          exit 1
+
+      - name: Run browser E2E tests
+        run: npm run test:e2e
+
+      - name: Show HTTP server log on failure
+        if: failure()
+        run: cat /tmp/viswiz-e2e-server.log || true
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Stop WordPress HTTP server
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/viswiz-e2e-server.pid ]; then
+            kill "$(cat /tmp/viswiz-e2e-server.pid)" 2>/dev/null || true
+          fi

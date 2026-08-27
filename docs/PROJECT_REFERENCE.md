@@ -11,6 +11,7 @@ It is deliberately separate from the README. The README describes what VisWiz do
 3. When a VisWiz subsystem adopts a third-party runtime library, add its official documentation, version policy and license here before release.
 4. Do not treat compatibility patches in the current codebase as architectural precedent. They are implementation history until consolidated into the primary modules.
 5. User-facing documentation should describe stable behavior only. Experimental or rapidly changing behavior belongs in issues/backlog until stabilized.
+6. Pre-production datasets are test data, not a backwards-compatibility contract. Keep a legacy migration only when it materially reduces testing/setup work; never compromise the current data model merely to preserve old test fixtures.
 
 ## Current platform baseline
 
@@ -67,6 +68,17 @@ Project implications:
 - Mutation observers must observe the smallest practical structural surface and must not re-enter because of their own style/attribute mutations.
 - Fullscreen behavior must preserve graph state and recover cleanly on exit or browser-level cancellation.
 
+### Browser E2E / Playwright
+
+- Playwright CI: https://playwright.dev/docs/ci
+- Playwright web server configuration: https://playwright.dev/docs/test-webserver
+- WordPress Developer Blog — Getting started writing WordPress E2E Tests with Playwright: https://developer.wordpress.org/news/2026/05/getting-started-writing-wordpress-e2e-tests-with-playwright/
+- WordPress `@wordpress/e2e-tests`: https://developer.wordpress.org/block-editor/reference-guides/packages/packages-e2e-tests/
+
+VisWiz pins Playwright as a development/test dependency only. Browser tests run against a clean WordPress + MySQL installation and use one worker in CI for deterministic execution. The project may use `wp-env` where useful, but it is not an architectural requirement; the existing WordPress integration environment is reused when that avoids duplicate environment definitions.
+
+Browser failures should be treated as behavioral evidence. Tests should assert editor/visitor-visible behavior rather than encode incidental DOM structure unless that structure is itself an accessibility or API contract.
+
 ### PHP
 
 - PHP manual: https://www.php.net/manual/en/
@@ -89,9 +101,11 @@ Release artifacts must keep the updater contract `viswiz-{version}.zip`. Release
 
 ## Runtime dependency policy
 
-At the 2.0.14 baseline, VisWiz has no third-party JavaScript visualization runtime and no public CDN dependency. Rendering is implemented locally in repository JavaScript/SVG/CSS.
+At the 2.0.15 baseline, VisWiz has no third-party JavaScript visualization runtime and no public CDN dependency. Rendering is implemented locally in repository JavaScript/SVG/CSS.
 
-This is intentional unless a future library provides a substantial, measured benefit in layout quality, accessibility, performance or maintainability. A new dependency should be evaluated for:
+Playwright is a development/test dependency and is not shipped in the WordPress plugin release archive as a front-end runtime.
+
+This is intentional unless a future library provides a substantial, measured benefit in layout quality, accessibility, performance or maintainability. A new runtime dependency should be evaluated for:
 
 - license compatibility
 - maintained release cadence
@@ -131,6 +145,8 @@ The v2 database layer separates:
 - revisions
 
 Targeted edits use optimistic concurrency. Explicit dataset replacement/import/restore is transactional and revisioned.
+
+Legacy 1.x migration is not a product compatibility requirement while datasets are pre-production test fixtures. It may remain as a developer convenience when it saves setup time and may be simplified or removed if it starts constraining the v2 model.
 
 ### Visualization layer
 

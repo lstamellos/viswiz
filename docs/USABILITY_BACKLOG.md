@@ -10,23 +10,17 @@ Priority meanings:
 - **P1** — strong usability/maintainability improvement after the core path is stable.
 - **P2** — useful extension once workflow and architecture have settled.
 
+Pre-production datasets are disposable test fixtures rather than a backwards-compatibility contract. Legacy migration work is retained only when it saves meaningful setup/testing time and must not constrain the current data model.
+
 ## P0 — stabilize the current runtime
 
-### 1. Consolidate graph compatibility layers
+### 1. Consolidate graph compatibility layers — COMPLETED
 
-Current graph behavior is spread across the main renderer plus a dependency chain of compatibility/UX scripts:
+Completed in VisWiz 2.0.15 / PR #81.
 
-- `viswiz-rendering-compat.js`
-- `viswiz-node-cards.js`
-- `viswiz-graph-context-fix.js`
-- `viswiz-toolbar-ux.js`
-- `viswiz-connection-focus.js`
+Current graph behavior was previously spread across the main renderer plus a dependency chain of compatibility/UX scripts. The stabilized behavior now uses one graph runtime/state model and the obsolete patch chain has been removed.
 
-Compatibility CSS is also injected into the main front-end stylesheet at runtime.
-
-This patch-on-patch structure has already required regressions around MutationObserver re-entry, filtered modal navigation, graph cards, toolbar layout and filter state. Move stabilized behavior into a single graph runtime/state model, remove obsolete compatibility code, and keep one source of truth for search/filter/facet/focus state.
-
-Acceptance target:
+Regression target:
 
 - one documented graph state model
 - no duplicate/competing filter implementations
@@ -34,38 +28,33 @@ Acceptance target:
 - no self-triggering observer paths
 - graph preview and public graph use the same stable behavior
 
-### 2. Add real browser/end-to-end tests
+### 2. Add real browser/end-to-end tests — COMPLETED
 
-Current CI has strong PHP/integration coverage and JavaScript syntax/source regression checks, but it does not exercise the complete browser interaction path.
+Implemented in PR #82 with Playwright/Chromium against a clean WordPress + MySQL installation. The browser suite supplements PHP/integration and source-level tests with actual editor/visitor interaction coverage.
 
-Add automated browser coverage for at least:
+Browser regression coverage includes:
 
 - create/edit/delete row
 - create/edit/delete node and relation
 - dialog open/close and focus return
-- keyboard-only node/relation editing
+- Enter/Escape editor paths
 - graph search and clear
-- multi-select type/subtype filters
+- type/subtype facets and native graph filters
 - relation filters
 - property views
 - related-node navigation while filters are active
 - 1-hop/2-hop connection focus
+- relation-aware connection focus
 - zoom/reset/pan
 - fullscreen enter/exit
 - multiple visualizations on one page
-- dynamically/late-rendered visualization containers
+- dynamically inserted visualization containers through the lazy-render path
 
-### 3. Verify 1.x → 2.x migration with production-shaped data
+### 3. Verify 1.x → 2.x migration with production-shaped data — DEFERRED / NOT A P0 BLOCKER
 
-The automated migration tests prove important invariants, but the retained legacy tables are intentionally still the rollback/reference source.
+The existing datasets are pre-production test data. Preserving 1.x behavior is therefore not a product requirement and must not force compatibility code into the v2 model.
 
-Before legacy cleanup is considered:
-
-- run migration against copies of the largest real graph datasets
-- compare node/relation counts and representative records
-- verify images, descriptions, types/subtypes and relation labels/directions
-- verify visualizations point to the intended migrated datasets
-- document rollback and recovery procedure
+Migration validation may still be used as a developer convenience when it is faster than recreating useful test fixtures. Before any future legacy-table cleanup, a focused migration/backup check may be performed if those old tables are still worth retaining. This item does **not** block the remaining P0 usability work.
 
 ### 4. Replace JSON-only import as the normal import workflow
 
@@ -101,7 +90,7 @@ Acceptance target:
 
 ### 6. Fix preview state ownership
 
-The admin dataset editor and compatibility graph enhancements must consume the same live state after a targeted mutation. Avoid separate caches or re-reading the initial serialized payload after the editor state has changed.
+The admin dataset editor and graph enhancements must consume the same live state after a targeted mutation. Avoid separate caches or re-reading the initial serialized payload after the editor state has changed.
 
 The preview should update deterministically after node/relation edits without page reload and without stale facet/card data.
 
@@ -320,11 +309,11 @@ Potential later additions:
 
 ### 27. Legacy-table retirement policy
 
-After production migration has been verified and backups/rollback are documented, define an explicit versioned policy for optional cleanup of 1.x tables. Do not silently remove them during routine updates.
+Legacy tables are not retained to satisfy a backwards-compatibility promise. If they are still useful when cleanup is considered, first verify that any wanted test fixtures/backups can be recovered or migrated. Cleanup must remain an explicit, versioned action rather than a silent routine-update side effect.
 
 ## Already implemented / no longer open requirements
 
-The following earlier requirements are substantially present in the 2.0.14 baseline and should be treated as regression requirements rather than new backlog items:
+The following earlier requirements are substantially present and should be treated as regression requirements rather than new backlog items:
 
 - canonical dataset ownership of graph data
 - targeted node/relation writes and revision conflict detection
@@ -341,5 +330,6 @@ The following earlier requirements are substantially present in the 2.0.14 basel
 - 1-hop/2-hop connection focus
 - WordPress-native per-plugin auto-update preference with GitHub release package delivery
 - automated release ZIP creation and WordPress/WooCommerce smoke testing
+- Playwright/Chromium browser regression coverage for core editor and graph workflows
 
-These items still require browser regression coverage and should not be considered permanently solved merely because a recent patch implements them.
+These behaviors remain regression requirements and should stay covered as the core runtime/editor is simplified further.
