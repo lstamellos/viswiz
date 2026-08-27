@@ -78,13 +78,26 @@ final class ImportApi {
             return $args;
         }
 
-        $relation_types = Registry::relation_types();
-        $defaults = array(
+        $default_fields = array(
             'label'         => 'label',
             'inverse_label' => 'inverse_label',
             'direction'     => 'direction',
             'intensity'     => 'intensity',
         );
+        $synthetic_fields = array();
+        foreach ( $default_fields as $target => $registry_key ) {
+            if ( ! empty( $mapping[ $target ] ) ) {
+                continue;
+            }
+            $synthetic = '__viswiz_' . $target;
+            $mapping[ $target ] = $synthetic;
+            $synthetic_fields[ $target ] = array( 'source' => $synthetic, 'registry_key' => $registry_key );
+        }
+        if ( ! $synthetic_fields ) {
+            return $args;
+        }
+
+        $relation_types = Registry::relation_types();
         foreach ( (array) $args['records'] as $index => $record ) {
             if ( ! is_array( $record ) ) {
                 continue;
@@ -93,13 +106,9 @@ final class ImportApi {
             if ( '' === $type || ! isset( $relation_types[ $type ] ) ) {
                 continue;
             }
-            foreach ( $defaults as $target => $registry_key ) {
-                if ( ! empty( $mapping[ $target ] ) ) {
-                    continue;
-                }
-                $synthetic = '__viswiz_' . $target;
-                $mapping[ $target ] = $synthetic;
-                $record[ $synthetic ] = (string) ( $relation_types[ $type ][ $registry_key ] ?? ( 'intensity' === $target ? '1' : '' ) );
+            foreach ( $synthetic_fields as $target => $field ) {
+                $fallback = 'intensity' === $target ? '1' : '';
+                $record[ $field['source'] ] = (string) ( $relation_types[ $type ][ $field['registry_key'] ] ?? $fallback );
             }
             $args['records'][ $index ] = $record;
         }
@@ -113,7 +122,7 @@ final class ImportApi {
             return $key;
         }
         foreach ( $registry as $candidate => $meta ) {
-            if ( 0 === strcasecmp( trim( $value ), trim( (string) ( $meta['label'] ?? $candidate ) ) ) ) {
+            if ( 0 === strcasecmp( trim( $value ), trim( (string) ( $meta['label'] ?? $candidate ) ) ) {
                 return sanitize_key( (string) $candidate );
             }
         }
