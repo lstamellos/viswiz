@@ -33,6 +33,14 @@ async function preparePaste(page, text) {
   return importer;
 }
 
+async function commitAndWaitForReload(page, commit) {
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    commit.click(),
+  ]);
+  await expect(page.locator('[data-viswiz-guided-import]')).toBeVisible();
+}
+
 async function validateAndCommit(page, importer, expectedAction) {
   await importer.locator('[data-viswiz-import-preview-button]').click();
   await expect(importer.locator('[data-viswiz-import-preview]')).toBeVisible();
@@ -40,11 +48,7 @@ async function validateAndCommit(page, importer, expectedAction) {
   await expect(importer.locator('.viswiz-import-action').filter({ hasText: expectedAction })).toBeVisible();
   const commit = importer.locator('[data-viswiz-import-commit]');
   await expect(commit).toBeVisible();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    commit.click(),
-  ]);
-  await expect(page.locator('[data-viswiz-guided-import]')).toBeVisible();
+  await commitAndWaitForReload(page, commit);
 }
 
 test('guided row import supports spreadsheet paste, preview, commit and keyed upsert', async ({ page }) => {
@@ -69,10 +73,7 @@ test('guided row import supports spreadsheet paste, preview, commit and keyed up
   await importer.locator('[data-viswiz-import-preview-button]').click();
   await expect(importer.locator('.viswiz-import-summary')).toContainText('1 Update');
   await expect(importer.locator('.viswiz-import-action').filter({ hasText: 'update' })).toBeVisible();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    importer.locator('[data-viswiz-import-commit]').click(),
-  ]);
+  await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
   await expect(page.locator('#viswiz-dataset-editor tbody tr')).toHaveCount(1);
   await expect(page.locator('#viswiz-dataset-editor tbody tr')).toContainText('Imported Alpha Updated');
@@ -96,17 +97,14 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
     mimeType: 'text/csv',
     buffer: Buffer.from('external_key,title,node_type\nreporter,Imported Reporter,person\nnewsroom,Imported Newsroom,organization', 'utf8'),
   });
-  await expect(importer.locator('[data-viswiz-import-source]')).toContainText('Imported Reporter');
+  await expect(importer.locator('[data-viswiz-import-source]')).toHaveValue(/Imported Reporter/);
   await importer.locator('[data-viswiz-import-prepare]').click();
   await expect(importer.locator('[data-viswiz-import-map="external_key"]')).toHaveValue('external_key');
   await expect(importer.locator('[data-viswiz-import-map="title"]')).toHaveValue('title');
   await expect(importer.locator('[data-viswiz-import-map="node_type"]')).toHaveValue('node_type');
   await importer.locator('[data-viswiz-import-preview-button]').click();
   await expect(importer.locator('.viswiz-import-summary')).toContainText('2 Create');
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    importer.locator('[data-viswiz-import-commit]').click(),
-  ]);
+  await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
   const editor = page.locator('#viswiz-dataset-editor');
   await expect(editor.locator('table').nth(0).locator('tbody tr')).toHaveCount(2);
@@ -121,10 +119,7 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   await importer.locator('[data-viswiz-import-preview-button]').click();
   await expect(importer.locator('.viswiz-import-issues.notice-error')).toHaveCount(0);
   await expect(importer.locator('.viswiz-import-summary')).toContainText('1 Create');
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    importer.locator('[data-viswiz-import-commit]').click(),
-  ]);
+  await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
   await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toHaveCount(1);
   await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toContainText('Imported Reporter');
   await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toContainText('Imported Newsroom');
@@ -136,10 +131,7 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   await importer.locator('[data-viswiz-import-prepare]').click();
   await importer.locator('[data-viswiz-import-preview-button]').click();
   await expect(importer.locator('.viswiz-import-summary')).toContainText('1 Update');
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    importer.locator('[data-viswiz-import-commit]').click(),
-  ]);
+  await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
   await expect(page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr')).toHaveCount(2);
   await expect(page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr')).toContainText('Imported Reporter Updated');
