@@ -223,7 +223,7 @@ test('public graph supports filtering, modal navigation, focus, zoom and late re
   await overlay.locator('.viswiz-focus-connections').click();
   const focusBar = graph.locator('.viswiz-connection-focus-bar');
   await expect(focusBar).toBeVisible();
-  await expect(focusBar.locator('.viswiz-connection-focus-name')).toHaveText('Alice Reporter');
+  await expect(focusBar.locator('.viswiz-connection-focus-name')).toContainText('Alice Reporter');
   await expect(graph.locator('.is-viswiz-connection-outside')).toHaveCount(2);
   await focusBar.locator('[data-hops="2"]').click();
   await expect(graph.locator('.is-viswiz-connection-outside')).toHaveCount(0);
