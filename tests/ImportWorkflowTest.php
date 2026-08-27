@@ -20,6 +20,7 @@ final class ImportWorkflowTest extends TestCase {
         $this->assertStringContainsString( "/datasets/(?P<id>\\d+)/import'", $api );
         $this->assertStringContainsString( "current_user_can( 'edit_viswiz_datasets' )", $api );
         $this->assertStringContainsString( 'expected_revision', $api );
+        $this->assertStringContainsString( 'ImportGuard::validate', $api );
     }
 
     public function test_importer_uses_one_atomic_canonical_write_path(): void {
@@ -30,6 +31,24 @@ final class ImportWorkflowTest extends TestCase {
         $this->assertStringContainsString( "private const IMPORT_KEY = '_viswiz_import_key'", $source );
         $this->assertStringContainsString( 'private const MAX_RECORDS = 20000', $source );
         $this->assertStringNotContainsString( 'START TRANSACTION', $source );
+    }
+
+    public function test_stable_keys_are_guarded_before_preview_and_commit(): void {
+        $guard = file_get_contents( $this->root . '/src/Import/ImportGuard.php' );
+        $this->assertStringContainsString( "'append', 'upsert'", $guard );
+        $this->assertStringContainsString( 'Every upsert record needs a non-empty row key.', $guard );
+        $this->assertStringContainsString( 'Every upsert record needs a non-empty external key.', $guard );
+        $this->assertStringContainsString( 'Use upsert to update it.', $guard );
+        $this->assertStringContainsString( "private const IMPORT_KEY = '_viswiz_import_key'", $guard );
+    }
+
+    public function test_relation_import_uses_global_type_defaults_when_columns_are_unmapped(): void {
+        $api = file_get_contents( $this->root . '/src/Rest/ImportApi.php' );
+        $this->assertStringContainsString( 'apply_relation_defaults', $api );
+        $this->assertStringContainsString( "'inverse_label' => 'inverse_label'", $api );
+        $this->assertStringContainsString( "'direction'     => 'direction'", $api );
+        $this->assertStringContainsString( "'intensity'     => 'intensity'", $api );
+        $this->assertStringContainsString( 'Registry::relation_types()', $api );
     }
 
     public function test_guided_import_ui_supports_file_paste_mapping_and_preview(): void {
