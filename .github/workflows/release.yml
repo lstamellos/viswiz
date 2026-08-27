@@ -71,6 +71,12 @@ jobs:
             --exclude '.replit' \
             --exclude 'tests' \
             --exclude 'vendor' \
+            --exclude 'node_modules' \
+            --exclude 'playwright-report' \
+            --exclude 'test-results' \
+            --exclude 'playwright.config.js' \
+            --exclude 'package.json' \
+            --exclude 'package-lock.json' \
             --exclude '.phpunit.cache' \
             --exclude 'phpunit.xml.dist' \
             --exclude 'composer.lock' \
