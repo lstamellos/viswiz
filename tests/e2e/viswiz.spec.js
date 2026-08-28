@@ -40,7 +40,7 @@ async function chooseLazyNode(dialog, side, searchText) {
   await search.fill(searchText);
   await expect(select.locator('option')).toHaveCount(1);
   await expect(select.locator('option')).toContainText(searchText);
-  await select.selectOption(await select.locator('option').inputValue());
+  await select.selectOption({ index: 0 });
 }
 
 test('row editor creates, edits and deletes a row through the browser', async ({ page }) => {
