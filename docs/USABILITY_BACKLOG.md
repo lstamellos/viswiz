@@ -82,21 +82,25 @@ Do **not** reintroduce an automatic graph preview on the dataset editing surface
 
 ## P0 — make creation/editing usable
 
-### 7. Build a schema-aware dataset editor
+### 7. Build a schema-aware dataset editor — COMPLETED
 
-Generic raw fields and metadata JSON are too low-level for routine use.
+Completed in VisWiz 2.0.18 / PR #86.
 
-Provide schema-specific editing surfaces:
+Row-based dataset editing now follows a schema contract from `Registry::schemas()` rather than exposing every canonical storage column in one generic form. Normal editing surfaces are limited to the fields that belong to the active schema:
 
 - categorical: label/value/color
-- time series: date/time/value/label
-- X/Y: X/Y/label
-- geographic: latitude/longitude/label/value
-- progress: value/target/text
-- graph: node/relation domain fields
-- diagram: structured section fields
+- time series: date-time/value/label/color
+- X/Y: X/Y/label/color
+- geographic: latitude/longitude/label/value/color
+- progress: label/current value/target/text/color
+- diagram: section title/section text/accent color
+- graph: remains the dedicated node/relation editor
 
-Support efficient keyboard navigation and batch data entry.
+Stable row keys and metadata outside the structured schema remain available under **Advanced** instead of occupying the normal workflow. Progress and diagram fields map to canonical structured metadata (`meta.target`, `meta.text`). Targeted row writes are independently validated server-side for required/numeric/geo constraints; time-series values derive `x_numeric` in the WordPress site timezone.
+
+The editor remains server-paged and revision-checked. Chromium coverage creates and persists all six row schemas and verifies that invalid targeted writes are rejected even when browser validation is bypassed.
+
+Spreadsheet-style inline editing, direct grid paste and richer cell-level keyboard movement remain the separate next milestone (#8) rather than introducing a second competing editor implementation here.
 
 ### 8. Spreadsheet-like editing and batch paste
 
