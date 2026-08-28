@@ -14,7 +14,11 @@ final class ServerAwareDatasetEditorTest extends TestCase {
         $this->assertStringContainsString( 'DatasetEditorApi::register();', $plugin );
 
         $page = file_get_contents( $this->root . '/src/Admin/DatasetEditorPage.php' );
-        $this->assertStringContainsString( "remove_submenu_page( 'viswiz', 'viswiz-datasets' )", $page );
+        $this->assertStringContainsString( "get_plugin_page_hookname( 'viswiz-datasets', 'viswiz' )", $page );
+        $this->assertStringContainsString( "remove_action( $hook, array( Admin::class, 'datasets_page' ) )", $page );
+        $this->assertStringContainsString( "add_action( $hook, array( self::class, 'page' ) )", $page );
+        $this->assertStringNotContainsString( "remove_submenu_page( 'viswiz', 'viswiz-datasets' )", $page );
+        $this->assertStringNotContainsString( "add_submenu_page(\n            'viswiz'", $page );
         $this->assertStringContainsString( 'data-viswiz-server-editor="1"', $page );
         $this->assertStringNotContainsString( 'get_payload(', $page );
         $this->assertStringNotContainsString( 'viswiz-dataset-payload', $page );
