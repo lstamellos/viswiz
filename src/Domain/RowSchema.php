@@ -14,11 +14,11 @@ final class RowSchema {
         if ( 'time_series' === $schema ) {
             $x_value = trim( (string) ( $row['x_value'] ?? '' ) );
             if ( '' !== $x_value ) {
-                $timestamp = strtotime( $x_value );
-                if ( false === $timestamp ) {
+                $date = date_create_immutable( $x_value, wp_timezone() );
+                if ( false === $date ) {
                     return self::field_error( 'x_value', __( 'Date / time must be a valid date or time value.', 'viswiz' ) );
                 }
-                $row['x_numeric'] = (float) $timestamp;
+                $row['x_numeric'] = (float) $date->getTimestamp();
             }
         }
 
@@ -69,10 +69,10 @@ final class RowSchema {
             $row[ $field ] = (float) $row[ $field ];
         }
 
-        if ( isset( $row['latitude'] ) && (float) $row['latitude'] < -90 || isset( $row['latitude'] ) && (float) $row['latitude'] > 90 ) {
+        if ( isset( $row['latitude'] ) && ( (float) $row['latitude'] < -90 || (float) $row['latitude'] > 90 ) ) {
             return self::field_error( 'latitude', __( 'Latitude must be between -90 and 90.', 'viswiz' ) );
         }
-        if ( isset( $row['longitude'] ) && (float) $row['longitude'] < -180 || isset( $row['longitude'] ) && (float) $row['longitude'] > 180 ) {
+        if ( isset( $row['longitude'] ) && ( (float) $row['longitude'] < -180 || (float) $row['longitude'] > 180 ) ) {
             return self::field_error( 'longitude', __( 'Longitude must be between -180 and 180.', 'viswiz' ) );
         }
 
