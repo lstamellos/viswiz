@@ -3,6 +3,7 @@ namespace VisWiz\Rest;
 
 use VisWiz\Database\DatasetCollectionRepository;
 use VisWiz\Database\DatasetRepository;
+use VisWiz\Domain\RowSchema;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -98,7 +99,18 @@ final class DatasetEditorApi {
 
     public static function save_row( WP_REST_Request $request ) {
         $repo = new DatasetRepository();
-        return self::compact_write_response( $repo->save_row( absint( $request['id'] ), (array) $request->get_param( 'row' ), self::revision( $request ) ) );
+        $dataset = $repo->get( absint( $request['id'] ) );
+        if ( ! $dataset ) {
+            return new WP_Error( 'viswiz_dataset_not_found', __( 'Dataset not found.', 'viswiz' ), array( 'status' => 404 ) );
+        }
+        if ( 'graph' === (string) $dataset['schema_type'] ) {
+            return new WP_Error( 'viswiz_row_dataset_required', __( 'A non-graph dataset is required.', 'viswiz' ), array( 'status' => 400 ) );
+        }
+        $row = RowSchema::normalize_for_editor( (string) $dataset['schema_type'], (array) $request->get_param( 'row' ) );
+        if ( is_wp_error( $row ) ) {
+            return $row;
+        }
+        return self::compact_write_response( $repo->save_row( (int) $dataset['id'], $row, self::revision( $request ) ) );
     }
 
     public static function delete_row( WP_REST_Request $request ) {
