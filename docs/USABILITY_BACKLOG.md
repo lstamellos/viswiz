@@ -72,11 +72,13 @@ The dataset detail editor now uses bounded server-backed collections instead of 
 
 Graph relation endpoints use lazy searchable node pickers, so nodes outside the current page can be selected without rendering the complete node set into a `<select>`. Targeted mutations retain the canonical revision/conflict checks and refetch only affected collections. Browser coverage includes 230-row and 130-node datasets, server-side search beyond the first page, targeted edits and lazy relation endpoint lookup.
 
-### 6. Fix preview state ownership
+### 6. Fix preview state ownership — RESOLVED BY ARCHITECTURE
 
-The admin dataset editor and graph enhancements must consume the same live state after a targeted mutation. Avoid separate caches or re-reading the initial serialized payload after the editor state has changed.
+Resolved by VisWiz 2.0.17 / PR #84.
 
-The preview should update deterministically after node/relation edits without page reload and without stale facet/card data.
+The dataset detail editor no longer renders an automatic graph preview and no longer embeds the initial canonical payload. That removes the competing preview cache/state owner which originally motivated this item. Targeted row/node/relation mutations now update the server-aware editor state and refetch the affected bounded collection only; there is no stale dataset preview to synchronize after a write.
+
+Do **not** reintroduce an automatic graph preview on the dataset editing surface merely to satisfy this historical item. A future live preview belongs to the visualization editor milestone (#13), where it must use the same public renderer/runtime and one explicit state/data-acquisition path.
 
 ## P0 — make creation/editing usable
 
