@@ -35,8 +35,8 @@ async function acceptNextDialog(page) {
 }
 
 async function chooseLazyNode(dialog, side, searchText) {
-  const search = dialog.getByLabel(`${side} node search`);
-  const select = dialog.getByLabel(`${side} node`);
+  const search = dialog.getByLabel(`${side} node search`, { exact: true });
+  const select = dialog.getByLabel(`${side} node`, { exact: true });
   await search.fill(searchText);
   await expect(select.locator('option')).toHaveCount(1);
   await expect(select.locator('option')).toContainText(searchText);
