@@ -7,13 +7,91 @@ use WP_Error;
 final class Registry {
     public static function schemas(): array {
         return array(
-            'categorical' => array( 'label' => 'Categorical', 'fields' => array( 'label', 'value', 'color' ) ),
-            'time_series' => array( 'label' => 'Time series', 'fields' => array( 'x_value', 'value', 'label', 'color' ) ),
-            'xy'          => array( 'label' => 'X/Y points', 'fields' => array( 'x_numeric', 'y_value', 'label', 'color' ) ),
-            'geo'         => array( 'label' => 'Geographic points', 'fields' => array( 'latitude', 'longitude', 'label', 'value', 'color' ) ),
-            'progress'    => array( 'label' => 'Progress', 'fields' => array( 'label', 'value', 'meta' ) ),
-            'graph'       => array( 'label' => 'Node graph', 'fields' => array( 'nodes', 'relations' ) ),
-            'diagram'     => array( 'label' => 'Diagram / sections', 'fields' => array( 'label', 'meta' ) ),
+            'categorical' => array(
+                'label'  => 'Categorical',
+                'fields' => array( 'label', 'value', 'color' ),
+                'editor' => array(
+                    'noun'   => 'item',
+                    'plural' => 'items',
+                    'fields' => array(
+                        array( 'path' => 'label', 'label' => 'Label', 'type' => 'text', 'required' => true, 'table' => true ),
+                        array( 'path' => 'value', 'label' => 'Value', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'color', 'label' => 'Color', 'type' => 'color', 'table' => true ),
+                    ),
+                ),
+            ),
+            'time_series' => array(
+                'label'  => 'Time series',
+                'fields' => array( 'x_value', 'value', 'label', 'color' ),
+                'editor' => array(
+                    'noun'   => 'point',
+                    'plural' => 'points',
+                    'fields' => array(
+                        array( 'path' => 'x_value', 'label' => 'Date / time', 'type' => 'datetime-local', 'required' => true, 'table' => true ),
+                        array( 'path' => 'value', 'label' => 'Value', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'label', 'label' => 'Label', 'type' => 'text', 'table' => true ),
+                        array( 'path' => 'color', 'label' => 'Color', 'type' => 'color', 'table' => true ),
+                    ),
+                ),
+            ),
+            'xy' => array(
+                'label'  => 'X/Y points',
+                'fields' => array( 'x_numeric', 'y_value', 'label', 'color' ),
+                'editor' => array(
+                    'noun'   => 'point',
+                    'plural' => 'points',
+                    'fields' => array(
+                        array( 'path' => 'x_numeric', 'label' => 'X', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'y_value', 'label' => 'Y', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'label', 'label' => 'Label', 'type' => 'text', 'table' => true ),
+                        array( 'path' => 'color', 'label' => 'Color', 'type' => 'color', 'table' => true ),
+                    ),
+                ),
+            ),
+            'geo' => array(
+                'label'  => 'Geographic points',
+                'fields' => array( 'latitude', 'longitude', 'label', 'value', 'color' ),
+                'editor' => array(
+                    'noun'   => 'point',
+                    'plural' => 'points',
+                    'fields' => array(
+                        array( 'path' => 'latitude', 'label' => 'Latitude', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any', 'min' => -90, 'max' => 90 ),
+                        array( 'path' => 'longitude', 'label' => 'Longitude', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any', 'min' => -180, 'max' => 180 ),
+                        array( 'path' => 'label', 'label' => 'Label', 'type' => 'text', 'table' => true ),
+                        array( 'path' => 'value', 'label' => 'Value', 'type' => 'number', 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'color', 'label' => 'Color', 'type' => 'color', 'table' => true ),
+                    ),
+                ),
+            ),
+            'progress' => array(
+                'label'  => 'Progress',
+                'fields' => array( 'label', 'value', 'color', 'meta' ),
+                'editor' => array(
+                    'noun'   => 'progress item',
+                    'plural' => 'progress items',
+                    'fields' => array(
+                        array( 'path' => 'label', 'label' => 'Label', 'type' => 'text', 'required' => true, 'table' => true ),
+                        array( 'path' => 'value', 'label' => 'Current value', 'type' => 'number', 'required' => true, 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'meta.target', 'label' => 'Target', 'type' => 'number', 'table' => true, 'step' => 'any' ),
+                        array( 'path' => 'meta.text', 'label' => 'Text', 'type' => 'textarea', 'table' => true, 'rows' => 4 ),
+                        array( 'path' => 'color', 'label' => 'Color', 'type' => 'color', 'table' => true ),
+                    ),
+                ),
+            ),
+            'graph' => array( 'label' => 'Node graph', 'fields' => array( 'nodes', 'relations' ) ),
+            'diagram' => array(
+                'label'  => 'Diagram / sections',
+                'fields' => array( 'label', 'color', 'meta' ),
+                'editor' => array(
+                    'noun'   => 'section',
+                    'plural' => 'sections',
+                    'fields' => array(
+                        array( 'path' => 'label', 'label' => 'Section title', 'type' => 'text', 'required' => true, 'table' => true ),
+                        array( 'path' => 'meta.text', 'label' => 'Section text', 'type' => 'textarea', 'table' => true, 'rows' => 6 ),
+                        array( 'path' => 'color', 'label' => 'Accent color', 'type' => 'color', 'table' => true ),
+                    ),
+                ),
+            ),
         );
     }
 

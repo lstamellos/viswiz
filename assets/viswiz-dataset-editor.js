@@ -70,7 +70,108 @@
   }
 
   function nullable(value) {
-    return value === '' || value === null ? null : Number(value);
+    if (value === '' || value === null || value === undefined) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function sentenceCase(value) {
+    const text = String(value || 'row');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function schemaEditor(state) {
+    const editor = cfg.schemas?.[state.schema]?.editor;
+    if (editor && Array.isArray(editor.fields) && editor.fields.length) return editor;
+    return {
+      noun: 'row',
+      plural: 'rows',
+      fields: [
+        { path: 'label', label: 'Label', type: 'text', table: true },
+        { path: 'value', label: 'Value', type: 'number', table: true, step: 'any' },
+      ],
+    };
+  }
+
+  function pathValue(source, path) {
+    return String(path || '').split('.').reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), source);
+  }
+
+  function setPath(target, path, value) {
+    const parts = String(path || '').split('.').filter(Boolean);
+    if (!parts.length) return;
+    let cursor = target;
+    parts.forEach((part, index) => {
+      if (index === parts.length - 1) {
+        cursor[part] = value;
+        return;
+      }
+      if (!cursor[part] || typeof cursor[part] !== 'object') cursor[part] = {};
+      cursor = cursor[part];
+    });
+  }
+
+  function schemaFieldAttributes(definition) {
+    const attributes = [];
+    if (definition.required) attributes.push('required');
+    if (definition.step !== undefined) attributes.push(`step="${esc(definition.step)}"`);
+    if (definition.min !== undefined) attributes.push(`min="${esc(definition.min)}"`);
+    if (definition.max !== undefined) attributes.push(`max="${esc(definition.max)}"`);
+    if (definition.placeholder) attributes.push(`placeholder="${esc(definition.placeholder)}"`);
+    return attributes.join(' ');
+  }
+
+  function dateTimeInputValue(value) {
+    const text = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text)) return text.slice(0, 16);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return `${text}T00:00`;
+    return text;
+  }
+
+  function schemaFieldMarkup(definition, current) {
+    const path = String(definition.path || '');
+    let value = pathValue(current, path);
+    const type = definition.type || 'text';
+    const attributes = schemaFieldAttributes(definition);
+    if ('textarea' === type) {
+      return `<label class="viswiz-field viswiz-schema-field viswiz-schema-field-wide"><span>${esc(definition.label || path)}</span><textarea data-viswiz-schema-field="${esc(path)}" name="${esc(path)}" rows="${Number(definition.rows || 4)}" ${attributes}>${esc(value ?? '')}</textarea></label>`;
+    }
+    if ('datetime-local' === type) value = dateTimeInputValue(value);
+    if ('color' === type && !value) value = '#2563eb';
+    return `<label class="viswiz-field viswiz-schema-field"><span>${esc(definition.label || path)}</span><input data-viswiz-schema-field="${esc(path)}" type="${esc(type)}" name="${esc(path)}" value="${esc(value ?? '')}" ${attributes}></label>`;
+  }
+
+  function schemaFieldValue(definition, value) {
+    if ('number' === definition.type) return nullable(value);
+    return value === null || value === undefined ? '' : String(value);
+  }
+
+  function compactText(value, max = 120) {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  }
+
+  function schemaTableValue(definition, row) {
+    const value = pathValue(row, definition.path);
+    if ('color' === definition.type) {
+      if (!value) return '';
+      return `<span class="viswiz-schema-color"><span class="viswiz-schema-color-swatch" style="background:${esc(value)}"></span><code>${esc(value)}</code></span>`;
+    }
+    if ('textarea' === definition.type) return esc(compactText(value));
+    return esc(value ?? '');
+  }
+
+  function knownMetaKeys(editor) {
+    return editor.fields
+      .map((definition) => String(definition.path || ''))
+      .filter((path) => path.startsWith('meta.') && !path.slice(5).includes('.'))
+      .map((path) => path.slice(5));
+  }
+
+  function additionalMeta(current, editor) {
+    const meta = current.meta && typeof current.meta === 'object' ? { ...current.meta } : {};
+    knownMetaKeys(editor).forEach((key) => delete meta[key]);
+    return meta;
   }
 
   function makeDialog(title) {
@@ -186,23 +287,31 @@
 
   function renderRows(state) {
     const collection = state.rows;
+    const editor = schemaEditor(state);
+    const tableFields = editor.fields.filter((definition) => definition.table !== false);
     const bar = document.createElement('div');
     bar.className = 'viswiz-editor-toolbar viswiz-server-status';
-    const add = button('Add row', 'button button-primary');
-    bar.append(add, statusText(`${collection.total} rows · revision ${state.revision}`), statusText('Server paged'));
+    const add = button(`Add ${editor.noun || 'row'}`, 'button button-primary');
+    bar.append(
+      add,
+      statusText(`${collection.total} ${editor.plural || 'rows'} · revision ${state.revision}`),
+      statusText(cfg.schemas?.[state.schema]?.label || state.schema),
+      statusText('Server paged')
+    );
     state.root.appendChild(bar);
 
     const table = document.createElement('table');
-    table.className = 'widefat striped viswiz-table';
-    table.innerHTML = '<thead><tr><th>Label</th><th>Value</th><th>X/date</th><th>Y</th><th>Lat</th><th>Lng</th><th></th></tr></thead><tbody></tbody>';
+    table.className = 'widefat striped viswiz-table viswiz-schema-table';
+    table.dataset.viswizSchemaTable = state.schema;
+    table.innerHTML = `<thead><tr>${tableFields.map((definition) => `<th>${esc(definition.label || definition.path)}</th>`).join('')}<th></th></tr></thead><tbody></tbody>`;
     const tbody = $('tbody', table);
     if (!collection.items.length) {
-      tbody.innerHTML = '<tr><td colspan="7">No rows found.</td></tr>';
+      tbody.innerHTML = `<tr class="viswiz-empty-row"><td colspan="${tableFields.length + 1}">No ${esc(editor.plural || 'rows')} found.</td></tr>`;
     }
     collection.items.forEach((row) => {
       const tr = document.createElement('tr');
       tr.dataset.viswizItemUuid = row.uuid;
-      tr.innerHTML = `<td><strong>${esc(row.label || row.row_key || 'Untitled')}</strong></td><td>${esc(row.value ?? '')}</td><td>${esc(row.x_value ?? row.x_numeric ?? '')}</td><td>${esc(row.y_value ?? '')}</td><td>${esc(row.latitude ?? '')}</td><td>${esc(row.longitude ?? '')}</td><td class="viswiz-row-actions"></td>`;
+      tr.innerHTML = `${tableFields.map((definition) => `<td data-viswiz-field-path="${esc(definition.path)}">${schemaTableValue(definition, row)}</td>`).join('')}<td class="viswiz-row-actions"></td>`;
       const edit = button('Edit', 'button button-small');
       const del = button('Delete', 'button-link-delete');
       $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), del);
@@ -214,44 +323,61 @@
       tbody.appendChild(tr);
     });
     state.root.appendChild(table);
-    appendPager(state.root, collection, 'rows', async (page) => { await loadCollection(state, 'rows', page); render(state); });
+    appendPager(state.root, collection, editor.plural || 'rows', async (page) => { await loadCollection(state, 'rows', page); render(state); });
     add.addEventListener('click', () => openRowDialog(state, null));
   }
 
   function openRowDialog(state, row) {
-    const current = row || { uuid: uuid(), label: '', row_key: '', value: '', x_value: '', x_numeric: '', y_value: '', latitude: '', longitude: '', color: '', meta: {} };
-    const modal = makeDialog(row ? 'Edit row' : 'Add row');
+    const editor = schemaEditor(state);
+    const current = row || { uuid: uuid(), label: '', row_key: '', value: null, x_value: '', x_numeric: null, y_value: null, latitude: null, longitude: null, color: '', meta: {} };
+    if (!row && !current.row_key) current.row_key = `manual-${current.uuid.replace(/-/g, '').slice(0, 12)}`;
+    const noun = editor.noun || 'row';
+    const modal = makeDialog(`${row ? 'Edit' : 'Add'} ${noun}`);
     const form = document.createElement('form');
-    form.className = 'viswiz-dialog-form';
+    form.className = 'viswiz-dialog-form viswiz-schema-dialog-form';
+    form.dataset.viswizSchemaForm = state.schema;
     form.innerHTML = `
-      ${field('Label', 'label', current.label)} ${field('Key', 'row_key', current.row_key)}
-      <div class="viswiz-form-grid">${field('Value', 'value', current.value, 'number', 'step="any"')}${field('X / date', 'x_value', current.x_value)}${field('X numeric', 'x_numeric', current.x_numeric, 'number', 'step="any"')}${field('Y', 'y_value', current.y_value, 'number', 'step="any"')}</div>
-      <div class="viswiz-form-grid">${field('Latitude', 'latitude', current.latitude, 'number', 'step="any" min="-90" max="90"')}${field('Longitude', 'longitude', current.longitude, 'number', 'step="any" min="-180" max="180"')}${field('Color', 'color', current.color || '#2563eb', 'color')}</div>
-      ${textareaField('Metadata JSON', 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}
-      <div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save row</button></div>`;
+      <div class="viswiz-form-grid viswiz-schema-fields">${editor.fields.map((definition) => schemaFieldMarkup(definition, current)).join('')}</div>
+      <details class="viswiz-editor-advanced">
+        <summary>Advanced</summary>
+        <div class="viswiz-form-grid">${field('Stable key', 'row_key', current.row_key)}</div>
+        ${textareaField('Additional metadata JSON', 'meta_advanced', JSON.stringify(additionalMeta(current, editor), null, 2), 5)}
+      </details>
+      <div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save ${esc(noun)}</button></div>`;
     modal.body.appendChild(form);
     document.body.appendChild(modal.dialog);
     modal.dialog.showModal();
-    $('[name="label"]', form)?.focus();
+    $('[data-viswiz-schema-field]', form)?.focus();
     $('[data-cancel]', form).addEventListener('click', () => modal.dialog.close());
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const fd = new FormData(form);
       let meta = {};
-      try { meta = JSON.parse(fd.get('meta') || '{}'); } catch (_) { notice(modal.body, 'Metadata JSON is invalid.', 'error'); return; }
+      try { meta = JSON.parse(fd.get('meta_advanced') || '{}'); } catch (_) { notice(modal.body, 'Additional metadata JSON is invalid.', 'error'); return; }
+      if (!meta || Array.isArray(meta) || typeof meta !== 'object') {
+        notice(modal.body, 'Additional metadata must be a JSON object.', 'error');
+        return;
+      }
       const data = {
         uuid: current.uuid,
-        label: fd.get('label'),
         row_key: fd.get('row_key'),
-        value: nullable(fd.get('value')),
-        x_value: fd.get('x_value'),
-        x_numeric: nullable(fd.get('x_numeric')),
-        y_value: nullable(fd.get('y_value')),
-        latitude: nullable(fd.get('latitude')),
-        longitude: nullable(fd.get('longitude')),
-        color: fd.get('color'),
+        label: '',
+        value: null,
+        x_value: '',
+        x_numeric: null,
+        y_value: null,
+        latitude: null,
+        longitude: null,
+        color: '',
         meta,
       };
+      editor.fields.forEach((definition) => {
+        setPath(data, definition.path, schemaFieldValue(definition, fd.get(definition.path)));
+      });
+      if (state.schema === 'time_series' && data.x_value) {
+        const timestamp = Date.parse(data.x_value);
+        data.x_numeric = Number.isFinite(timestamp) ? Math.floor(timestamp / 1000) : null;
+      }
       if (await mutate(state, `/datasets/${state.id}/editor/rows`, 'POST', { row: data }, ['rows'])) modal.dialog.close();
     });
   }

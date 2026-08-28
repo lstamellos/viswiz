@@ -62,7 +62,7 @@ test('row editor pages and searches on the server without embedding the full pay
   await expect(page.locator('#viswiz-dataset-payload')).toHaveCount(0);
   const editor = page.locator('#viswiz-dataset-editor');
   await expect(editor.locator('tbody tr')).toHaveCount(100);
-  await expect(editor).toContainText('230 rows');
+  await expect(editor).toContainText('230 items');
   await expect(editor.locator('.viswiz-editor-pager')).toContainText('Page 1 / 3');
   await expect(editor).not.toContainText('Large Row 230');
 
@@ -74,12 +74,12 @@ test('row editor pages and searches on the server without embedding the full pay
   await search.fill('Large Row 230');
   await expect(editor.locator('tbody tr')).toHaveCount(1);
   await expect(editor).toContainText('Large Row 230');
-  await expect(editor).toContainText('1 rows');
+  await expect(editor).toContainText('1 items');
 
   await editor.getByRole('button', { name: 'Edit' }).click();
   const dialog = page.locator('dialog[open]');
   await dialog.locator('input[name="label"]').fill('Large Row 230 Updated');
-  await dialog.getByRole('button', { name: 'Save row' }).click();
+  await dialog.getByRole('button', { name: 'Save item' }).click();
   await expect(dialog).not.toBeVisible();
   await expect(editor).toContainText('Large Row 230 Updated');
   await expect(page.locator('.viswiz-admin-wrap h1 small')).toContainText(/^r\d+$/);

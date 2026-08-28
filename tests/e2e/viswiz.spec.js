@@ -43,7 +43,7 @@ async function chooseLazyNode(dialog, side, searchText) {
   await select.selectOption({ index: 0 });
 }
 
-test('row editor creates, edits and deletes a row through the browser', async ({ page }) => {
+test('categorical editor creates, edits and deletes an item through the browser', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await login(page);
   await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.rowDatasetId}`);
@@ -52,15 +52,19 @@ test('row editor creates, edits and deletes a row through the browser', async ({
   await expect(editor).toBeVisible();
   const table = editor.locator('table').first();
   await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
+  await expect(table.locator('thead')).toContainText('Label');
+  await expect(table.locator('thead')).toContainText('Value');
+  await expect(table.locator('thead')).toContainText('Color');
+  await expect(table.locator('thead')).not.toContainText('Latitude');
 
-  const addRow = editor.getByRole('button', { name: 'Add row' });
-  await addRow.click();
+  const addItem = editor.getByRole('button', { name: 'Add item' });
+  await addItem.click();
   let dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog.getByRole('heading', { name: 'Add row' })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Add item' })).toBeVisible();
   await dialog.locator('[name="label"]').fill('Browser row');
-  await dialog.locator('[name="row_key"]').fill('browser-row');
   await dialog.locator('[name="value"]').fill('37.5');
-  await dialog.getByRole('button', { name: 'Save row' }).focus();
+  await expect(dialog.locator('details.viswiz-editor-advanced')).not.toHaveAttribute('open');
+  await dialog.getByRole('button', { name: 'Save item' }).focus();
   await page.keyboard.press('Enter');
   await expect(dialog).toHaveCount(0);
 
@@ -69,9 +73,9 @@ test('row editor creates, edits and deletes a row through the browser', async ({
   await expect(browserRow).toHaveCount(1);
   await browserRow.getByRole('button', { name: 'Edit' }).click();
   dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog.getByRole('heading', { name: 'Edit row' })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Edit item' })).toBeVisible();
   await dialog.locator('[name="label"]').fill('Browser row updated');
-  await dialog.getByRole('button', { name: 'Save row' }).click();
+  await dialog.getByRole('button', { name: 'Save item' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(table.locator('tbody tr').filter({ hasText: 'Browser row updated' })).toHaveCount(1);
 
@@ -82,12 +86,12 @@ test('row editor creates, edits and deletes a row through the browser', async ({
   await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
   await expect(table.locator('tbody tr').filter({ hasText: 'Browser row updated' })).toHaveCount(0);
 
-  await addRow.click();
+  await addItem.click();
   dialog = page.locator('dialog.viswiz-editor-dialog');
   await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(addRow).toBeFocused();
+  await expect(addItem).toBeFocused();
   expect(clientErrors).toEqual([]);
 });
 
