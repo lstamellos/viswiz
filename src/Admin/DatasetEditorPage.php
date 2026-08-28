@@ -12,15 +12,15 @@ final class DatasetEditorPage {
     }
 
     public static function replace_dataset_menu(): void {
-        remove_submenu_page( 'viswiz', 'viswiz-datasets' );
-        add_submenu_page(
-            'viswiz',
-            __( 'Datasets', 'viswiz' ),
-            __( 'Datasets', 'viswiz' ),
-            'edit_viswiz_datasets',
-            'viswiz-datasets',
-            array( self::class, 'page' )
-        );
+        $hook = get_plugin_page_hookname( 'viswiz-datasets', 'viswiz' );
+        if ( ! $hook ) {
+            return;
+        }
+
+        // add_submenu_page() has already registered Admin::datasets_page() on this hook.
+        // Replace that callback in-place rather than registering the same submenu slug twice.
+        remove_action( $hook, array( Admin::class, 'datasets_page' ) );
+        add_action( $hook, array( self::class, 'page' ) );
     }
 
     public static function assets(): void {
