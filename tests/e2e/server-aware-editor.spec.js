@@ -116,16 +116,16 @@ test('graph editor uses server pages and lazy node lookup for relation endpoints
 
   await editor.getByRole('button', { name: 'Add relation' }).click();
   const dialog = page.locator('dialog[open]');
-  const fromSearch = dialog.getByLabel('From node search');
-  const toSearch = dialog.getByLabel('To node search');
+  const fromSearch = dialog.getByLabel('From node search', { exact: true });
+  const toSearch = dialog.getByLabel('To node search', { exact: true });
   await fromSearch.fill('Graph Node 130');
-  const fromSelect = dialog.getByLabel('From node');
+  const fromSelect = dialog.getByLabel('From node', { exact: true });
   await expect(fromSelect.locator('option')).toHaveCount(1);
   await expect(fromSelect.locator('option')).toContainText('Graph Node 130');
   await fromSelect.selectOption({ index: 0 });
 
   await toSearch.fill('Graph Node 001');
-  const toSelect = dialog.getByLabel('To node');
+  const toSelect = dialog.getByLabel('To node', { exact: true });
   await expect(toSelect.locator('option')).toHaveCount(1);
   await expect(toSelect.locator('option')).toContainText('Graph Node 001');
   await toSelect.selectOption({ index: 0 });
