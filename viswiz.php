@@ -35,7 +35,5 @@ spl_autoload_register(
     }
 );
 
-require_once VISWIZ_DIR . 'src/Plugin.php';
-
-register_activation_hook( __FILE__, array( \VisWiz\Plugin::class, 'activate' ) );
-\VisWiz\Plugin::boot();
+VisWiz\Plugin::register();
+VisWiz\Runtime\GraphRuntime::register();
