@@ -34,6 +34,15 @@ async function acceptNextDialog(page) {
   });
 }
 
+async function chooseLazyNode(dialog, side, searchText) {
+  const search = dialog.getByLabel(`${side} node search`, { exact: true });
+  const select = dialog.getByLabel(`${side} node`, { exact: true });
+  await search.fill(searchText);
+  await expect(select.locator('option')).toHaveCount(1);
+  await expect(select.locator('option')).toContainText(searchText);
+  await select.selectOption({ index: 0 });
+}
+
 test('row editor creates, edits and deletes a row through the browser', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await login(page);
@@ -82,21 +91,20 @@ test('row editor creates, edits and deletes a row through the browser', async ({
   expect(clientErrors).toEqual([]);
 });
 
-test('graph editor keeps preview, nodes and relations in sync', async ({ page }) => {
+test('graph editor creates, edits and deletes nodes and relations with lazy endpoints', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await login(page);
   await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.graphDatasetId}`);
 
   const editor = page.locator('#viswiz-dataset-editor');
-  const preview = page.locator('[data-viswiz-inline-spec]');
   await expect(editor).toBeVisible();
-  await expect(preview.locator('.viswiz-graph-frame')).toBeVisible();
+  await expect(page.locator('[data-viswiz-inline-spec]')).toHaveCount(0);
+  await expect(page.locator('#viswiz-dataset-payload')).toHaveCount(0);
 
   const nodeTable = editor.locator('table').nth(0);
   const relationTable = editor.locator('table').nth(1);
   await expect(nodeTable.locator('tbody tr')).toHaveCount(fixture.counts.nodes);
   await expect(relationTable.locator('tbody tr')).toHaveCount(fixture.counts.relations);
-  await expect(preview.locator('.viswiz-graph-node')).toHaveCount(fixture.counts.nodes);
 
   const addNode = editor.getByRole('button', { name: 'Add node' });
   await addNode.click();
@@ -110,7 +118,6 @@ test('graph editor keeps preview, nodes and relations in sync', async ({ page })
   await dialog.getByRole('button', { name: 'Save node' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(nodeTable.locator('tbody tr')).toHaveCount(fixture.counts.nodes + 1);
-  await expect(preview.locator('.viswiz-graph-node').filter({ hasText: 'Delta Reporter' })).toHaveCount(1);
 
   let deltaRow = nodeTable.locator('tbody tr').filter({ hasText: 'Delta Reporter' });
   await deltaRow.getByRole('button', { name: 'Edit' }).click();
@@ -120,13 +127,12 @@ test('graph editor keeps preview, nodes and relations in sync', async ({ page })
   await dialog.getByRole('button', { name: 'Save node' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(nodeTable.locator('tbody tr').filter({ hasText: 'Delta Reporter Updated' })).toHaveCount(1);
-  await expect(preview.locator('.viswiz-graph-node').filter({ hasText: 'Delta Reporter Updated' })).toHaveCount(1);
 
   await editor.getByRole('button', { name: 'Add relation' }).click();
   dialog = page.locator('dialog.viswiz-editor-dialog');
   await expect(dialog.getByRole('heading', { name: 'Add relation' })).toBeVisible();
-  await dialog.locator('[name="from_node_uuid"]').selectOption({ label: 'Delta Reporter Updated' });
-  await dialog.locator('[name="to_node_uuid"]').selectOption({ label: 'Organization Alpha' });
+  await chooseLazyNode(dialog, 'From', 'Delta Reporter Updated');
+  await chooseLazyNode(dialog, 'To', 'Organization Alpha');
   await dialog.locator('[name="relation_type"]').selectOption('connected_to');
   await dialog.getByRole('button', { name: 'Save relation' }).focus();
   await page.keyboard.press('Enter');
@@ -145,7 +151,6 @@ test('graph editor keeps preview, nodes and relations in sync', async ({ page })
   await deltaRow.getByRole('button', { name: 'Delete' }).click();
   await confirm;
   await expect(nodeTable.locator('tbody tr')).toHaveCount(fixture.counts.nodes);
-  await expect(preview.locator('.viswiz-graph-node').filter({ hasText: 'Delta Reporter Updated' })).toHaveCount(0);
   await expect(page.locator('dialog.viswiz-editor-dialog')).toHaveCount(0);
 
   await addNode.click();

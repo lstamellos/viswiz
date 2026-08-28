@@ -127,8 +127,8 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
   const editor = page.locator('#viswiz-dataset-editor');
-  await expect(editor.locator('table').nth(0).locator('tbody tr')).toHaveCount(2);
-  await expect(editor.locator('table').nth(1).locator('tbody tr')).toHaveCount(0);
+  await expect(editor.locator('table').nth(0).locator('tbody tr[data-viswiz-item-uuid]')).toHaveCount(2);
+  await expect(editor.locator('table').nth(1).locator('tbody tr[data-viswiz-item-uuid]')).toHaveCount(0);
 
   importer = page.locator('[data-viswiz-guided-import]');
   await importer.locator('[data-viswiz-import-kind]').selectOption('relations');
@@ -140,7 +140,7 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   await expect(importer.locator('.viswiz-import-issues.notice-error')).toHaveCount(0);
   await expect(importer.locator('.viswiz-import-summary')).toContainText('2 Create');
   await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
-  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr')).toHaveCount(2);
+  await expect(page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr[data-viswiz-item-uuid]')).toHaveCount(2);
 
   let payload = await datasetPayload(page);
   const member = payload.payload.relations.find((relation) => relation.meta?._viswiz_import_key === 'reporter-newsroom');
@@ -157,10 +157,10 @@ test('guided graph import maps external keys to stable UUIDs across node upsert 
   await expect(importer.locator('.viswiz-import-summary')).toContainText('1 Update');
   await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
-  const nodeRows = page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr');
+  const nodeRows = page.locator('#viswiz-dataset-editor table').nth(0).locator('tbody tr[data-viswiz-item-uuid]');
   await expect(nodeRows).toHaveCount(2);
   await expect(nodeRows.filter({ hasText: 'Imported Reporter Updated' })).toHaveCount(1);
-  const relationRows = page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr');
+  const relationRows = page.locator('#viswiz-dataset-editor table').nth(1).locator('tbody tr[data-viswiz-item-uuid]');
   await expect(relationRows).toHaveCount(2);
   await expect(relationRows.filter({ hasText: 'Imported Reporter Updated' })).toHaveCount(2);
 

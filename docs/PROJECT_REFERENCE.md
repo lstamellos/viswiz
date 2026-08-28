@@ -19,6 +19,9 @@ It is deliberately separate from the README. The README describes what VisWiz do
 
 - Plugin Developer Handbook: https://developer.wordpress.org/plugins/
 - REST API Handbook: https://developer.wordpress.org/rest-api/
+- REST API pagination: https://developer.wordpress.org/rest-api/using-the-rest-api/pagination/
+- Adding custom REST endpoints: https://developer.wordpress.org/rest-api/extending-the-rest-api/adding-custom-endpoints/
+- `register_rest_route()`: https://developer.wordpress.org/reference/functions/register_rest_route/
 - Block Editor Handbook: https://developer.wordpress.org/block-editor/
 - Block API Reference: https://developer.wordpress.org/block-editor/reference-guides/block-api/
 - Block metadata (`block.json`): https://developer.wordpress.org/block-editor/reference-guides/block-api/block-metadata/
@@ -33,6 +36,8 @@ Project implications:
 - REST routes must use explicit permission callbacks and WordPress capabilities.
 - Admin writes must continue to use WordPress nonces/capability checks or authenticated REST nonces as appropriate.
 - WordPress-native UI primitives and editor components should be preferred when they improve accessibility and consistency.
+- Dataset/editor collection endpoints must use bounded pagination. Follow the WordPress collection convention (`page`, `per_page`, `search`, `X-WP-Total`, `X-WP-TotalPages`) rather than transferring an entire potentially large dataset to wp-admin.
+- `per_page` for VisWiz editor collections must not exceed the WordPress REST convention of 100 records per response.
 - Because VisWiz requires WordPress 6.5+, the Interactivity API is available as an architectural option for future front-end consolidation, but adoption is not required merely for novelty.
 
 ### WooCommerce
@@ -147,6 +152,12 @@ The v2 database layer separates:
 Targeted edits use optimistic concurrency. Explicit dataset replacement/import/restore is transactional and revisioned.
 
 Legacy 1.x migration is not a product compatibility requirement while datasets are pre-production test fixtures. It may remain as a developer convenience when it saves setup time and may be simplified or removed if it starts constraining the v2 model.
+
+### Large-dataset admin reads
+
+The dataset detail editor uses paged server collections rather than embedding the complete canonical payload. Rows, graph nodes and graph relations are independently pageable/searchable, and relation endpoint lookup is lazy. See `docs/LARGE_DATASET_EDITOR.md` for the stable editor contract.
+
+Complete revision snapshots remain a persistence/history concern. If production measurements show that revision snapshot creation is too expensive for large datasets, redesign revision storage separately rather than weakening editor pagination or optimistic concurrency.
 
 ### Visualization layer
 

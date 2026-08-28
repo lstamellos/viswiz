@@ -2,10 +2,12 @@
 namespace VisWiz;
 
 use VisWiz\Admin\Admin;
+use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\ImportUi;
 use VisWiz\Database\Migrator;
 use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
+use VisWiz\Rest\DatasetEditorApi;
 use VisWiz\Rest\ImportApi;
 use VisWiz\Update\GitHubUpdater;
 use VisWiz\WooCommerce\Compatibility;
@@ -34,8 +36,10 @@ final class Plugin {
         add_action( 'admin_init', array( self::class, 'maybe_upgrade_capabilities' ), 6 );
 
         Admin::register();
+        DatasetEditorPage::register();
         ImportUi::register();
         Api::register();
+        DatasetEditorApi::register();
         ImportApi::register();
         Frontend::register();
         GitHubUpdater::register();
