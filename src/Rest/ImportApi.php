@@ -122,7 +122,7 @@ final class ImportApi {
             return $key;
         }
         foreach ( $registry as $candidate => $meta ) {
-            if ( 0 === strcasecmp( trim( $value ), trim( (string) ( $meta['label'] ?? $candidate ) ) ) {
+            if ( 0 === strcasecmp( trim( $value ), trim( (string) ( $meta['label'] ?? $candidate ) ) ) ) {
                 return sanitize_key( (string) $candidate );
             }
         }
