@@ -36,7 +36,7 @@ final class SchemaAwareDatasetEditorTest extends TestCase {
         $this->assertStringContainsString( "'time_series'", $schema );
         $this->assertStringContainsString( "'progress'", $schema );
         $this->assertStringContainsString( "'diagram'", $schema );
-        $this->assertStringContainsString( 'strtotime( $x_value )', $schema );
+        $this->assertStringContainsString( 'date_create_immutable( $x_value, wp_timezone() )', $schema );
     }
 
     public function test_schema_aware_editor_does_not_change_database_schema_version(): void {
