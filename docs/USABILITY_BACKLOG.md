@@ -56,37 +56,21 @@ The existing datasets are pre-production test data. Preserving 1.x behavior is t
 
 Migration validation may still be used as a developer convenience when it is faster than recreating useful test fixtures. Before any future legacy-table cleanup, a focused migration/backup check may be performed if those old tables are still worth retaining. This item does **not** block the remaining P0 usability work.
 
-### 4. Replace JSON-only import as the normal import workflow
+### 4. Replace JSON-only import as the normal import workflow — COMPLETED
 
-JSON replace is appropriate as an interchange/backup format, not as the primary everyday import experience.
+Completed in VisWiz 2.0.16 / PR #83.
 
-Add a guided importer with:
+The normal import path is now a guided CSV/TSV/spreadsheet workflow with file upload or paste, practical encoding/delimiter detection, schema-aware column mapping, validation preview, append/upsert/replace modes, stable import keys, row-level issues and a summary before commit. Graph node/relation imports resolve stable external keys to canonical internal UUIDs. JSON replacement remains available as an advanced interchange/backup path.
 
-- CSV and TSV upload
-- paste-from-spreadsheet input
-- encoding/delimiter detection where practical
-- column mapping to the selected schema
-- validation preview before any write
-- explicit **append / merge-upsert / replace** modes
-- duplicate and missing-ID handling
-- row-level error reporting
-- import summary before commit
-- automatic revision/snapshot before destructive replace
+Destructive replacement continues through the canonical revisioned dataset write path so the existing revision/snapshot safety model remains authoritative.
 
-For graph datasets, support node and relation imports with stable external keys mapped to internal UUIDs.
+### 5. Make large dataset editing server-aware — COMPLETED
 
-### 5. Make large dataset editing server-aware
+Completed in VisWiz 2.0.17 / PR #84.
 
-The current admin page embeds the entire dataset payload and applies search/pagination in the browser. That is not a scalable editing model.
+The dataset detail editor now uses bounded server-backed collections instead of embedding the whole canonical payload in wp-admin. Rows, graph nodes and graph relations are paged and searched through authenticated REST endpoints, with `per_page` capped at 100 and WordPress-style pagination metadata.
 
-Add paged/searchable REST endpoints and lazy loading for rows/nodes/relations.
-
-Acceptance target:
-
-- opening a large dataset does not serialize the whole dataset into page HTML
-- search is server-side or incrementally fetched
-- relation endpoint selection does not render thousands of node `<option>` elements
-- revision/conflict semantics remain intact
+Graph relation endpoints use lazy searchable node pickers, so nodes outside the current page can be selected without rendering the complete node set into a `<select>`. Targeted mutations retain the canonical revision/conflict checks and refetch only affected collections. Browser coverage includes 230-row and 130-node datasets, server-side search beyond the first page, targeted edits and lazy relation endpoint lookup.
 
 ### 6. Fix preview state ownership
 
