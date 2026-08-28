@@ -22,7 +22,7 @@ Stable row keys and metadata not represented by a structured schema field remain
 
 Browser inputs use native required/type/range constraints, but these are not treated as the security or integrity boundary. Targeted row writes pass through `VisWiz\Domain\RowSchema` before the canonical `DatasetRepository` write.
 
-The server validates required fields for the active schema, numeric fields and geographic ranges. Time-series date/time values are normalized to the canonical `x_numeric` timestamp for renderer ordering while preserving `x_value`. Structured progress/diagram text is sanitized before the repository performs its normal row sanitization and revision-checked write.
+The server validates required fields for the active schema, numeric fields and geographic ranges. Time-series date/time values are interpreted in the WordPress site timezone and normalized to the canonical `x_numeric` timestamp for renderer ordering while preserving `x_value`. Structured progress/diagram text is sanitized before the repository performs its normal row sanitization and revision-checked write.
 
 Guided import continues to use its existing schema validation path. Raw JSON replacement remains an advanced interchange path.
 
