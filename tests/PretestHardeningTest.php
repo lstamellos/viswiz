@@ -19,12 +19,15 @@ final class PretestHardeningTest extends TestCase {
         self::assertStringContainsString( 'viswiz_row_payload_validation', $guard );
     }
 
-    public function test_spreadsheet_hardening_surfaces_errors_and_guards_side_mutations(): void {
+    public function test_spreadsheet_state_owner_surfaces_errors_and_guards_side_mutations(): void {
         $admin      = file_get_contents( $this->root . '/src/Admin/SpreadsheetEditor.php' );
-        $javascript = file_get_contents( $this->root . '/assets/viswiz-spreadsheet-hardening.js' );
+        $javascript = file_get_contents( $this->root . '/assets/viswiz-spreadsheet-editor.js' );
 
-        self::assertStringContainsString( 'viswiz-spreadsheet-hardening.js', $admin );
-        self::assertStringContainsString( 'state.serverMessage', $javascript );
+        self::assertStringContainsString( 'viswiz-spreadsheet-editor.js', $admin );
+        self::assertStringNotContainsString( 'viswiz-spreadsheet-hardening.js', $admin );
+        self::assertFileDoesNotExist( $this->root . '/assets/viswiz-spreadsheet-hardening.js' );
+        self::assertStringContainsString( 'sheet.serverMessage', $javascript );
+        self::assertStringContainsString( 'data-viswiz-spreadsheet-server-error', $javascript );
         self::assertStringContainsString( 'data-viswiz-import-button', $javascript );
         self::assertStringContainsString( 'data-viswiz-commerce-snapshot', $javascript );
         self::assertStringContainsString( 'data-viswiz-restore-revision', $javascript );
