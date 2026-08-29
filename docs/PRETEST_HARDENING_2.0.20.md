@@ -38,6 +38,8 @@ This preserves the distinction between the dataset schema and the source that pr
 
 ## Unsaved spreadsheet draft protection
 
+The primary spreadsheet editor remains the single state owner for drafts, revision state, validation, server errors and external-control locking. No companion compatibility or hardening runtime is introduced.
+
 While the spreadsheet contains local drafts or a save is in progress, controls that can mutate the dataset outside the grid are disabled/guarded:
 
 - raw JSON replacement
@@ -49,7 +51,7 @@ The editor instructs the user to save or discard spreadsheet changes first. Norm
 
 ## Visible generic errors
 
-The spreadsheet hardening layer surfaces `serverMessage` as an inline WordPress admin notice. This covers generic network, HTTP and database failures that are not one of the editor's structured validation or revision-conflict cases.
+The primary spreadsheet editor renders `serverMessage` as an inline WordPress admin notice. This covers generic network, HTTP and database failures that are not one of the editor's structured validation or revision-conflict cases.
 
 Local drafts remain visible after a failed batch save.
 
@@ -63,7 +65,7 @@ Browser coverage now proves that:
 - controls re-enable after Discard
 - a simulated HTTP 500 batch-save failure is visible to the user and does not erase local draft values
 
-Static/architecture tests verify that the external row write paths share `RowWriteGuard` and that the spreadsheet hardening asset is loaded.
+Static/architecture tests verify that the external row write paths share `RowWriteGuard`, that error/side-mutation handling remains inside the primary spreadsheet editor, and that no separate hardening asset is shipped.
 
 ## Minimum supported WordPress
 
