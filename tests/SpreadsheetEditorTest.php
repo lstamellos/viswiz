@@ -14,7 +14,7 @@ final class SpreadsheetEditorTest extends TestCase {
 
         self::assertStringContainsString( 'VisWiz\\Admin\\SpreadsheetEditor::register();', $bootstrap );
         self::assertStringContainsString( 'viswiz-spreadsheet-editor.js', $admin );
-        self::assertStringContainsString( "'graph' === $dataset['schema_type']", $admin );
+        self::assertStringContainsString( "'graph' === \$dataset['schema_type']", $admin );
         self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
     }
 
@@ -27,11 +27,11 @@ final class SpreadsheetEditorTest extends TestCase {
         self::assertStringContainsString( '/editor/rows/batch', $api );
         self::assertStringContainsString( 'RowSchema::normalize_for_editor', $api );
         self::assertStringContainsString( 'RowBatchRepository::MAX_BATCH', $api );
-        self::assertStringContainsString( "START TRANSACTION", $repo );
+        self::assertStringContainsString( 'START TRANSACTION', $repo );
         self::assertStringContainsString( 'FOR UPDATE', $repo );
         self::assertStringContainsString( 'expected_revision', $repo );
         self::assertStringContainsString( 'Spreadsheet edit:', $repo );
-        self::assertSame( 1, substr_count( $repo, "'revision' => $new_revision" ) );
+        self::assertSame( 1, substr_count( $repo, "'revision' => \$new_revision" ) );
     }
 
     public function test_grid_supports_explicit_save_paste_and_keyboard_navigation_without_autosave(): void {
