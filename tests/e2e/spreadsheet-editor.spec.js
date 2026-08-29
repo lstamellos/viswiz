@@ -59,24 +59,29 @@ test('spreadsheet grid supports batch paste, keyboard movement, one revision bum
   const firstLabel = editor.locator('[data-grid-index="0"][data-grid-col="0"]');
   await dispatchPaste(firstLabel, 'Alpha\t10\t#112233\nBeta\t20\t#445566\nGamma\t30\t#778899');
 
-  await expect(editor.locator('tbody tr')).toHaveCount(3);
-  await expect(editor.getByDisplayValue('Alpha')).toHaveCount(1);
-  await expect(editor.getByDisplayValue('Beta')).toHaveCount(1);
-  await expect(editor.getByDisplayValue('Gamma')).toHaveCount(1);
-  await expect(editor.getByDisplayValue('30')).toHaveCount(1);
+  const rows = editor.locator('tbody tr');
+  await expect(rows).toHaveCount(3);
+  const alphaLabel = rows.nth(0).locator('[data-field-path="label"]');
+  const alphaValue = rows.nth(0).locator('[data-field-path="value"]');
+  const betaLabel = rows.nth(1).locator('[data-field-path="label"]');
+  const gammaLabel = rows.nth(2).locator('[data-field-path="label"]');
+  const gammaValue = rows.nth(2).locator('[data-field-path="value"]');
+  await expect(alphaLabel).toHaveValue('Alpha');
+  await expect(betaLabel).toHaveValue('Beta');
+  await expect(gammaLabel).toHaveValue('Gamma');
+  await expect(gammaValue).toHaveValue('30');
 
-  const alphaLabel = editor.getByDisplayValue('Alpha');
   await alphaLabel.focus();
   await alphaLabel.press('Tab');
-  await expect(editor.getByDisplayValue('10')).toBeFocused();
+  await expect(alphaValue).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(alphaLabel).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(editor.getByDisplayValue('Beta')).toBeFocused();
+  await expect(betaLabel).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await expect(alphaLabel).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(editor.getByDisplayValue('Beta')).toBeFocused();
+  await expect(betaLabel).toBeFocused();
 
   await expect(editor.getByRole('button', { name: 'Save changes' })).toBeEnabled();
   await editor.getByRole('button', { name: 'Save changes' }).click();
@@ -92,12 +97,11 @@ test('spreadsheet grid supports batch paste, keyboard movement, one revision bum
     ['Gamma', 30, '#778899'],
   ]);
 
-  let betaRow = editor.getByDisplayValue('Beta').locator('xpath=ancestor::tr');
+  let betaRow = rows.nth(1);
   await betaRow.getByRole('button', { name: 'Remove' }).click();
-  betaRow = editor.getByDisplayValue('Beta').locator('xpath=ancestor::tr');
   await expect(betaRow).toHaveClass(/is-pending-delete/);
   await betaRow.getByRole('button', { name: 'Undo' }).click();
-  betaRow = editor.getByDisplayValue('Beta').locator('xpath=ancestor::tr');
+  betaRow = rows.nth(1);
   await expect(betaRow).not.toHaveClass(/is-pending-delete/);
   await betaRow.getByRole('button', { name: 'Remove' }).click();
   await editor.getByRole('button', { name: 'Save changes' }).click();
@@ -111,7 +115,9 @@ test('spreadsheet grid supports batch paste, keyboard movement, one revision bum
   await newRow.locator('[data-field-path="label"]').fill('Incomplete');
   await expect(newRow.locator('.viswiz-grid-cell-error')).toHaveCount(1);
   await editor.getByRole('button', { name: 'Discard changes' }).click();
-  await expect(editor.getByDisplayValue('Incomplete')).toHaveCount(0);
+  await expect(editor.locator('tbody tr')).toHaveCount(2);
+  await expect(editor.locator('tbody tr').nth(0).locator('[data-field-path="label"]')).toHaveValue('Alpha');
+  await expect(editor.locator('tbody tr').nth(1).locator('[data-field-path="label"]')).toHaveValue('Gamma');
 });
 
 test('spreadsheet keeps local drafts visible when a server revision conflict occurs', async ({ page }) => {
@@ -125,7 +131,9 @@ test('spreadsheet keeps local drafts visible when a server revision conflict occ
   await editor.getByRole('button', { name: 'Save changes' }).click();
   await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
 
-  const local = editor.getByDisplayValue('Original');
+  row = editor.locator('tbody tr').first();
+  const local = row.locator('[data-field-path="label"]');
+  await expect(local).toHaveValue('Original');
   await local.fill('Local draft');
   const external = await page.evaluate(async (datasetId) => {
     const cfg = window.VisWizAdminV2;
@@ -149,6 +157,6 @@ test('spreadsheet keeps local drafts visible when a server revision conflict occ
   await editor.getByRole('button', { name: 'Save changes' }).click();
   await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('Conflict');
   await expect(editor.getByRole('button', { name: 'Reload server version' })).toBeVisible();
-  await expect(editor.getByDisplayValue('Local draft')).toHaveCount(1);
+  await expect(local).toHaveValue('Local draft');
   await expect(page.locator('[data-viswiz-dataset-search]')).toBeDisabled();
 });
