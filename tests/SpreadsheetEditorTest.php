@@ -31,7 +31,7 @@ final class SpreadsheetEditorTest extends TestCase {
         self::assertStringContainsString( 'FOR UPDATE', $repo );
         self::assertStringContainsString( 'expected_revision', $repo );
         self::assertStringContainsString( 'Spreadsheet edit:', $repo );
-        self::assertSame( 1, substr_count( $repo, "'revision' => \$new_revision" ) );
+        self::assertSame( 1, substr_count( $repo, '$current_revision + 1' ) );
     }
 
     public function test_grid_supports_explicit_save_paste_and_keyboard_navigation_without_autosave(): void {
