@@ -56,6 +56,45 @@ jobs:
         shell: bash
         run: git diff --check ${{ github.event_name == 'pull_request' && format('{0}...HEAD', github.event.pull_request.base.sha) || 'HEAD^ HEAD' }}
 
+  wordpress-minimum-smoke:
+    name: WordPress 6.5 + PHP 8.1 minimum smoke
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up minimum PHP and WP-CLI
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: wp-cli
+          coverage: none
+
+      - name: Install WordPress 6.5 and VisWiz
+        shell: bash
+        run: |
+          wp core download --version=6.5 --path=/tmp/wordpress --allow-root
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check --allow-root
+          wp core install --path=/tmp/wordpress --url=http://viswiz-min.test --title='VisWiz minimum' --admin_user=admin --admin_password=admin --admin_email=admin@example.invalid --skip-email --allow-root
+          ln -s "$GITHUB_WORKSPACE" /tmp/wordpress/wp-content/plugins/viswiz
+          wp plugin activate viswiz --path=/tmp/wordpress --allow-root
+
+      - name: Run minimum-version smoke tests
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/wp-minimum-smoke.php" --path=/tmp/wordpress --allow-root
+
   wordpress-smoke:
     name: WordPress + WooCommerce smoke
     runs-on: ubuntu-latest
