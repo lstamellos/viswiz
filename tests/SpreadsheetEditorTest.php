@@ -14,6 +14,7 @@ final class SpreadsheetEditorTest extends TestCase {
 
         self::assertStringContainsString( 'VisWiz\\Admin\\SpreadsheetEditor::register();', $bootstrap );
         self::assertStringContainsString( 'viswiz-spreadsheet-editor.js', $admin );
+        self::assertStringContainsString( 'viswiz-spreadsheet-hardening.js', $admin );
         self::assertStringContainsString( "'graph' === \$dataset['schema_type']", $admin );
         self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
     }
@@ -52,8 +53,8 @@ final class SpreadsheetEditorTest extends TestCase {
 
     public function test_spreadsheet_release_keeps_database_schema_version(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        self::assertStringContainsString( 'Version: 2.0.19', $plugin );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.19' );", $plugin );
+        self::assertStringContainsString( 'Version: 2.0.20', $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.20' );", $plugin );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
     }
 }
