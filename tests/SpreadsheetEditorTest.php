@@ -1,0 +1,59 @@
+<?php
+use PHPUnit\Framework\TestCase;
+
+final class SpreadsheetEditorTest extends TestCase {
+    private string $root;
+
+    protected function setUp(): void {
+        $this->root = dirname( __DIR__ );
+    }
+
+    public function test_row_datasets_load_a_dedicated_spreadsheet_surface(): void {
+        $bootstrap = file_get_contents( $this->root . '/viswiz.php' );
+        $admin     = file_get_contents( $this->root . '/src/Admin/SpreadsheetEditor.php' );
+
+        self::assertStringContainsString( 'VisWiz\\Admin\\SpreadsheetEditor::register();', $bootstrap );
+        self::assertStringContainsString( 'viswiz-spreadsheet-editor.js', $admin );
+        self::assertStringContainsString( "'graph' === $dataset['schema_type']", $admin );
+        self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
+    }
+
+    public function test_batch_endpoint_validates_schema_before_one_transactional_write(): void {
+        $bootstrap = file_get_contents( $this->root . '/viswiz.php' );
+        $api       = file_get_contents( $this->root . '/src/Rest/SpreadsheetEditorApi.php' );
+        $repo      = file_get_contents( $this->root . '/src/Database/RowBatchRepository.php' );
+
+        self::assertStringContainsString( 'VisWiz\\Rest\\SpreadsheetEditorApi::register();', $bootstrap );
+        self::assertStringContainsString( '/editor/rows/batch', $api );
+        self::assertStringContainsString( 'RowSchema::normalize_for_editor', $api );
+        self::assertStringContainsString( 'RowBatchRepository::MAX_BATCH', $api );
+        self::assertStringContainsString( "START TRANSACTION", $repo );
+        self::assertStringContainsString( 'FOR UPDATE', $repo );
+        self::assertStringContainsString( 'expected_revision', $repo );
+        self::assertStringContainsString( 'Spreadsheet edit:', $repo );
+        self::assertSame( 1, substr_count( $repo, "'revision' => $new_revision" ) );
+    }
+
+    public function test_grid_supports_explicit_save_paste_and_keyboard_navigation_without_autosave(): void {
+        $javascript = file_get_contents( $this->root . '/assets/viswiz-spreadsheet-editor.js' );
+
+        self::assertStringContainsString( 'Save changes', $javascript );
+        self::assertStringContainsString( 'delete_uuids', $javascript );
+        self::assertStringContainsString( "clipboardData?.getData('text/plain')", $javascript );
+        self::assertStringContainsString( "line.split('\\t')", $javascript );
+        self::assertStringContainsString( "event.key === 'Tab'", $javascript );
+        self::assertStringContainsString( "event.key === 'Enter'", $javascript );
+        self::assertStringContainsString( "event.key === 'ArrowUp'", $javascript );
+        self::assertStringContainsString( "event.key === 'ArrowDown'", $javascript );
+        self::assertStringContainsString( 'unsaved change', $javascript );
+        self::assertStringContainsString( 'viswiz_revision_conflict', $javascript );
+        self::assertSame( 1, substr_count( $javascript, '/editor/rows/batch' ) );
+    }
+
+    public function test_spreadsheet_release_keeps_database_schema_version(): void {
+        $plugin = file_get_contents( $this->root . '/viswiz.php' );
+        self::assertStringContainsString( 'Version: 2.0.19', $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.19' );", $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
+    }
+}
