@@ -14,7 +14,7 @@ final class SpreadsheetEditorTest extends TestCase {
 
         self::assertStringContainsString( 'VisWiz\\Admin\\SpreadsheetEditor::register();', $bootstrap );
         self::assertStringContainsString( 'viswiz-spreadsheet-editor.js', $admin );
-        self::assertStringContainsString( 'viswiz-spreadsheet-hardening.js', $admin );
+        self::assertStringNotContainsString( 'viswiz-spreadsheet-hardening.js', $admin );
         self::assertStringContainsString( "'graph' === \$dataset['schema_type']", $admin );
         self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
     }
@@ -48,6 +48,8 @@ final class SpreadsheetEditorTest extends TestCase {
         self::assertStringContainsString( "event.key === 'ArrowDown'", $javascript );
         self::assertStringContainsString( 'unsaved change', $javascript );
         self::assertStringContainsString( 'viswiz_revision_conflict', $javascript );
+        self::assertStringContainsString( 'data-viswiz-spreadsheet-server-error', $javascript );
+        self::assertStringContainsString( 'SIDE_MUTATION_SELECTORS', $javascript );
         self::assertSame( 1, substr_count( $javascript, '/editor/rows/batch' ) );
     }
 
