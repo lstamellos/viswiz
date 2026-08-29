@@ -64,7 +64,8 @@ test('categorical spreadsheet creates, edits and removes an item through the bro
   await expect(editor).toBeVisible();
   await expect(editor).toHaveAttribute('data-viswiz-spreadsheet-editor', '1');
   const table = editor.locator('table').first();
-  await expect(table.locator('tbody tr')).toHaveCount(0);
+  const rows = table.locator('tbody tr:not(.viswiz-grid-empty)');
+  await expect(rows).toHaveCount(0);
   await expect(table.locator('thead')).toContainText('Label');
   await expect(table.locator('thead')).toContainText('Value');
   await expect(table.locator('thead')).toContainText('Color');
@@ -72,8 +73,8 @@ test('categorical spreadsheet creates, edits and removes an item through the bro
 
   const addItem = editor.getByRole('button', { name: 'Add item' });
   await addItem.click();
-  await expect(table.locator('tbody tr')).toHaveCount(1);
-  let browserRow = table.locator('tbody tr').last();
+  await expect(rows).toHaveCount(1);
+  let browserRow = rows.last();
   let browserLabel = browserRow.locator('[data-field-path="label"]');
   const value = browserRow.locator('[data-field-path="value"]');
   await browserLabel.fill('Browser row');
@@ -83,13 +84,13 @@ test('categorical spreadsheet creates, edits and removes an item through the bro
   await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('1 unsaved change');
   await editor.getByRole('button', { name: 'Save changes' }).click();
   await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
-  browserRow = table.locator('tbody tr').last();
+  browserRow = rows.last();
   browserLabel = browserRow.locator('[data-field-path="label"]');
   await expect(browserLabel).toHaveValue('Browser row');
 
   await browserLabel.fill('Browser row updated');
   await editor.getByRole('button', { name: 'Save changes' }).click();
-  browserRow = table.locator('tbody tr').last();
+  browserRow = rows.last();
   browserLabel = browserRow.locator('[data-field-path="label"]');
   await expect(browserLabel).toHaveValue('Browser row updated');
 
@@ -97,16 +98,16 @@ test('categorical spreadsheet creates, edits and removes an item through the bro
   await expect(browserRow).toHaveClass(/is-pending-delete/);
   await expect(browserRow.getByRole('button', { name: 'Undo' })).toBeVisible();
   await browserRow.getByRole('button', { name: 'Undo' }).click();
-  browserRow = table.locator('tbody tr').last();
+  browserRow = rows.last();
   await expect(browserRow).not.toHaveClass(/is-pending-delete/);
   await browserRow.getByRole('button', { name: 'Remove' }).click();
   await editor.getByRole('button', { name: 'Save changes' }).click();
-  await expect(table.locator('tbody tr')).toHaveCount(0);
+  await expect(rows).toHaveCount(0);
 
   await addItem.click();
-  await expect(table.locator('tbody tr')).toHaveCount(1);
+  await expect(rows).toHaveCount(1);
   await editor.getByRole('button', { name: 'Discard changes' }).click();
-  await expect(table.locator('tbody tr')).toHaveCount(0);
+  await expect(rows).toHaveCount(0);
   expect(clientErrors).toEqual([]);
 });
 
