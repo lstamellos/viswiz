@@ -16,6 +16,18 @@ async function login(page) {
   ]);
 }
 
+async function createDataset(page, name, schema = 'categorical') {
+  await page.goto('/wp-admin/admin.php?page=viswiz-datasets');
+  const card = page.locator('.viswiz-card').filter({ has: page.getByRole('heading', { name: 'Create dataset' }) });
+  await card.locator('input[name="name"]').fill(name);
+  await card.locator('select[name="schema_type"]').selectOption(schema);
+  await Promise.all([
+    page.waitForURL(/page=viswiz-datasets&dataset_id=\d+/),
+    card.getByRole('button', { name: 'Create dataset' }).click(),
+  ]);
+  await expect(page.locator('#viswiz-dataset-editor')).toBeVisible();
+}
+
 function captureClientErrors(page) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
@@ -46,13 +58,13 @@ async function chooseLazyNode(dialog, side, searchText) {
 test('categorical spreadsheet creates, edits and removes an item through the browser', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await login(page);
-  await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.rowDatasetId}`);
+  await createDataset(page, 'E2E browser categorical');
 
   const editor = page.locator('#viswiz-dataset-editor');
   await expect(editor).toBeVisible();
   await expect(editor).toHaveAttribute('data-viswiz-spreadsheet-editor', '1');
   const table = editor.locator('table').first();
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
+  await expect(table.locator('tbody tr')).toHaveCount(0);
   await expect(table.locator('thead')).toContainText('Label');
   await expect(table.locator('thead')).toContainText('Value');
   await expect(table.locator('thead')).toContainText('Color');
@@ -60,40 +72,41 @@ test('categorical spreadsheet creates, edits and removes an item through the bro
 
   const addItem = editor.getByRole('button', { name: 'Add item' });
   await addItem.click();
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows + 1);
+  await expect(table.locator('tbody tr')).toHaveCount(1);
   let browserRow = table.locator('tbody tr').last();
-  const label = browserRow.locator('[data-field-path="label"]');
+  let browserLabel = browserRow.locator('[data-field-path="label"]');
   const value = browserRow.locator('[data-field-path="value"]');
-  await label.fill('Browser row');
-  await label.press('Tab');
+  await browserLabel.fill('Browser row');
+  await browserLabel.press('Tab');
   await expect(value).toBeFocused();
   await value.fill('37.5');
   await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('1 unsaved change');
   await editor.getByRole('button', { name: 'Save changes' }).click();
   await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
-  await expect(editor.getByDisplayValue('Browser row')).toHaveCount(1);
+  browserRow = table.locator('tbody tr').last();
+  browserLabel = browserRow.locator('[data-field-path="label"]');
+  await expect(browserLabel).toHaveValue('Browser row');
 
-  const browserLabel = editor.getByDisplayValue('Browser row');
   await browserLabel.fill('Browser row updated');
   await editor.getByRole('button', { name: 'Save changes' }).click();
-  await expect(editor.getByDisplayValue('Browser row updated')).toHaveCount(1);
+  browserRow = table.locator('tbody tr').last();
+  browserLabel = browserRow.locator('[data-field-path="label"]');
+  await expect(browserLabel).toHaveValue('Browser row updated');
 
-  browserRow = editor.getByDisplayValue('Browser row updated').locator('xpath=ancestor::tr');
   await browserRow.getByRole('button', { name: 'Remove' }).click();
   await expect(browserRow).toHaveClass(/is-pending-delete/);
   await expect(browserRow.getByRole('button', { name: 'Undo' })).toBeVisible();
   await browserRow.getByRole('button', { name: 'Undo' }).click();
-  browserRow = editor.getByDisplayValue('Browser row updated').locator('xpath=ancestor::tr');
+  browserRow = table.locator('tbody tr').last();
   await expect(browserRow).not.toHaveClass(/is-pending-delete/);
   await browserRow.getByRole('button', { name: 'Remove' }).click();
   await editor.getByRole('button', { name: 'Save changes' }).click();
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
-  await expect(editor.getByDisplayValue('Browser row updated')).toHaveCount(0);
+  await expect(table.locator('tbody tr')).toHaveCount(0);
 
   await addItem.click();
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows + 1);
+  await expect(table.locator('tbody tr')).toHaveCount(1);
   await editor.getByRole('button', { name: 'Discard changes' }).click();
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
+  await expect(table.locator('tbody tr')).toHaveCount(0);
   expect(clientErrors).toEqual([]);
 });
 
