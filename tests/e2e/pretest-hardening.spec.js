@@ -100,6 +100,6 @@ test('generic batch save failures are visible in the spreadsheet editor', async 
   });
 
   await editor.getByRole('button', { name: 'Save changes' }).click();
-  await expect(editor.locator('[data-viswiz-spreadsheet-hardening-notice]')).toContainText('Simulated server failure');
+  await expect(editor.locator('[data-viswiz-spreadsheet-server-error]')).toContainText('Simulated server failure');
   await expect(row.locator('[data-field-path="label"]')).toHaveValue('Will fail');
 });
