@@ -24,6 +24,7 @@ async function createDataset(page, name, schema) {
   ]);
   const editor = page.locator('#viswiz-dataset-editor[data-viswiz-server-editor]');
   await expect(editor).toBeVisible();
+  if (schema !== 'graph') await expect(editor).toHaveAttribute('data-viswiz-spreadsheet-editor', '1');
   return { editor, id: Number(new URL(page.url()).searchParams.get('dataset_id')) };
 }
 
@@ -39,20 +40,19 @@ async function payload(page, datasetId) {
   }, datasetId);
 }
 
-async function addSchemaRow(page, editor, noun, values) {
+async function addSchemaRow(editor, noun, values) {
   await editor.getByRole('button', { name: `Add ${noun}` }).click();
-  const dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog.getByRole('heading', { name: `Add ${noun}` })).toBeVisible();
-  for (const [name, value] of Object.entries(values)) {
-    const control = dialog.locator(`[name="${name}"]`);
+  const row = editor.locator('tbody tr').last();
+  for (const [path, value] of Object.entries(values)) {
+    const control = row.locator(`[data-field-path="${path}"]`);
     if (value !== null) await control.fill(String(value));
   }
-  await expect(dialog.locator('details.viswiz-editor-advanced')).not.toHaveAttribute('open');
-  await dialog.getByRole('button', { name: `Save ${noun}` }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(editor.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  await editor.getByRole('button', { name: 'Save changes' }).click();
+  await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
 }
 
-test('row datasets expose schema-specific editing surfaces and persist canonical fields', async ({ page }) => {
+test('row datasets expose schema-specific spreadsheet fields and persist canonical values', async ({ page }) => {
   await login(page);
 
   let created = await createDataset(page, 'E2E categorical schema editor', 'categorical');
@@ -60,47 +60,50 @@ test('row datasets expose schema-specific editing surfaces and persist canonical
   await expect(created.editor.locator('thead')).toContainText('Value');
   await expect(created.editor.locator('thead')).toContainText('Color');
   await expect(created.editor.locator('thead')).not.toContainText('Latitude');
-  await addSchemaRow(page, created.editor, 'item', { label: 'Category A', value: 12.5 });
+  await addSchemaRow(created.editor, 'item', { label: 'Category A', value: 12.5 });
   let data = await payload(page, created.id);
   expect(data.payload.rows[0]).toMatchObject({ label: 'Category A', value: 12.5 });
 
   created = await createDataset(page, 'E2E time schema editor', 'time_series');
   await created.editor.getByRole('button', { name: 'Add point' }).click();
-  let dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog.locator('[name="x_value"]')).toHaveAttribute('type', 'datetime-local');
-  await expect(dialog.locator('[name="latitude"]')).toHaveCount(0);
-  await dialog.locator('[name="x_value"]').fill('2026-08-28T10:30');
-  await dialog.locator('[name="value"]').fill('7.25');
-  await dialog.locator('[name="label"]').fill('Morning');
-  await dialog.getByRole('button', { name: 'Save point' }).click();
-  await expect(dialog).toHaveCount(0);
+  let row = created.editor.locator('tbody tr').last();
+  await expect(row.locator('[data-field-path="x_value"]')).toHaveAttribute('type', 'datetime-local');
+  await expect(row.locator('[data-field-path="latitude"]')).toHaveCount(0);
+  await row.locator('[data-field-path="x_value"]').fill('2026-08-28T10:30');
+  await row.locator('[data-field-path="value"]').fill('7.25');
+  await row.locator('[data-field-path="label"]').fill('Morning');
+  await created.editor.getByRole('button', { name: 'Save changes' }).click();
+  await expect(created.editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
   data = await payload(page, created.id);
   expect(data.payload.rows[0].x_value).toBe('2026-08-28T10:30');
   expect(data.payload.rows[0].x_numeric).toBeGreaterThan(0);
   expect(data.payload.rows[0].value).toBe(7.25);
 
   created = await createDataset(page, 'E2E XY schema editor', 'xy');
-  await addSchemaRow(page, created.editor, 'point', { x_numeric: 3.5, y_value: 9.75, label: 'Point A' });
+  await addSchemaRow(created.editor, 'point', { x_numeric: 3.5, y_value: 9.75, label: 'Point A' });
   data = await payload(page, created.id);
   expect(data.payload.rows[0]).toMatchObject({ x_numeric: 3.5, y_value: 9.75, label: 'Point A' });
 
   created = await createDataset(page, 'E2E geo schema editor', 'geo');
-  await addSchemaRow(page, created.editor, 'point', { latitude: 37.9838, longitude: 23.7275, label: 'Athens', value: 4 });
+  await addSchemaRow(created.editor, 'point', { latitude: 37.9838, longitude: 23.7275, label: 'Athens', value: 4 });
   data = await payload(page, created.id);
   expect(data.payload.rows[0]).toMatchObject({ latitude: 37.9838, longitude: 23.7275, label: 'Athens', value: 4 });
 
   created = await createDataset(page, 'E2E progress schema editor', 'progress');
-  await addSchemaRow(page, created.editor, 'progress item', { label: 'Funding', value: 42, 'meta.target': 100, 'meta.text': 'Goal progress' });
+  await addSchemaRow(created.editor, 'progress item', { label: 'Funding', value: 42, 'meta.target': 100, 'meta.text': 'Goal progress' });
   data = await payload(page, created.id);
   expect(data.payload.rows[0].label).toBe('Funding');
   expect(data.payload.rows[0].value).toBe(42);
   expect(data.payload.rows[0].meta).toMatchObject({ target: 100, text: 'Goal progress' });
 
   created = await createDataset(page, 'E2E diagram schema editor', 'diagram');
-  await addSchemaRow(page, created.editor, 'section', { label: 'Stage one', 'meta.text': 'Structured section body' });
+  await addSchemaRow(created.editor, 'section', { label: 'Stage one', 'meta.text': 'Structured section body' });
   data = await payload(page, created.id);
   expect(data.payload.rows[0].label).toBe('Stage one');
   expect(data.payload.rows[0].meta.text).toBe('Structured section body');
+
+  await expect(created.editor.getByRole('button', { name: 'Advanced' })).toHaveCount(1);
+  await expect(created.editor.locator('textarea[name="meta"]')).toHaveCount(0);
 });
 
 test('targeted row endpoint rejects a schema-invalid write even when browser validation is bypassed', async ({ page }) => {

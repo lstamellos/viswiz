@@ -16,6 +16,18 @@ async function login(page) {
   ]);
 }
 
+async function createDataset(page, name, schema = 'categorical') {
+  await page.goto('/wp-admin/admin.php?page=viswiz-datasets');
+  const card = page.locator('.viswiz-card').filter({ has: page.getByRole('heading', { name: 'Create dataset' }) });
+  await card.locator('input[name="name"]').fill(name);
+  await card.locator('select[name="schema_type"]').selectOption(schema);
+  await Promise.all([
+    page.waitForURL(/page=viswiz-datasets&dataset_id=\d+/),
+    card.getByRole('button', { name: 'Create dataset' }).click(),
+  ]);
+  await expect(page.locator('#viswiz-dataset-editor')).toBeVisible();
+}
+
 function captureClientErrors(page) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
@@ -43,15 +55,17 @@ async function chooseLazyNode(dialog, side, searchText) {
   await select.selectOption({ index: 0 });
 }
 
-test('categorical editor creates, edits and deletes an item through the browser', async ({ page }) => {
+test('categorical spreadsheet creates, edits and removes an item through the browser', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await login(page);
-  await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.rowDatasetId}`);
+  await createDataset(page, 'E2E browser categorical');
 
   const editor = page.locator('#viswiz-dataset-editor');
   await expect(editor).toBeVisible();
+  await expect(editor).toHaveAttribute('data-viswiz-spreadsheet-editor', '1');
   const table = editor.locator('table').first();
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
+  const rows = table.locator('tbody tr:not(.viswiz-grid-empty)');
+  await expect(rows).toHaveCount(0);
   await expect(table.locator('thead')).toContainText('Label');
   await expect(table.locator('thead')).toContainText('Value');
   await expect(table.locator('thead')).toContainText('Color');
@@ -59,39 +73,41 @@ test('categorical editor creates, edits and deletes an item through the browser'
 
   const addItem = editor.getByRole('button', { name: 'Add item' });
   await addItem.click();
-  let dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog.getByRole('heading', { name: 'Add item' })).toBeVisible();
-  await dialog.locator('[name="label"]').fill('Browser row');
-  await dialog.locator('[name="value"]').fill('37.5');
-  await expect(dialog.locator('details.viswiz-editor-advanced')).not.toHaveAttribute('open');
-  await dialog.getByRole('button', { name: 'Save item' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(dialog).toHaveCount(0);
+  await expect(rows).toHaveCount(1);
+  let browserRow = rows.last();
+  let browserLabel = browserRow.locator('[data-field-path="label"]');
+  const value = browserRow.locator('[data-field-path="value"]');
+  await browserLabel.fill('Browser row');
+  await browserLabel.press('Tab');
+  await expect(value).toBeFocused();
+  await value.fill('37.5');
+  await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('1 unsaved change');
+  await editor.getByRole('button', { name: 'Save changes' }).click();
+  await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
+  browserRow = rows.last();
+  browserLabel = browserRow.locator('[data-field-path="label"]');
+  await expect(browserLabel).toHaveValue('Browser row');
 
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows + 1);
-  let browserRow = table.locator('tbody tr').filter({ hasText: 'Browser row' });
-  await expect(browserRow).toHaveCount(1);
-  await browserRow.getByRole('button', { name: 'Edit' }).click();
-  dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog.getByRole('heading', { name: 'Edit item' })).toBeVisible();
-  await dialog.locator('[name="label"]').fill('Browser row updated');
-  await dialog.getByRole('button', { name: 'Save item' }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(table.locator('tbody tr').filter({ hasText: 'Browser row updated' })).toHaveCount(1);
+  await browserLabel.fill('Browser row updated');
+  await editor.getByRole('button', { name: 'Save changes' }).click();
+  browserRow = rows.last();
+  browserLabel = browserRow.locator('[data-field-path="label"]');
+  await expect(browserLabel).toHaveValue('Browser row updated');
 
-  browserRow = table.locator('tbody tr').filter({ hasText: 'Browser row updated' });
-  const confirm = acceptNextDialog(page);
-  await browserRow.getByRole('button', { name: 'Delete' }).click();
-  await confirm;
-  await expect(table.locator('tbody tr')).toHaveCount(fixture.counts.rows);
-  await expect(table.locator('tbody tr').filter({ hasText: 'Browser row updated' })).toHaveCount(0);
+  await browserRow.getByRole('button', { name: 'Remove' }).click();
+  await expect(browserRow).toHaveClass(/is-pending-delete/);
+  await expect(browserRow.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await browserRow.getByRole('button', { name: 'Undo' }).click();
+  browserRow = rows.last();
+  await expect(browserRow).not.toHaveClass(/is-pending-delete/);
+  await browserRow.getByRole('button', { name: 'Remove' }).click();
+  await editor.getByRole('button', { name: 'Save changes' }).click();
+  await expect(rows).toHaveCount(0);
 
   await addItem.click();
-  dialog = page.locator('dialog.viswiz-editor-dialog');
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
-  await expect(addItem).toBeFocused();
+  await expect(rows).toHaveCount(1);
+  await editor.getByRole('button', { name: 'Discard changes' }).click();
+  await expect(rows).toHaveCount(0);
   expect(clientErrors).toEqual([]);
 });
 
