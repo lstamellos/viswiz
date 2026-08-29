@@ -33,5 +33,12 @@ final class SpreadsheetEditor {
             VISWIZ_VERSION,
             true
         );
+        wp_enqueue_script(
+            'viswiz-spreadsheet-hardening-v2',
+            VISWIZ_URL . 'assets/viswiz-spreadsheet-hardening.js',
+            array( 'viswiz-spreadsheet-editor-v2' ),
+            VISWIZ_VERSION,
+            true
+        );
     }
 }
