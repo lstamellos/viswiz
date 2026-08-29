@@ -75,9 +75,10 @@ test('guided row import supports spreadsheet paste, preview, commit and keyed up
   await validateAndCommit(page, importer, 'create');
 
   const editor = page.locator('#viswiz-dataset-editor');
+  const row = editor.locator('tbody tr').first();
   await expect(editor.locator('tbody tr')).toHaveCount(1);
-  await expect(editor.locator('tbody tr')).toContainText('Imported Alpha');
-  await expect(editor.locator('tbody tr')).toContainText('42.5');
+  await expect(row.locator('[data-field-path="label"]')).toHaveValue('Imported Alpha');
+  await expect(row.locator('[data-field-path="value"]')).toHaveValue('42.5');
 
   importer = page.locator('[data-viswiz-guided-import]');
   await importer.locator('[data-viswiz-import-mode]').selectOption('upsert');
@@ -88,9 +89,10 @@ test('guided row import supports spreadsheet paste, preview, commit and keyed up
   await expect(importer.locator('.viswiz-import-action').filter({ hasText: 'update' })).toBeVisible();
   await commitAndWaitForReload(page, importer.locator('[data-viswiz-import-commit]'));
 
+  const updatedRow = page.locator('#viswiz-dataset-editor tbody tr').first();
   await expect(page.locator('#viswiz-dataset-editor tbody tr')).toHaveCount(1);
-  await expect(page.locator('#viswiz-dataset-editor tbody tr')).toContainText('Imported Alpha Updated');
-  await expect(page.locator('#viswiz-dataset-editor tbody tr')).toContainText('99');
+  await expect(updatedRow.locator('[data-field-path="label"]')).toHaveValue('Imported Alpha Updated');
+  await expect(updatedRow.locator('[data-field-path="value"]')).toHaveValue('99');
 
   importer = page.locator('[data-viswiz-guided-import]');
   await importer.locator('[data-viswiz-import-mode]').selectOption('append');
