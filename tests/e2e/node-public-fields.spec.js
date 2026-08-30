@@ -108,9 +108,13 @@ test('node public fields are structured, ordered and kept separate from advanced
 
   const failedAdvanced = dialog.locator('[data-viswiz-node-meta-advanced]');
   await failedAdvanced.locator('summary').click();
-  await dialog.locator('[name="node_type"]').selectOption('');
+  const nodeType = dialog.locator('[name="node_type"]');
+  await nodeType.selectOption('');
   await dialog.getByRole('button', { name: 'Save node' }).click();
-  await expect(editor.locator('.notice-error')).toContainText('Node title and type are required.');
+  await expect(dialog.locator('[data-viswiz-editor-notice]')).toContainText('Node title and type are required.');
+  await expect(editor.locator(':scope > [data-viswiz-editor-notice]')).toHaveCount(0);
+  await expect(nodeType).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.locator('[data-viswiz-field-error="node_type"]')).toContainText('Node title and type are required.');
   await expect(dialog).toBeVisible();
   const failedAdvancedValue = await failedAdvanced.locator('textarea[name="meta"]').inputValue();
   expect(failedAdvancedValue).toContain('"internal_note": "keep-me"');
