@@ -62,6 +62,26 @@ test('legacy row and raw replacement writes enforce the dataset schema', async (
   expect(replacement.body.data.issues[0].field).toBe('latitude');
 });
 
+test('legacy and replacement writes preserve supported row aliases', async ({ page }) => {
+  await login(page);
+
+  const geo = await createDataset(page, 'E2E geo aliases', 'geo');
+  let revision = await page.evaluate(() => Number(document.querySelector('#viswiz-dataset-editor').dataset.revision));
+  const legacyGeo = await restPost(page, `/datasets/${geo.id}/rows`, {
+    expected_revision: revision,
+    row: { label: 'Athens', lat: 37.9838, lng: 23.7275 },
+  });
+  expect(legacyGeo.status).toBe(200);
+
+  const xy = await createDataset(page, 'E2E xy aliases', 'xy');
+  revision = await page.evaluate(() => Number(document.querySelector('#viswiz-dataset-editor').dataset.revision));
+  const replacementXy = await restPost(page, `/datasets/${xy.id}`, {
+    expected_revision: revision,
+    payload: { rows: [{ label: 'Point A', x: 12.5, y: 42.75 }] },
+  });
+  expect(replacementXy.status).toBe(200);
+});
+
 test('dirty spreadsheet drafts block side mutations until save or discard', async ({ page }) => {
   await login(page);
   const { editor } = await createDataset(page, 'E2E dirty mutation guard', 'categorical');
