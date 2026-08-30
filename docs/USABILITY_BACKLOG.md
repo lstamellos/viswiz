@@ -1,6 +1,6 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.20, 2026-08-30.
 
 This backlog consolidates the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, without undoing the dataset-first storage model introduced in VisWiz 2.
 
@@ -100,21 +100,27 @@ Stable row keys and metadata outside the structured schema remain available unde
 
 The editor remains server-paged and revision-checked. Chromium coverage creates and persists all six row schemas and verifies that invalid targeted writes are rejected even when browser validation is bypassed.
 
-Spreadsheet-style inline editing, direct grid paste and richer cell-level keyboard movement remain the separate next milestone (#8) rather than introducing a second competing editor implementation here.
+Spreadsheet-style inline editing, direct grid paste and richer cell-level keyboard movement were completed separately in VisWiz 2.0.19 / PR #87 and hardened in VisWiz 2.0.20 / PRs #89 and #88.
 
-### 8. Spreadsheet-like editing and batch paste
+### 8. Spreadsheet-like editing and batch paste — COMPLETED
 
-For row-based datasets, add an editable grid with:
+Completed in VisWiz 2.0.19 / PR #87, with post-review fixes and pre-test hardening in VisWiz 2.0.20 / PRs #89 and #88.
+
+Row-based datasets now use a schema-aware editable grid with:
 
 - Tab/Shift+Tab cell navigation
 - arrow-key movement where appropriate
-- Enter to edit/commit
-- multi-row paste from spreadsheet software
-- add/remove rows without modal churn
+- Enter movement/row creation and Ctrl/Cmd+Enter explicit save
+- multi-row tab/newline paste from spreadsheet software
+- native newline-only paste preserved in textarea cells
+- add/remove rows without modal churn, with Undo before save
 - validation inline with the affected cell/row
-- clear save/pending/conflict state
+- explicit saved/unsaved/saving/validation/conflict/error states
+- one revision-checked atomic batch save instead of a per-cell autosave queue
+- conflict discard/reload against the current paginated server revision
+- protection against side mutations while spreadsheet drafts are dirty
 
-Keep the revision model as the safety net rather than relying on a fragile autosave queue.
+The 2.0.20 hardening also applies the row schema contract consistently to legacy/raw external writes while preserving previously accepted row aliases (`x`, `y`, `lat`, `lng`) before validation. Full PHP 8.1/8.3, WordPress/WooCommerce, WordPress 6.5 minimum-platform and Chromium CI cover the stabilized path.
 
 ### 9. Improve graph node/relation editing
 
