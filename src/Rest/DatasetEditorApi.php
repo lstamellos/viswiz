@@ -61,7 +61,7 @@ final class DatasetEditorApi {
             return $dataset;
         }
         $repo = new DatasetCollectionRepository();
-        return self::collection_response( $repo->rows( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ) );
+        return self::collection_response( $repo->rows( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ), (int) $dataset['revision'] );
     }
 
     public static function nodes( WP_REST_Request $request ) {
@@ -70,7 +70,7 @@ final class DatasetEditorApi {
             return $dataset;
         }
         $repo = new DatasetCollectionRepository();
-        return self::collection_response( $repo->nodes( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ) );
+        return self::collection_response( $repo->nodes( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ), (int) $dataset['revision'] );
     }
 
     public static function relations( WP_REST_Request $request ) {
@@ -79,7 +79,7 @@ final class DatasetEditorApi {
             return $dataset;
         }
         $repo = new DatasetCollectionRepository();
-        return self::collection_response( $repo->relations( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ) );
+        return self::collection_response( $repo->relations( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ), (int) $dataset['revision'] );
     }
 
     public static function node_options( WP_REST_Request $request ) {
@@ -210,12 +210,13 @@ final class DatasetEditorApi {
         return $dataset;
     }
 
-    private static function collection_response( array $result ): WP_REST_Response {
+    private static function collection_response( array $result, int $revision ): WP_REST_Response {
         $response = new WP_REST_Response( $result['items'] );
         $response->header( 'X-WP-Total', (string) $result['total'] );
         $response->header( 'X-WP-TotalPages', (string) $result['total_pages'] );
         $response->header( 'X-VisWiz-Page', (string) $result['page'] );
         $response->header( 'X-VisWiz-Per-Page', (string) $result['per_page'] );
+        $response->header( 'X-VisWiz-Revision', (string) $revision );
         return $response;
     }
 
