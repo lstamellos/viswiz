@@ -4,6 +4,7 @@ namespace VisWiz;
 use VisWiz\Admin\Admin;
 use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\ImportUi;
+use VisWiz\Admin\NodeRichEditor;
 use VisWiz\Database\Migrator;
 use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
@@ -37,6 +38,7 @@ final class Plugin {
 
         Admin::register();
         DatasetEditorPage::register();
+        NodeRichEditor::register();
         ImportUi::register();
         Api::register();
         DatasetEditorApi::register();
