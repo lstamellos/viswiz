@@ -35,7 +35,7 @@ final class NodePublicFieldsTest extends TestCase {
         self::assertStringContainsString( 'delete meta.public_fields;', $javascript );
         self::assertStringContainsString( 'meta.public_fields = fields;', $javascript );
         self::assertStringContainsString( 'const advancedOnly = textarea.value;', $javascript );
-        self::assertStringContainsString( 'queueMicrotask(() =>', $javascript );
+        self::assertStringContainsString( 'window.setTimeout(() =>', $javascript );
         self::assertStringContainsString( 'textarea.value = advancedOnly;', $javascript );
     }
 
