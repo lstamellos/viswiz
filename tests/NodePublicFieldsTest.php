@@ -19,7 +19,7 @@ final class NodePublicFieldsTest extends TestCase {
         self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
     }
 
-    public function test_normal_node_workflow_uses_structured_fields_and_advanced_raw_metadata(): void {
+    public function test_normal_graph_workflow_uses_structured_fields_and_advanced_raw_metadata(): void {
         $javascript = file_get_contents( $this->root . '/assets/viswiz-node-public-fields.js' );
 
         self::assertStringContainsString( 'Public fields', $javascript );
@@ -30,6 +30,8 @@ final class NodePublicFieldsTest extends TestCase {
         self::assertStringContainsString( 'data-viswiz-public-field-down', $javascript );
         self::assertStringContainsString( 'Additional metadata JSON', $javascript );
         self::assertStringContainsString( 'Advanced metadata', $javascript );
+        self::assertStringContainsString( 'viswizNodeMetaAdvanced', $javascript );
+        self::assertStringContainsString( 'viswizRelationMetaAdvanced', $javascript );
         self::assertStringContainsString( 'delete meta.public_fields;', $javascript );
         self::assertStringContainsString( 'meta.public_fields = fields;', $javascript );
     }
