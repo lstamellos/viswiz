@@ -1,6 +1,6 @@
 # VisWiz 2.0.23 — structured node public fields
 
-VisWiz 2.0.23 completes P0 usability backlog item #11 by removing raw node metadata JSON from the normal graph-node workflow.
+VisWiz 2.0.23 completes P0 usability backlog item #11 by removing raw metadata JSON from the normal graph editing workflow and giving node public metadata a structured editor.
 
 ## Normal node workflow
 
@@ -20,13 +20,15 @@ The existing raw node `meta` object remains available under a collapsed **Advanc
 
 `meta.public_fields` is deliberately removed from that JSON surface while the dialog is open. On submit, the structured fields are serialized back into `meta.public_fields` before the existing graph editor reads `FormData`.
 
-This gives one authoritative editing surface for public fields while preserving unrelated metadata keys.
+Relation metadata JSON is also moved into a collapsed **Advanced metadata** section. Its storage contract is unchanged; the change only removes raw JSON from the normal relation-entry path.
+
+This gives one authoritative editing surface for node public fields while preserving unrelated node and relation metadata keys.
 
 ## Data ownership
 
 The structured-fields adapter does not fetch or save graph data itself. It does not own revision state, REST mutations, node collections, or relation collections. `assets/viswiz-dataset-editor.js` remains the sole graph data/mutation owner.
 
-The adapter only enhances the dynamically created node form and synchronizes the existing `textarea[name="meta"]` in the submit capture phase.
+The adapter enhances the dynamically created graph forms. For node forms it synchronizes the existing `textarea[name="meta"]` in the submit capture phase; for relation forms it only moves that textarea under Advanced metadata.
 
 ## Sanitization and public output
 
@@ -55,5 +57,7 @@ Chromium coverage verifies:
 - remove field
 - additional metadata preservation
 - `public_fields` does not reappear in the Advanced JSON editor
+
+Static architecture coverage also requires relation raw metadata to stay under the Advanced section and verifies that the adapter owns no REST/data state.
 
 `VISWIZ_DB_VERSION` remains `20000`.
