@@ -2,6 +2,7 @@
 namespace VisWiz\Rest;
 
 use VisWiz\Database\DatasetRepository;
+use VisWiz\Domain\RowWriteGuard;
 use VisWiz\Frontend\Frontend;
 use VisWiz\WooCommerce\SalesQuery;
 use WP_Error;
@@ -181,10 +182,22 @@ final class Api {
 
     public static function replace_dataset( WP_REST_Request $request ) {
         $repo = new DatasetRepository();
+        $id   = absint( $request['id'] );
+        $dataset = $repo->get( $id );
+        if ( ! $dataset ) {
+            return new WP_Error( 'viswiz_dataset_not_found', __( 'Dataset not found.', 'viswiz' ), array( 'status' => 404 ) );
+        }
+        $payload = (array) $request->get_param( 'payload' );
+        if ( 'graph' !== (string) $dataset['schema_type'] ) {
+            $payload = RowWriteGuard::normalize_payload( (string) $dataset['schema_type'], $payload );
+            if ( is_wp_error( $payload ) ) {
+                return $payload;
+            }
+        }
         return self::respond(
             $repo->replace_payload(
-                absint( $request['id'] ),
-                (array) $request->get_param( 'payload' ),
+                $id,
+                $payload,
                 self::revision( $request ),
                 sanitize_text_field( (string) ( $request->get_param( 'note' ) ?: 'Dataset import / replacement' ) )
             )
@@ -193,7 +206,19 @@ final class Api {
 
     public static function save_row( WP_REST_Request $request ) {
         $repo = new DatasetRepository();
-        return self::respond( $repo->save_row( absint( $request['id'] ), (array) $request->get_param( 'row' ), self::revision( $request ) ) );
+        $id   = absint( $request['id'] );
+        $dataset = $repo->get( $id );
+        if ( ! $dataset ) {
+            return new WP_Error( 'viswiz_dataset_not_found', __( 'Dataset not found.', 'viswiz' ), array( 'status' => 404 ) );
+        }
+        if ( 'graph' === (string) $dataset['schema_type'] ) {
+            return new WP_Error( 'viswiz_row_dataset_required', __( 'A non-graph dataset is required.', 'viswiz' ), array( 'status' => 400 ) );
+        }
+        $row = RowWriteGuard::normalize_row( (string) $dataset['schema_type'], (array) $request->get_param( 'row' ) );
+        if ( is_wp_error( $row ) ) {
+            return $row;
+        }
+        return self::respond( $repo->save_row( $id, $row, self::revision( $request ) ) );
     }
 
     public static function delete_row( WP_REST_Request $request ) {
@@ -252,7 +277,15 @@ final class Api {
         if ( is_wp_error( $result ) ) {
             return $result;
         }
-        return self::respond( $repo->replace_payload( $id, array( 'rows' => $result['rows'] ), self::revision( $request ), 'WooCommerce snapshot' ) );
+        $payload = RowWriteGuard::normalize_payload( (string) $dataset['schema_type'], array( 'rows' => $result['rows'] ) );
+        if ( is_wp_error( $payload ) ) {
+            return new WP_Error(
+                'viswiz_snapshot_schema',
+                __( 'The WooCommerce snapshot does not provide the fields required by this dataset schema.', 'viswiz' ),
+                array( 'status' => 422, 'schema' => (string) $dataset['schema_type'], 'issues' => $payload->get_error_data()['issues'] ?? array() )
+            );
+        }
+        return self::respond( $repo->replace_payload( $id, $payload, self::revision( $request ), 'WooCommerce snapshot' ) );
     }
 
     private static function revision( WP_REST_Request $request ): ?int {

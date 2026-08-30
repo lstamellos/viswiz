@@ -85,7 +85,7 @@ final class DatasetEditorPage {
                                 <label><span><?php esc_html_e( 'Schema', 'viswiz' ); ?></span><input readonly value="<?php echo esc_attr( $dataset['schema_type'] ); ?>"></label>
                             </div>
                             <label class="viswiz-field"><span><?php esc_html_e( 'Description', 'viswiz' ); ?></span><textarea name="description" rows="3"><?php echo esc_textarea( $dataset['description'] ); ?></textarea></label>
-                            <button class="button button-primary"><?php esc_html_e( 'Save metadata', 'viswiz' ); ?></button>
+                            <button type="submit" class="button button-primary"><?php esc_html_e( 'Save metadata', 'viswiz' ); ?></button>
                         </form>
                     </section>
 

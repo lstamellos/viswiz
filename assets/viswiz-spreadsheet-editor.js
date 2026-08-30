@@ -8,6 +8,11 @@
   const uuid = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
   const PAGE_SIZE = 100;
   const MAX_BATCH = 500;
+  const SIDE_MUTATION_SELECTORS = [
+    '[data-viswiz-import-button]',
+    '[data-viswiz-commerce-snapshot]',
+    '[data-viswiz-restore-revision]',
+  ];
 
   async function request(path, options = {}) {
     const response = await fetch(`${cfg.restUrl}${path}`, {
@@ -261,11 +266,35 @@
     return { text: `All changes saved · r${sheet.revision}`, kind: '' };
   }
 
+  function setGuardedDisabled(control, disabled, title) {
+    if (!control || !('disabled' in control)) return;
+    if (disabled) {
+      if (!control.hasAttribute('data-viswiz-grid-guarded')) {
+        control.dataset.viswizGridGuarded = control.disabled ? 'was-disabled' : 'enabled';
+      }
+      control.disabled = true;
+      control.title = title;
+      return;
+    }
+    if (!control.hasAttribute('data-viswiz-grid-guarded')) return;
+    if (control.dataset.viswizGridGuarded === 'enabled') control.disabled = false;
+    control.removeAttribute('data-viswiz-grid-guarded');
+    control.removeAttribute('title');
+  }
+
   function updateExternalControls(sheet) {
     const dirty = isDirty(sheet) || sheet.saving;
     if (sheet.searchInput) {
       sheet.searchInput.disabled = dirty;
       sheet.searchInput.title = dirty ? 'Save or discard spreadsheet changes before searching.' : '';
+    }
+    SIDE_MUTATION_SELECTORS.forEach((selector) => {
+      $$(selector).forEach((control) => setGuardedDisabled(control, dirty, 'Save or discard spreadsheet changes first.'));
+    });
+    if (sheet.metadataForm) {
+      $$('button[type="submit"],input[type="submit"]', sheet.metadataForm).forEach((control) => {
+        setGuardedDisabled(control, dirty, 'Save or discard spreadsheet changes first.');
+      });
     }
   }
 
@@ -307,8 +336,10 @@
         <span>${shownTotal} ${esc(editor.plural || 'rows')} · ${esc(cfg.schemas?.[sheet.schema]?.label || sheet.schema)}</span>
         <span class="viswiz-grid-state ${esc(status.kind)}" data-viswiz-grid-state>${esc(status.text)}</span>
       </div>
+      ${sheet.serverMessage ? `<div class="notice notice-error inline viswiz-spreadsheet-server-error" data-viswiz-spreadsheet-server-error><p>${esc(sheet.serverMessage)}</p></div>` : ''}
+      ${sheet.guardMessage ? `<div class="notice notice-warning inline viswiz-spreadsheet-guard-message" data-viswiz-spreadsheet-guard-message><p>${esc(sheet.guardMessage)}</p></div>` : ''}
       <p class="viswiz-grid-help">Edit cells directly. Tab / Shift+Tab moves between cells, Enter moves down, and Arrow Up/Down moves between text cells. Paste tab-separated rows from spreadsheet software into any cell. Changes remain local until <strong>Save changes</strong>.</p>
-      ${dirty ? '<p class="viswiz-grid-unsaved-note">Save or discard the pending grid changes before searching or changing pages.</p>' : ''}
+      ${dirty ? '<p class="viswiz-grid-unsaved-note">Save or discard the pending grid changes before searching, changing pages or replacing dataset state from another control.</p>' : ''}
       <div class="viswiz-grid-wrap">
         <table class="widefat striped viswiz-grid" data-viswiz-grid>
           <thead><tr><th class="viswiz-grid-index">#</th>${fields.map((definition) => `<th>${esc(definition.label || definition.path)}</th>`).join('')}<th>Row</th></tr></thead>
@@ -348,12 +379,12 @@
       sheet.totalPages = Math.max(1, Number(response.headers.get('X-WP-TotalPages') || 1));
       sheet.page = Math.min(Math.max(1, Number(response.headers.get('X-VisWiz-Page') || sheet.page)), sheet.totalPages);
       updateRevision(sheet, { revision: Number(response.headers.get('X-VisWiz-Revision') || 0) });
-      sheet.serverMessage = '';
       if (!sheet.items.length && sheet.page > 1 && sheet.total > 0) {
         sheet.page -= 1;
         sheet.loading = false;
         return load(sheet, sheet.page);
       }
+      sheet.serverMessage = '';
       render(sheet);
       return true;
     } catch (error) {
@@ -526,6 +557,8 @@
     const deleteUuids = [...sheet.deletes];
     sheet.saving = true;
     sheet.conflict = false;
+    sheet.serverMessage = '';
+    sheet.guardMessage = '';
     updateStatusOnly(sheet);
     try {
       const { data } = await request(`/datasets/${sheet.id}/editor/rows/batch`, {
@@ -560,6 +593,7 @@
     sheet.errors.clear();
     sheet.conflict = false;
     sheet.serverMessage = '';
+    sheet.guardMessage = '';
     if (reloadAfterConflict) await load(sheet, sheet.page);
     else render(sheet);
   }
@@ -690,6 +724,16 @@
     });
   }
 
+  function bindExternalGuards(sheet) {
+    if (!sheet.metadataForm) return;
+    sheet.metadataForm.addEventListener('submit', (event) => {
+      if (!isDirty(sheet) && !sheet.saving) return;
+      event.preventDefault();
+      sheet.guardMessage = 'Save or discard spreadsheet changes before changing dataset metadata.';
+      render(sheet);
+    }, true);
+  }
+
   async function waitForBaseEditor(root) {
     for (let attempt = 0; attempt < 160; attempt += 1) {
       const state = root.__viswizServerState;
@@ -705,6 +749,7 @@
     const baseState = await waitForBaseEditor(root);
     if (!baseState) return;
 
+    const metadataForm = document.querySelector('form input[name="action"][value="viswiz_dataset_update"]')?.closest('form') || null;
     const sheet = {
       root,
       baseState,
@@ -723,11 +768,14 @@
       saving: false,
       conflict: false,
       serverMessage: '',
+      guardMessage: '',
       searchInput: null,
+      metadataForm,
     };
     root.__viswizSpreadsheetState = sheet;
     bindGrid(sheet);
     bindSearch(sheet);
+    bindExternalGuards(sheet);
     window.addEventListener('beforeunload', (event) => {
       if (!isDirty(sheet)) return;
       event.preventDefault();
