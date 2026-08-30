@@ -64,4 +64,4 @@ test('duplicate node slug error stays inside the node dialog and marks the slug 
   await slug.fill('editable-node-unique');
   await expect(slug).not.toHaveAttribute('aria-invalid', 'true');
   await expect(dialog.locator('[data-viswiz-field-error="slug"]')).toHaveCount(0);
-}
+});
