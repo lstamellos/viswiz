@@ -238,7 +238,13 @@
     const advanced = moveRawMetadataToAdvanced(textarea, true);
     const editor = makePublicFieldsSection(publicFields);
     form.insertBefore(editor.section, advanced || $('.viswiz-dialog-actions', form));
-    form.addEventListener('submit', () => syncMeta(textarea, editor.list), true);
+    form.addEventListener('submit', () => {
+      const advancedOnly = textarea.value;
+      syncMeta(textarea, editor.list);
+      queueMicrotask(() => {
+        if (textarea.isConnected) textarea.value = advancedOnly;
+      });
+    }, true);
   }
 
   function enhanceDialog(dialog) {
