@@ -1,6 +1,6 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.22, 2026-08-30.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.23, 2026-08-30.
 
 This backlog consolidates the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, without undoing the dataset-first storage model introduced in VisWiz 2.
 
@@ -157,19 +157,23 @@ Lifecycle guarantees include:
 
 Chromium regression coverage verifies Visual/Text keyboard switching, formatted-content persistence and repeated editor teardown/reinitialization.
 
-### 11. Remove raw metadata JSON from normal workflows
+### 11. Remove raw metadata JSON from normal workflows — COMPLETED
 
-Raw metadata can remain an advanced/debug interface, but commonly used metadata should have structured fields.
+Completed in VisWiz 2.0.23 / PR #93.
 
-For graph nodes, provide a UI for public fields with:
+Graph-node public metadata now has a structured editor backed by the existing canonical `meta.public_fields` contract. The normal node workflow supports:
 
 - label
 - type (`short`, `long`, `url`, `formatted`)
 - value
-- ordering
-- add/remove/reorder
+- add/remove
+- move up/down ordering, which is preserved as the public display order
 
-Reserve raw JSON for an explicitly marked advanced section.
+Raw node metadata is now under a collapsed **Advanced metadata** section as **Additional metadata JSON**, with `public_fields` removed from that raw editing surface so there is one authoritative UI for public fields. Unrelated metadata keys are preserved. Raw relation metadata is also under a collapsed Advanced section.
+
+The adapter does not own graph data, perform fetches or issue REST writes; `viswiz-dataset-editor.js` remains the sole graph mutation/revision owner. Structured public fields are injected only for the primary editor's synchronous `FormData` snapshot and the Advanced-only textarea is restored on the next task, including after rejected saves, preventing a duplicate/stale raw editing surface.
+
+Existing backend sanitization and public payload behavior remain authoritative, including `esc_url_raw`, `wp_kses_post` and the existing `short|long|url|formatted` field contract. `VISWIZ_DB_VERSION` remains `20000`; no migration was required. Chromium coverage verifies add/reorder/save/reopen/remove persistence and Advanced-metadata isolation on both successful and rejected saves.
 
 ## P1 — visualization creation workflow
 
