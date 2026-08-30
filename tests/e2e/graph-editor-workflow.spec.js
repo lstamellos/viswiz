@@ -59,8 +59,8 @@ test('node context creates relations, quick-creates endpoints and exposes incomi
   await addNode(page, editor, { title: 'Workflow Organization', slug: 'workflow-organization', type: 'organization' });
 
   await personRow.getByRole('button', { name: 'Add relation' }).click();
-  const relationDialog = page.locator('dialog[open]').last();
-  await expect(relationDialog.getByRole('heading', { name: 'Add relation' })).toBeVisible();
+  const relationDialog = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Add relation' }) });
+  await expect(relationDialog).toBeVisible();
   const fromSelect = relationDialog.getByLabel('From node', { exact: true });
   await expect(fromSelect.locator('option')).toContainText('Workflow Person');
   await expect(fromSelect).not.toHaveValue('');
@@ -69,20 +69,20 @@ test('node context creates relations, quick-creates endpoints and exposes incomi
   await relationDialog.locator('[name="label"]').fill('Draft survives quick create');
   await relationDialog.getByRole('button', { name: 'Create to node' }).click();
 
-  const nodeDialog = page.locator('dialog[open]').last();
-  await expect(nodeDialog.getByRole('heading', { name: 'Create to node' })).toBeVisible();
+  const nodeDialog = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Create to node' }) });
+  await expect(nodeDialog).toBeVisible();
   await nodeDialog.locator('[name="title"]').fill('Quick Target');
   await nodeDialog.locator('[name="slug"]').fill('quick-target');
   await nodeDialog.locator('[name="label"]').fill('Quick Target');
   await nodeDialog.locator('[name="node_type"]').selectOption('organization');
   await nodeDialog.getByRole('button', { name: 'Save node' }).click();
-  await expect(nodeDialog).not.toBeVisible();
+  await expect(nodeDialog).toHaveCount(0);
 
   await expect(relationDialog.locator('[name="label"]')).toHaveValue('Draft survives quick create');
   const toSelect = relationDialog.getByLabel('To node', { exact: true });
   await expect(toSelect.locator('option:checked')).toContainText('Quick Target');
   await relationDialog.getByRole('button', { name: 'Save relation' }).click();
-  await expect(relationDialog).not.toBeVisible();
+  await expect(relationDialog).toHaveCount(0);
 
   const relationTable = editor.locator('table').nth(1);
   await expect(relationTable).toContainText('Draft survives quick create');
