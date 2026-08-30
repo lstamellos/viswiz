@@ -34,6 +34,9 @@ final class NodePublicFieldsTest extends TestCase {
         self::assertStringContainsString( 'viswizRelationMetaAdvanced', $javascript );
         self::assertStringContainsString( 'delete meta.public_fields;', $javascript );
         self::assertStringContainsString( 'meta.public_fields = fields;', $javascript );
+        self::assertStringContainsString( 'const advancedOnly = textarea.value;', $javascript );
+        self::assertStringContainsString( 'queueMicrotask(() =>', $javascript );
+        self::assertStringContainsString( 'textarea.value = advancedOnly;', $javascript );
     }
 
     public function test_public_fields_adapter_does_not_own_graph_data_or_mutations(): void {
@@ -43,7 +46,8 @@ final class NodePublicFieldsTest extends TestCase {
         self::assertStringNotContainsString( 'restUrl', $javascript );
         self::assertStringNotContainsString( '/editor/nodes', $javascript );
         self::assertStringNotContainsString( '/editor/relations', $javascript );
-        self::assertStringContainsString( "form.addEventListener('submit', () => syncMeta(textarea, editor.list), true);", $javascript );
+        self::assertStringContainsString( "form.addEventListener('submit', () => {", $javascript );
+        self::assertStringContainsString( 'syncMeta(textarea, editor.list);', $javascript );
     }
 
     public function test_backend_and_public_payload_keep_the_existing_sanitized_contract(): void {
