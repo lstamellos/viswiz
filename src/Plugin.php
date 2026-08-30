@@ -107,14 +107,10 @@ final class Plugin {
             'delete_private_viswiz_visualizations',
             'delete_published_viswiz_visualizations',
             'delete_others_viswiz_visualizations',
-            'edit_private_posts',
-            'edit_published_posts',
+            'edit_private_viswiz_visualizations',
+            'edit_published_viswiz_visualizations',
             'edit_viswiz_datasets',
         );
-
-        // Keep the historical capability names used by the custom post type.
-        $editor_caps[] = 'edit_private_viswiz_visualizations';
-        $editor_caps[] = 'edit_published_viswiz_visualizations';
 
         foreach ( array( 'administrator', 'editor' ) as $role_name ) {
             $role = get_role( $role_name );
