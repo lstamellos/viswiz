@@ -5,7 +5,7 @@ use WP_Error;
 
 final class RowWriteGuard {
     public static function normalize_row( string $schema, array $row ) {
-        return RowSchema::normalize_for_editor( $schema, $row );
+        return RowSchema::normalize_for_editor( $schema, self::canonicalize_aliases( $schema, $row ) );
     }
 
     public static function normalize_payload( string $schema, array $payload ) {
@@ -38,6 +38,7 @@ final class RowWriteGuard {
                 continue;
             }
 
+            $row    = self::canonicalize_aliases( $schema, $row );
             $result = RowSchema::normalize_for_editor( $schema, $row );
             if ( is_wp_error( $result ) ) {
                 $data = $result->get_error_data();
@@ -61,5 +62,27 @@ final class RowWriteGuard {
         }
 
         return array( 'rows' => $normalized );
+    }
+
+    private static function canonicalize_aliases( string $schema, array $row ): array {
+        if ( 'xy' === $schema ) {
+            if ( ! array_key_exists( 'x_numeric', $row ) && array_key_exists( 'x', $row ) ) {
+                $row['x_numeric'] = $row['x'];
+            }
+            if ( ! array_key_exists( 'y_value', $row ) && array_key_exists( 'y', $row ) ) {
+                $row['y_value'] = $row['y'];
+            }
+        }
+
+        if ( 'geo' === $schema ) {
+            if ( ! array_key_exists( 'latitude', $row ) && array_key_exists( 'lat', $row ) ) {
+                $row['latitude'] = $row['lat'];
+            }
+            if ( ! array_key_exists( 'longitude', $row ) && array_key_exists( 'lng', $row ) ) {
+                $row['longitude'] = $row['lng'];
+            }
+        }
+
+        return $row;
     }
 }
