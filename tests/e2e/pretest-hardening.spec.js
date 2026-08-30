@@ -80,6 +80,14 @@ test('legacy and replacement writes preserve supported row aliases', async ({ pa
     payload: { rows: [{ label: 'Point A', x: 12.5, y: 42.75 }] },
   });
   expect(replacementXy.status).toBe(200);
+
+  const series = await createDataset(page, 'E2E time-series x alias', 'time_series');
+  revision = await page.evaluate(() => Number(document.querySelector('#viswiz-dataset-editor').dataset.revision));
+  const legacySeries = await restPost(page, `/datasets/${series.id}/rows`, {
+    expected_revision: revision,
+    row: { label: 'Legacy date', x: '2026-08-30 12:00', value: 3 },
+  });
+  expect(legacySeries.status).toBe(200);
 });
 
 test('dirty spreadsheet drafts block side mutations until save or discard', async ({ page }) => {
