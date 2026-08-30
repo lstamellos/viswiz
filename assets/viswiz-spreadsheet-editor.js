@@ -255,6 +255,7 @@
     if (sheet.saving) return { text: `Saving ${dirtyCount(sheet)} change${dirtyCount(sheet) === 1 ? '' : 's'}…`, kind: 'is-saving' };
     if (sheet.conflict) return { text: 'Conflict: newer server revision detected', kind: 'is-conflict' };
     if (sheet.errors.size) return { text: `${sheet.errors.size} row${sheet.errors.size === 1 ? '' : 's'} need attention`, kind: 'is-error' };
+    if (sheet.serverMessage) return { text: sheet.serverMessage, kind: 'is-error' };
     const count = dirtyCount(sheet);
     if (count) return { text: `${count} unsaved change${count === 1 ? '' : 's'}`, kind: 'is-dirty' };
     return { text: `All changes saved · r${sheet.revision}`, kind: '' };
@@ -346,6 +347,8 @@
       sheet.total = Number(response.headers.get('X-WP-Total') || 0);
       sheet.totalPages = Math.max(1, Number(response.headers.get('X-WP-TotalPages') || 1));
       sheet.page = Math.min(Math.max(1, Number(response.headers.get('X-VisWiz-Page') || sheet.page)), sheet.totalPages);
+      updateRevision(sheet, { revision: Number(response.headers.get('X-VisWiz-Revision') || 0) });
+      sheet.serverMessage = '';
       if (!sheet.items.length && sheet.page > 1 && sheet.total > 0) {
         sheet.page -= 1;
         sheet.loading = false;
@@ -550,13 +553,15 @@
     }
   }
 
-  function discard(sheet) {
+  async function discard(sheet) {
+    const reloadAfterConflict = sheet.conflict;
     sheet.drafts.clear();
     sheet.deletes.clear();
     sheet.errors.clear();
     sheet.conflict = false;
     sheet.serverMessage = '';
-    render(sheet);
+    if (reloadAfterConflict) await load(sheet, sheet.page);
+    else render(sheet);
   }
 
   function openAdvanced(sheet, rowUuid) {
@@ -613,6 +618,7 @@
       const input = event.target.closest?.('.viswiz-grid-input');
       if (!input) return;
       const text = event.clipboardData?.getData('text/plain') || '';
+      if (input.tagName === 'TEXTAREA' && !text.includes('\t')) return;
       if (!text.includes('\t') && !/[\r\n]/.test(text)) return;
       event.preventDefault();
       pasteMatrix(sheet, input, parsePaste(text));
@@ -656,7 +662,7 @@
       const name = action.dataset.gridAction;
       if (name === 'add') addRow(sheet, 0);
       else if (name === 'save') await save(sheet);
-      else if (name === 'discard') discard(sheet);
+      else if (name === 'discard') await discard(sheet);
       else if (name === 'reload') window.location.reload();
       else if (name === 'delete') toggleDelete(sheet, action.dataset.rowUuid);
       else if (name === 'advanced') openAdvanced(sheet, action.dataset.rowUuid);

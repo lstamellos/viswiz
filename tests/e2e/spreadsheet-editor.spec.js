@@ -39,14 +39,16 @@ async function datasetPayload(page, datasetId) {
 }
 
 async function dispatchPaste(locator, text) {
-  await locator.evaluate((element, value) => {
+  return locator.evaluate((element, value) => {
     const transfer = new DataTransfer();
     transfer.setData('text/plain', value);
-    element.dispatchEvent(new ClipboardEvent('paste', {
+    const event = new ClipboardEvent('paste', {
       bubbles: true,
       cancelable: true,
       clipboardData: transfer,
-    }));
+    });
+    element.dispatchEvent(event);
+    return event.defaultPrevented;
   }, text);
 }
 
@@ -159,4 +161,48 @@ test('spreadsheet keeps local drafts visible when a server revision conflict occ
   await expect(editor.getByRole('button', { name: 'Reload server version' })).toBeVisible();
   await expect(local).toHaveValue('Local draft');
   await expect(page.locator('[data-viswiz-dataset-search]')).toBeDisabled();
+
+  await editor.getByRole('button', { name: 'Discard changes' }).click();
+  row = editor.locator('tbody tr').first();
+  await expect(row.locator('[data-field-path="label"]')).toHaveValue('Server update');
+  await expect(editor.locator('[data-viswiz-grid-state]')).toContainText(`r${external.body.revision}`);
+  await expect(editor.getByRole('button', { name: 'Reload server version' })).toHaveCount(0);
+
+  await row.locator('[data-field-path="label"]').fill('After reload');
+  await editor.getByRole('button', { name: 'Save changes' }).click();
+  await expect(editor.locator('[data-viswiz-grid-state]')).toContainText('All changes saved');
+});
+
+test('spreadsheet preserves newline-only paste in textarea cells', async ({ page }) => {
+  await login(page);
+  const { editor } = await createDataset(page, 'E2E multiline textarea paste', 'progress');
+
+  await editor.getByRole('button', { name: 'Add progress item' }).click();
+  const textarea = editor.locator('[data-field-path="meta.text"]');
+  const pasteWasPrevented = await dispatchPaste(textarea, 'First paragraph\nSecond paragraph');
+
+  expect(pasteWasPrevented).toBe(false);
+  await expect(editor.locator('tbody tr')).toHaveCount(1);
+});
+
+test('spreadsheet renders non-validation request failures', async ({ page }) => {
+  await login(page);
+  const { editor } = await createDataset(page, 'E2E request failure');
+
+  await editor.getByRole('button', { name: 'Add item' }).click();
+  const row = editor.locator('tbody tr').last();
+  await row.locator('[data-field-path="label"]').fill('Unsaved row');
+  await row.locator('[data-field-path="value"]').fill('10');
+  await page.route(/\/editor\/rows\/batch$/, async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 'viswiz_database_error', message: 'Database temporarily unavailable.' }),
+    });
+  });
+
+  await editor.getByRole('button', { name: 'Save changes' }).click();
+  await expect(editor.locator('[data-viswiz-grid-state]')).toHaveText('Database temporarily unavailable.');
+  await expect(editor.locator('[data-viswiz-grid-state]')).toHaveClass(/is-error/);
+  await expect(row.locator('[data-field-path="label"]')).toHaveValue('Unsaved row');
 });
