@@ -1,6 +1,6 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.20, 2026-08-30.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.22, 2026-08-30.
 
 This backlog consolidates the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, without undoing the dataset-first storage model introduced in VisWiz 2.
 
@@ -122,25 +122,40 @@ Row-based datasets now use a schema-aware editable grid with:
 
 The 2.0.20 hardening also applies the row schema contract consistently to legacy/raw external writes while preserving previously accepted row aliases (`x`, `y`, `lat`, `lng`) before validation. Full PHP 8.1/8.3, WordPress/WooCommerce, WordPress 6.5 minimum-platform and Chromium CI cover the stabilized path.
 
-### 9. Improve graph node/relation editing
+### 9. Improve graph node/relation editing — COMPLETED
 
-The graph editor should optimize repeated investigative data entry.
+Completed in VisWiz 2.0.21 / PR #91.
 
-Add:
+The server-aware graph editor now supports:
 
-- searchable/autocomplete node selectors in relations
-- create relation directly from a node context
-- quick creation of a missing node while creating a relation
-- relation-type defaults applied predictably
-- clear validation when type/subtype constraints do not match
-- visible incoming/outgoing relations in the node editor
-- optional duplicate node / duplicate relation actions
+- lazy searchable relation endpoint selectors
+- relation creation directly from node context
+- quick creation of a missing endpoint node without losing the relation draft
+- predictable relation-type defaults
+- visible non-fatal type/subtype constraint warnings consistent with `GraphValidator`
+- server-paged incoming/outgoing relations inside the node editor
+- duplicate node and duplicate relation actions through the canonical editors
+- optional server-side `node_uuid` relation filtering without loading the full graph
 
-### 10. Use a WordPress-native rich editor for node descriptions
+The primary `viswiz-dataset-editor.js` remains the single graph data/state owner and all writes continue through revision-checked targeted endpoints.
 
-Replace the safe-HTML textarea with an accessible WordPress-native rich-text editing experience. Preserve sanitized HTML through `wp_kses_post` and avoid reintroducing the previous editor initialization/modal lifecycle problems.
+### 10. Use a WordPress-native rich editor for node descriptions — COMPLETED
 
-The editor must survive repeated modal open/close cycles and keyboard-only use.
+Completed in VisWiz 2.0.22 / PR #92.
+
+Node descriptions now use the WordPress dynamic editor API (`wp_enqueue_editor()` plus `wp.editor.initialize()`) with Visual and Text modes. The integration is a lifecycle-only adapter around the existing node dialog; it does not fetch or mutate graph data and does not create a second graph state owner.
+
+Lifecycle guarantees include:
+
+- initialization only after the native dialog is inserted and open
+- unique editor instances for repeated and nested node dialogs
+- textarea synchronization before the canonical node save reads `FormData`
+- `wp.editor.remove()` teardown before normal dialog removal
+- cleanup on Save, Cancel, close-button and Escape paths
+- usable textarea fallback if the WordPress editor API is unavailable
+- continued server-side sanitization through `wp_kses_post`
+
+Chromium regression coverage verifies Visual/Text keyboard switching, formatted-content persistence and repeated editor teardown/reinitialization.
 
 ### 11. Remove raw metadata JSON from normal workflows
 
