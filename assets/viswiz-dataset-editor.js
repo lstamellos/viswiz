@@ -47,6 +47,34 @@
     window.setTimeout(() => { if (box.isConnected) box.remove(); }, kind === 'error' ? 9000 : 3500);
   }
 
+  function clearFieldError(form, name) {
+    const control = form.elements.namedItem(name);
+    if (!(control instanceof HTMLElement)) return;
+    control.removeAttribute('aria-invalid');
+    const field = control.closest('.viswiz-field');
+    if (!field) return;
+    field.classList.remove('form-invalid');
+    $('[data-viswiz-field-error]', field)?.remove();
+  }
+
+  function showFieldError(form, name, message) {
+    clearFieldError(form, name);
+    const control = form.elements.namedItem(name);
+    if (!(control instanceof HTMLElement)) return;
+    const field = control.closest('.viswiz-field');
+    if (!field) return;
+    control.setAttribute('aria-invalid', 'true');
+    field.classList.add('form-invalid');
+    const error = document.createElement('span');
+    error.className = 'description viswiz-field-error';
+    error.dataset.viswizFieldError = name;
+    error.setAttribute('role', 'alert');
+    error.style.color = '#d63638';
+    error.textContent = message;
+    field.appendChild(error);
+    control.focus();
+  }
+
   function button(text, className = 'button') {
     const element = document.createElement('button');
     element.type = 'button';
@@ -250,7 +278,7 @@
     if (metadataRevision) metadataRevision.value = String(state.revision);
   }
 
-  async function mutate(state, path, method, body, refreshKinds) {
+  async function mutate(state, path, method, body, refreshKinds, options = {}) {
     if (state.saving) return false;
     state.saving = true;
     state.root.classList.add('is-saving');
@@ -262,7 +290,8 @@
       return true;
     } catch (error) {
       const message = error.code === 'viswiz_revision_conflict' ? (cfg.i18n?.conflict || error.message) : error.message;
-      notice(state.root, message, 'error');
+      notice(options.errorRoot || state.root, message, 'error');
+      if (typeof options.onError === 'function') options.onError(error);
       if (error.code === 'viswiz_revision_conflict') state.root.classList.add('has-conflict');
       return false;
     } finally {
@@ -383,7 +412,7 @@
         const timestamp = Date.parse(data.x_value);
         data.x_numeric = Number.isFinite(timestamp) ? Math.floor(timestamp / 1000) : null;
       }
-      if (await mutate(state, `/datasets/${state.id}/editor/rows`, 'POST', { row: data }, ['rows'])) modal.dialog.close();
+      if (await mutate(state, `/datasets/${state.id}/editor/rows`, 'POST', { row: data }, ['rows'], { errorRoot: modal.body })) modal.dialog.close();
     });
   }
 
@@ -580,9 +609,26 @@
     };
     type.addEventListener('change', () => { current.node_subtype = ''; refreshSubtype(); });
     refreshSubtype();
+
+    const nodeErrorFields = {
+      viswiz_duplicate_node_slug: ['slug'],
+      viswiz_unknown_node_type: ['node_type'],
+      viswiz_unknown_node_subtype: ['node_subtype'],
+      viswiz_invalid_node: ['title', 'node_type'],
+    };
+    const trackedNodeErrorFields = new Set(Object.values(nodeErrorFields).flat());
+    trackedNodeErrorFields.forEach((name) => {
+      const control = form.elements.namedItem(name);
+      if (!(control instanceof HTMLElement)) return;
+      const clear = () => clearFieldError(form, name);
+      control.addEventListener('input', clear);
+      control.addEventListener('change', clear);
+    });
+
     $('[data-cancel]', form).addEventListener('click', () => modal.dialog.close());
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      trackedNodeErrorFields.forEach((name) => clearFieldError(form, name));
       const fd = new FormData(form);
       let meta = {};
       try { meta = JSON.parse(fd.get('meta') || '{}'); } catch (_) { notice(modal.body, 'Metadata JSON is invalid.', 'error'); return; }
@@ -598,7 +644,12 @@
         other_image_ids: String(fd.get('other_image_ids') || '').split(',').map(Number).filter(Boolean),
         meta,
       };
-      if (await mutate(state, `/datasets/${state.id}/editor/nodes`, 'POST', { node: data }, ['nodes', 'relations'])) {
+      if (await mutate(state, `/datasets/${state.id}/editor/nodes`, 'POST', { node: data }, ['nodes', 'relations'], {
+        errorRoot: modal.body,
+        onError: (error) => {
+          (nodeErrorFields[error.code] || []).forEach((name) => showFieldError(form, name, error.message));
+        },
+      })) {
         if (typeof options.onSaved === 'function') await options.onSaved(data);
         modal.dialog.close();
       }
@@ -811,7 +862,7 @@
         intensity: Number(fd.get('intensity') || 1),
         meta,
       };
-      if (await mutate(state, `/datasets/${state.id}/editor/relations`, 'POST', { relation: data }, ['nodes', 'relations'])) {
+      if (await mutate(state, `/datasets/${state.id}/editor/relations`, 'POST', { relation: data }, ['nodes', 'relations'], { errorRoot: modal.body })) {
         if (typeof options.onSaved === 'function') await options.onSaved(data);
         modal.dialog.close();
       }
