@@ -241,9 +241,9 @@
     form.addEventListener('submit', () => {
       const advancedOnly = textarea.value;
       syncMeta(textarea, editor.list);
-      queueMicrotask(() => {
+      window.setTimeout(() => {
         if (textarea.isConnected) textarea.value = advancedOnly;
-      });
+      }, 0);
     }, true);
   }
 
