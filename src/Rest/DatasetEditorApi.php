@@ -4,6 +4,7 @@ namespace VisWiz\Rest;
 use VisWiz\Database\DatasetCollectionRepository;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Domain\RowSchema;
+use VisWiz\Support;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -16,6 +17,16 @@ final class DatasetEditorApi {
 
     public static function routes(): void {
         foreach ( array( 'rows', 'nodes', 'relations' ) as $collection ) {
+            $args = self::collection_args();
+            if ( 'relations' === $collection ) {
+                $args['node_uuid'] = array(
+                    'description'       => 'Limit relations to one connected node UUID.',
+                    'type'              => 'string',
+                    'default'           => '',
+                    'sanitize_callback' => static fn( $value ): string => strtolower( trim( sanitize_text_field( (string) $value ) ) ),
+                    'validate_callback' => static fn( $value ): bool => '' === (string) $value || Support::is_uuid( (string) $value ),
+                );
+            }
             register_rest_route(
                 'viswiz/v2',
                 '/datasets/(?P<id>\d+)/' . $collection,
@@ -23,7 +34,7 @@ final class DatasetEditorApi {
                     'methods'             => WP_REST_Server::READABLE,
                     'callback'            => array( self::class, $collection ),
                     'permission_callback' => array( self::class, 'can_edit_datasets' ),
-                    'args'                => self::collection_args(),
+                    'args'                => $args,
                 )
             );
         }
@@ -79,7 +90,16 @@ final class DatasetEditorApi {
             return $dataset;
         }
         $repo = new DatasetCollectionRepository();
-        return self::collection_response( $repo->relations( (int) $dataset['id'], self::page( $request ), self::per_page( $request ), (string) $request->get_param( 'search' ) ), (int) $dataset['revision'] );
+        return self::collection_response(
+            $repo->relations(
+                (int) $dataset['id'],
+                self::page( $request ),
+                self::per_page( $request ),
+                (string) $request->get_param( 'search' ),
+                (string) $request->get_param( 'node_uuid' )
+            ),
+            (int) $dataset['revision']
+        );
     }
 
     public static function node_options( WP_REST_Request $request ) {

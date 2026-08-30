@@ -81,7 +81,7 @@ final class DatasetCollectionRepository {
         return $this->page_result( $items, $total, $page, $per_page );
     }
 
-    public function relations( int $dataset_id, int $page = 1, int $per_page = 100, string $search = '' ): array {
+    public function relations( int $dataset_id, int $page = 1, int $per_page = 100, string $search = '', string $node_uuid = '' ): array {
         global $wpdb;
         $edges = Support::table( 'edges' );
         $nodes = Support::table( 'nodes' );
@@ -93,6 +93,12 @@ final class DatasetCollectionRepository {
             $where[] = '(e.uuid LIKE %s OR e.relation_type LIKE %s OR e.label LIKE %s OR e.inverse_label LIKE %s OR e.direction LIKE %s OR e.meta LIKE %s OR nf.title LIKE %s OR nf.slug LIKE %s OR nt.title LIKE %s OR nt.slug LIKE %s)';
             array_push( $params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like );
         }
+        $node_uuid = strtolower( trim( sanitize_text_field( $node_uuid ) ) );
+        if ( '' !== $node_uuid && Support::is_uuid( $node_uuid ) ) {
+            $where[] = '(e.from_node_uuid = %s OR e.to_node_uuid = %s)';
+            $params[] = $node_uuid;
+            $params[] = $node_uuid;
+        }
         $page = max( 1, $page );
         $per_page = min( self::MAX_PER_PAGE, max( 1, $per_page ) );
         $offset = ( $page - 1 ) * $per_page;
@@ -102,7 +108,9 @@ final class DatasetCollectionRepository {
         $count_sql = "SELECT COUNT(*) FROM {$edges} e {$joins} WHERE {$where_sql}";
         $count_query = $wpdb->prepare( $count_sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         $total = (int) $wpdb->get_var( $count_query ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $select_sql = "SELECT e.*, nf.title AS from_title, nf.slug AS from_slug, nt.title AS to_title, nt.slug AS to_slug
+        $select_sql = "SELECT e.*,
+                nf.title AS from_title, nf.slug AS from_slug, nf.node_type AS from_type, nf.node_subtype AS from_subtype,
+                nt.title AS to_title, nt.slug AS to_slug, nt.node_type AS to_type, nt.node_subtype AS to_subtype
             FROM {$edges} e {$joins}
             WHERE {$where_sql}
             ORDER BY e.sort_order ASC,e.id ASC
@@ -123,8 +131,12 @@ final class DatasetCollectionRepository {
                     'meta'           => Support::json_decode_array( $row['meta'] ?? '' ),
                     'from_title'     => (string) ( $row['from_title'] ?? '' ),
                     'from_slug'      => (string) ( $row['from_slug'] ?? '' ),
+                    'from_type'      => (string) ( $row['from_type'] ?? '' ),
+                    'from_subtype'   => (string) ( $row['from_subtype'] ?? '' ),
                     'to_title'       => (string) ( $row['to_title'] ?? '' ),
                     'to_slug'        => (string) ( $row['to_slug'] ?? '' ),
+                    'to_type'        => (string) ( $row['to_type'] ?? '' ),
+                    'to_subtype'     => (string) ( $row['to_subtype'] ?? '' ),
                 );
             },
             $rows

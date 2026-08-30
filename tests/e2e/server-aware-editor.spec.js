@@ -119,7 +119,7 @@ test('graph editor uses server pages and lazy node lookup for relation endpoints
   await search.fill('');
   await expect(tables.nth(0).locator('tbody tr')).toHaveCount(100);
 
-  await editor.getByRole('button', { name: 'Add relation' }).click();
+  await editor.locator('.viswiz-editor-toolbar').getByRole('button', { name: 'Add relation', exact: true }).click();
   const dialog = page.locator('dialog[open]');
   const fromSearch = dialog.getByLabel('From node search', { exact: true });
   const toSearch = dialog.getByLabel('To node search', { exact: true });

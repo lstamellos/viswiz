@@ -7,6 +7,7 @@
   const esc = (value) => String(value ?? '').replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[c]));
   const uuid = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
   const PAGE_SIZE = 100;
+  const NODE_RELATION_PAGE_SIZE = 20;
 
   async function request(path, options = {}) {
     const method = options.method || 'GET';
@@ -172,6 +173,10 @@
     const meta = current.meta && typeof current.meta === 'object' ? { ...current.meta } : {};
     knownMetaKeys(editor).forEach((key) => delete meta[key]);
     return meta;
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value ?? {}));
   }
 
   function makeDialog(title) {
@@ -382,6 +387,26 @@
     });
   }
 
+  function nodeTitle(node) {
+    return node?.title || node?.label || node?.slug || node?.uuid || 'Node';
+  }
+
+  function duplicateNodeSeed(node) {
+    const id = uuid();
+    const baseSlug = String(node.slug || node.title || 'node').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'node';
+    return {
+      ...clone(node),
+      uuid: id,
+      slug: `${baseSlug}-copy-${id.replace(/-/g, '').slice(0, 8)}`,
+      title: `${nodeTitle(node)} copy`,
+      label: node.label || nodeTitle(node),
+    };
+  }
+
+  function duplicateRelationSeed(relation) {
+    return { ...clone(relation), uuid: uuid() };
+  }
+
   function renderGraph(state) {
     const nodes = state.nodes;
     const relations = state.relations;
@@ -403,11 +428,15 @@
     nodes.items.forEach((node) => {
       const tr = document.createElement('tr');
       tr.dataset.viswizItemUuid = node.uuid;
-      tr.innerHTML = `<td><strong>${esc(node.title || node.label || node.slug)}</strong></td><td>${esc(node.node_type || '')}${node.node_subtype ? ` / ${esc(node.node_subtype)}` : ''}</td><td><code>${esc(node.slug || '')}</code></td><td>${esc(node.degree || 0)}</td><td class="viswiz-row-actions"></td>`;
+      tr.innerHTML = `<td><strong>${esc(nodeTitle(node))}</strong></td><td>${esc(node.node_type || '')}${node.node_subtype ? ` / ${esc(node.node_subtype)}` : ''}</td><td><code>${esc(node.slug || '')}</code></td><td>${esc(node.degree || 0)}</td><td class="viswiz-row-actions"></td>`;
       const edit = button('Edit', 'button button-small');
+      const addFromNode = button('Add relation', 'button button-small');
+      const duplicate = button('Duplicate', 'button button-small');
       const del = button('Delete', 'button-link-delete');
-      $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), del);
+      $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), addFromNode, document.createTextNode(' '), duplicate, document.createTextNode(' '), del);
       edit.addEventListener('click', () => openNodeDialog(state, node));
+      addFromNode.addEventListener('click', () => openRelationDialog(state, null, { fromNode: node }));
+      duplicate.addEventListener('click', () => openNodeDialog(state, null, { title: 'Duplicate node', seed: duplicateNodeSeed(node) }));
       del.addEventListener('click', async () => {
         if (!window.confirm(cfg.i18n?.confirmDelete || 'Delete this item?')) return;
         await mutate(state, `/datasets/${state.id}/editor/nodes/${node.uuid}`, 'DELETE', {}, ['nodes', 'relations']);
@@ -431,9 +460,11 @@
       tr.dataset.viswizItemUuid = rel.uuid;
       tr.innerHTML = `<td>${esc(rel.from_title || rel.from_slug || 'Missing')}</td><td>${esc(rel.label || rel.relation_type || '')}</td><td>${esc(rel.to_title || rel.to_slug || 'Missing')}</td><td>${esc(rel.direction || 'directed')}</td><td class="viswiz-row-actions"></td>`;
       const edit = button('Edit', 'button button-small');
+      const duplicate = button('Duplicate', 'button button-small');
       const del = button('Delete', 'button-link-delete');
-      $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), del);
+      $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), duplicate, document.createTextNode(' '), del);
       edit.addEventListener('click', () => openRelationDialog(state, rel));
+      duplicate.addEventListener('click', () => openRelationDialog(state, null, { title: 'Duplicate relation', seed: duplicateRelationSeed(rel) }));
       del.addEventListener('click', async () => {
         if (!window.confirm(cfg.i18n?.confirmDelete || 'Delete this item?')) return;
         await mutate(state, `/datasets/${state.id}/editor/relations/${rel.uuid}`, 'DELETE', {}, ['nodes', 'relations']);
@@ -448,13 +479,74 @@
     addRelation.addEventListener('click', () => openRelationDialog(state, null));
   }
 
-  function openNodeDialog(state, node) {
-    const current = node || { uuid: uuid(), slug: '', title: '', label: '', node_type: '', node_subtype: '', description: '', main_image_id: 0, other_image_ids: [], meta: {} };
-    const modal = makeDialog(node ? 'Edit node' : 'Add node');
+  async function renderNodeRelationsPanel(state, node, panel, page = 1) {
+    panel.dataset.loading = '1';
+    panel.innerHTML = '<p class="description">Loading connected relations…</p>';
+    try {
+      const qs = queryString({ node_uuid: node.uuid, page, per_page: NODE_RELATION_PAGE_SIZE });
+      const { data, response } = await request(`/datasets/${state.id}/relations?${qs}`);
+      const meta = collectionMeta(response);
+      const items = Array.isArray(data) ? data : [];
+      panel.replaceChildren();
+
+      const heading = document.createElement('div');
+      heading.className = 'viswiz-section-heading';
+      const headingText = document.createElement('div');
+      headingText.innerHTML = `<h3>Connected relations</h3><p class="description">${meta.total} relation${meta.total === 1 ? '' : 's'} for ${esc(nodeTitle(node))}.</p>`;
+      const add = button('Add relation from this node', 'button button-small');
+      heading.append(headingText, add);
+      panel.appendChild(heading);
+      add.addEventListener('click', () => openRelationDialog(state, null, { fromNode: node, onSaved: () => renderNodeRelationsPanel(state, node, panel, meta.page) }));
+
+      const table = document.createElement('table');
+      table.className = 'widefat striped viswiz-table viswiz-node-relations-table';
+      table.innerHTML = '<thead><tr><th>Role</th><th>Relation</th><th>Other node</th><th></th></tr></thead><tbody></tbody>';
+      const body = $('tbody', table);
+      if (!items.length) body.innerHTML = '<tr><td colspan="4">No connected relations.</td></tr>';
+      items.forEach((relation) => {
+        const outgoing = relation.from_node_uuid === node.uuid;
+        const other = outgoing
+          ? (relation.to_title || relation.to_slug || relation.to_node_uuid)
+          : (relation.from_title || relation.from_slug || relation.from_node_uuid);
+        const tr = document.createElement('tr');
+        tr.dataset.relationUuid = relation.uuid;
+        tr.innerHTML = `<td>${outgoing ? 'Outgoing' : 'Incoming'}</td><td>${esc(relation.label || relation.relation_type || 'Unspecified')}</td><td>${esc(other)}</td><td class="viswiz-row-actions"></td>`;
+        const edit = button('Edit', 'button button-small');
+        $('.viswiz-row-actions', tr).appendChild(edit);
+        edit.addEventListener('click', () => openRelationDialog(state, relation, { onSaved: () => renderNodeRelationsPanel(state, node, panel, meta.page) }));
+        body.appendChild(tr);
+      });
+      panel.appendChild(table);
+
+      if (meta.totalPages > 1) {
+        const pagerState = { page: meta.page, total: meta.total, totalPages: meta.totalPages };
+        appendPager(panel, pagerState, 'relations', (nextPage) => renderNodeRelationsPanel(state, node, panel, nextPage));
+      }
+    } catch (error) {
+      panel.innerHTML = '';
+      notice(panel, error.message, 'error');
+    } finally {
+      delete panel.dataset.loading;
+    }
+  }
+
+  function openNodeDialog(state, node, options = {}) {
+    const current = clone(node || options.seed || { uuid: uuid(), slug: '', title: '', label: '', node_type: '', node_subtype: '', description: '', main_image_id: 0, other_image_ids: [], meta: {} });
+    if (!current.uuid) current.uuid = uuid();
+    const modal = makeDialog(options.title || (node ? 'Edit node' : 'Add node'));
     const form = document.createElement('form');
     form.className = 'viswiz-dialog-form';
     const typeOptions = Object.entries(cfg.nodeTypes || {}).map(([key, item]) => `<option value="${esc(key)}" ${current.node_type === key ? 'selected' : ''}>${esc(item.label || key)}</option>`).join('');
     form.innerHTML = `${field('Title', 'title', current.title)}<div class="viswiz-form-grid">${field('Slug', 'slug', current.slug)}${field('Label', 'label', current.label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>Node type</span><select name="node_type"><option value="">Select type</option>${typeOptions}</select></label><label class="viswiz-field"><span>Subtype</span><select name="node_subtype"></select></label></div>${textareaField('Description (safe HTML)', 'description', current.description || current.description_html || '', 7)}<div class="viswiz-form-grid">${field('Featured image ID', 'main_image_id', current.main_image_id, 'number', 'min="0"')}${field('Other image IDs', 'other_image_ids', (current.other_image_ids || []).join(','))}</div>${textareaField('Metadata JSON', 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save node</button></div>`;
+
+    if (node) {
+      const panel = document.createElement('section');
+      panel.className = 'viswiz-node-relations-panel';
+      panel.dataset.viswizNodeRelations = node.uuid;
+      form.insertBefore(panel, $('.viswiz-dialog-actions', form));
+      renderNodeRelationsPanel(state, node, panel, 1);
+    }
+
     modal.body.appendChild(form);
     document.body.appendChild(modal.dialog);
     modal.dialog.showModal();
@@ -506,11 +598,14 @@
         other_image_ids: String(fd.get('other_image_ids') || '').split(',').map(Number).filter(Boolean),
         meta,
       };
-      if (await mutate(state, `/datasets/${state.id}/editor/nodes`, 'POST', { node: data }, ['nodes', 'relations'])) modal.dialog.close();
+      if (await mutate(state, `/datasets/${state.id}/editor/nodes`, 'POST', { node: data }, ['nodes', 'relations'])) {
+        if (typeof options.onSaved === 'function') await options.onSaved(data);
+        modal.dialog.close();
+      }
     });
   }
 
-  function nodePicker(state, label, name, selectedUuid, selectedLabel) {
+  function nodePicker(state, label, name, selectedUuid, selectedLabel, selectedMeta = {}) {
     const wrapper = document.createElement('div');
     wrapper.className = 'viswiz-node-picker';
     const title = document.createElement('label');
@@ -525,11 +620,19 @@
     select.size = 7;
     select.required = true;
     select.setAttribute('aria-label', `${label} node`);
-    wrapper.append(title, search, select);
+    const create = button('Create node…', 'button button-small viswiz-create-endpoint-node');
+    create.setAttribute('aria-label', `Create ${label.toLowerCase()} node`);
+    wrapper.append(title, search, select, create);
 
     let timer = 0;
     let generation = 0;
-    const load = async (term, preferredUuid = '') => {
+    const setOptionMeta = (option, node) => {
+      option.dataset.nodeType = node?.node_type || '';
+      option.dataset.nodeSubtype = node?.node_subtype || '';
+      option.dataset.nodeTitle = nodeTitle(node);
+      option.dataset.nodeSlug = node?.slug || '';
+    };
+    const load = async (term, preferredUuid = '', preferredMeta = selectedMeta) => {
       const currentGeneration = ++generation;
       try {
         const qs = queryString({ search: term, per_page: 30 });
@@ -540,21 +643,34 @@
         items.forEach((node) => {
           const option = document.createElement('option');
           option.value = node.uuid;
-          option.textContent = `${node.title || node.label || node.slug} — ${node.slug}`;
-          option.dataset.title = node.title || node.label || node.slug;
+          option.textContent = `${nodeTitle(node)} — ${node.slug}`;
+          setOptionMeta(option, node);
           select.appendChild(option);
         });
         if (preferredUuid && !items.some((item) => item.uuid === preferredUuid)) {
           const option = document.createElement('option');
           option.value = preferredUuid;
-          option.textContent = selectedLabel || preferredUuid;
+          option.textContent = selectedLabel || preferredMeta?.title || preferredUuid;
+          setOptionMeta(option, { ...preferredMeta, uuid: preferredUuid, title: selectedLabel || preferredMeta?.title || preferredUuid });
           select.prepend(option);
         }
         if (preferredUuid) select.value = preferredUuid;
         else select.selectedIndex = -1;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
       } catch (error) {
         notice(wrapper, error.message, 'error');
       }
+    };
+    const selectedNode = () => {
+      const option = select.selectedOptions?.[0];
+      if (!option) return null;
+      return {
+        uuid: option.value,
+        title: option.dataset.nodeTitle || option.textContent || option.value,
+        slug: option.dataset.nodeSlug || '',
+        node_type: option.dataset.nodeType || '',
+        node_subtype: option.dataset.nodeSubtype || '',
+      };
     };
     search.addEventListener('input', () => {
       window.clearTimeout(timer);
@@ -570,29 +686,69 @@
     select.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') search.focus();
     });
-    load(selectedUuid || '', selectedUuid || '');
-    return { wrapper, search, select };
+    load(selectedUuid || '', selectedUuid || '', selectedMeta);
+    return { wrapper, search, select, create, load, selectedNode };
   }
 
-  function openRelationDialog(state, relation) {
-    if (!relation && state.nodes.total < 2) {
-      notice(state.root, 'Create at least two nodes first.', 'error');
-      return;
+  function relationConstraintMessages(relationType, fromNode, toNode) {
+    const schema = cfg.relationTypes?.[relationType];
+    if (!schema) return [];
+    const messages = [];
+    const nodeTypeLabel = (type) => cfg.nodeTypes?.[type]?.label || type;
+    const subtypeLabel = (type, subtype) => cfg.nodeTypes?.[type]?.subtypes?.[subtype] || subtype;
+    if (fromNode && schema.source_type && fromNode.node_type && schema.source_type !== fromNode.node_type) {
+      messages.push(`Source should be ${nodeTypeLabel(schema.source_type)}; selected ${nodeTypeLabel(fromNode.node_type)}.`);
     }
-    const current = relation || { uuid: uuid(), from_node_uuid: '', to_node_uuid: '', relation_type: '', label: '', inverse_label: '', direction: 'directed', intensity: 1, meta: {} };
-    const modal = makeDialog(relation ? 'Edit relation' : 'Add relation');
+    if (fromNode && schema.source_subtype && fromNode.node_subtype && schema.source_subtype !== fromNode.node_subtype) {
+      messages.push(`Source subtype should be ${subtypeLabel(schema.source_type, schema.source_subtype)}; selected ${subtypeLabel(fromNode.node_type, fromNode.node_subtype)}.`);
+    }
+    if (toNode && schema.target_type && toNode.node_type && schema.target_type !== toNode.node_type) {
+      messages.push(`Target should be ${nodeTypeLabel(schema.target_type)}; selected ${nodeTypeLabel(toNode.node_type)}.`);
+    }
+    if (toNode && schema.target_subtype && toNode.node_subtype && schema.target_subtype !== toNode.node_subtype) {
+      messages.push(`Target subtype should be ${subtypeLabel(schema.target_type, schema.target_subtype)}; selected ${subtypeLabel(toNode.node_type, toNode.node_subtype)}.`);
+    }
+    return messages;
+  }
+
+  function openRelationDialog(state, relation, options = {}) {
+    const current = clone(relation || options.seed || { uuid: uuid(), from_node_uuid: '', to_node_uuid: '', relation_type: '', label: '', inverse_label: '', direction: 'directed', intensity: 1, meta: {} });
+    if (!current.uuid) current.uuid = uuid();
+    if (options.fromNode && !current.from_node_uuid) {
+      current.from_node_uuid = options.fromNode.uuid;
+      current.from_title = nodeTitle(options.fromNode);
+      current.from_slug = options.fromNode.slug || '';
+      current.from_type = options.fromNode.node_type || '';
+      current.from_subtype = options.fromNode.node_subtype || '';
+    }
+
+    const modal = makeDialog(options.title || (relation ? 'Edit relation' : 'Add relation'));
     const form = document.createElement('form');
     form.className = 'viswiz-dialog-form';
     const pickerGrid = document.createElement('div');
     pickerGrid.className = 'viswiz-form-grid';
-    const fromPicker = nodePicker(state, 'From', 'from_node_uuid', current.from_node_uuid, current.from_title || current.from_slug || 'Current source');
-    const toPicker = nodePicker(state, 'To', 'to_node_uuid', current.to_node_uuid, current.to_title || current.to_slug || 'Current target');
+    const fromPicker = nodePicker(
+      state,
+      'From',
+      'from_node_uuid',
+      current.from_node_uuid,
+      current.from_title || current.from_slug || 'Current source',
+      { title: current.from_title || current.from_slug || '', slug: current.from_slug || '', node_type: current.from_type || '', node_subtype: current.from_subtype || '' }
+    );
+    const toPicker = nodePicker(
+      state,
+      'To',
+      'to_node_uuid',
+      current.to_node_uuid,
+      current.to_title || current.to_slug || 'Current target',
+      { title: current.to_title || current.to_slug || '', slug: current.to_slug || '', node_type: current.to_type || '', node_subtype: current.to_subtype || '' }
+    );
     pickerGrid.append(fromPicker.wrapper, toPicker.wrapper);
     form.appendChild(pickerGrid);
 
     const relationOptions = Object.entries(cfg.relationTypes || {}).map(([key, item]) => `<option value="${esc(key)}" ${current.relation_type === key ? 'selected' : ''}>${esc(item.label || key)}</option>`).join('');
     const rest = document.createElement('div');
-    rest.innerHTML = `<label class="viswiz-field"><span>Relation type</span><select name="relation_type"><option value="">Unspecified</option>${relationOptions}</select></label><div class="viswiz-form-grid">${field('Label', 'label', current.label)}${field('Inverse label', 'inverse_label', current.inverse_label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>Direction</span><select name="direction">${['directed', 'bidirectional', 'undirected'].map((direction) => `<option ${current.direction === direction ? 'selected' : ''}>${direction}</option>`).join('')}</select></label>${field('Intensity', 'intensity', current.intensity, 'number', 'step="0.1" min="0.1" max="20"')}</div>${textareaField('Metadata JSON', 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save relation</button></div>`;
+    rest.innerHTML = `<label class="viswiz-field"><span>Relation type</span><select name="relation_type"><option value="">Unspecified</option>${relationOptions}</select></label><div class="notice notice-warning inline viswiz-relation-constraint-warning" data-viswiz-relation-constraint hidden><p></p></div><div class="viswiz-form-grid">${field('Label', 'label', current.label)}${field('Inverse label', 'inverse_label', current.inverse_label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>Direction</span><select name="direction">${['directed', 'bidirectional', 'undirected'].map((direction) => `<option ${current.direction === direction ? 'selected' : ''}>${direction}</option>`).join('')}</select></label>${field('Intensity', 'intensity', current.intensity, 'number', 'step="0.1" min="0.1" max="20"')}</div>${textareaField('Metadata JSON', 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save relation</button></div>`;
     while (rest.firstChild) form.appendChild(rest.firstChild);
     modal.body.appendChild(form);
     document.body.appendChild(modal.dialog);
@@ -600,14 +756,40 @@
     fromPicker.search.focus();
 
     const type = $('[name="relation_type"]', form);
+    const constraint = $('[data-viswiz-relation-constraint]', form);
+    const updateConstraintWarning = () => {
+      const messages = relationConstraintMessages(type.value, fromPicker.selectedNode(), toPicker.selectedNode());
+      constraint.hidden = messages.length === 0;
+      $('p', constraint).textContent = messages.join(' ');
+    };
+    fromPicker.select.addEventListener('change', updateConstraintWarning);
+    toPicker.select.addEventListener('change', updateConstraintWarning);
     type.addEventListener('change', () => {
       const metadata = cfg.relationTypes?.[type.value];
-      if (!metadata || relation) return;
-      $('[name="label"]', form).value = metadata.label || '';
-      $('[name="inverse_label"]', form).value = metadata.inverse_label || '';
-      $('[name="direction"]', form).value = metadata.direction || 'directed';
-      $('[name="intensity"]', form).value = metadata.intensity || 1;
+      if (metadata && !relation) {
+        $('[name="label"]', form).value = metadata.label || '';
+        $('[name="inverse_label"]', form).value = metadata.inverse_label || '';
+        $('[name="direction"]', form).value = metadata.direction || 'directed';
+        $('[name="intensity"]', form).value = metadata.intensity || 1;
+      }
+      updateConstraintWarning();
     });
+
+    const quickCreate = (picker, side) => {
+      picker.create.addEventListener('click', () => {
+        openNodeDialog(state, null, {
+          title: `Create ${side.toLowerCase()} node`,
+          onSaved: async (created) => {
+            await picker.load(created.title, created.uuid, created);
+            picker.search.value = created.title || '';
+            updateConstraintWarning();
+          },
+        });
+      });
+    };
+    quickCreate(fromPicker, 'From');
+    quickCreate(toPicker, 'To');
+
     $('[data-cancel]', form).addEventListener('click', () => modal.dialog.close());
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -629,8 +811,12 @@
         intensity: Number(fd.get('intensity') || 1),
         meta,
       };
-      if (await mutate(state, `/datasets/${state.id}/editor/relations`, 'POST', { relation: data }, ['nodes', 'relations'])) modal.dialog.close();
+      if (await mutate(state, `/datasets/${state.id}/editor/relations`, 'POST', { relation: data }, ['nodes', 'relations'])) {
+        if (typeof options.onSaved === 'function') await options.onSaved(data);
+        modal.dialog.close();
+      }
     });
+    window.setTimeout(updateConstraintWarning, 0);
   }
 
   function bindSideActions(state) {
