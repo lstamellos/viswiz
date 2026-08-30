@@ -4,6 +4,7 @@ namespace VisWiz;
 use VisWiz\Admin\Admin;
 use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\ImportUi;
+use VisWiz\Admin\NodeRichEditor;
 use VisWiz\Database\Migrator;
 use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
@@ -37,6 +38,7 @@ final class Plugin {
 
         Admin::register();
         DatasetEditorPage::register();
+        NodeRichEditor::register();
         ImportUi::register();
         Api::register();
         DatasetEditorApi::register();
@@ -105,10 +107,14 @@ final class Plugin {
             'delete_private_viswiz_visualizations',
             'delete_published_viswiz_visualizations',
             'delete_others_viswiz_visualizations',
-            'edit_private_viswiz_visualizations',
-            'edit_published_viswiz_visualizations',
+            'edit_private_posts',
+            'edit_published_posts',
             'edit_viswiz_datasets',
         );
+
+        // Keep the historical capability names used by the custom post type.
+        $editor_caps[] = 'edit_private_viswiz_visualizations';
+        $editor_caps[] = 'edit_published_viswiz_visualizations';
 
         foreach ( array( 'administrator', 'editor' ) as $role_name ) {
             $role = get_role( $role_name );
