@@ -148,7 +148,7 @@ test('graph editor creates, edits and deletes nodes and relations with lazy endp
   await expect(dialog).toHaveCount(0);
   await expect(nodeTable.locator('tbody tr').filter({ hasText: 'Delta Reporter Updated' })).toHaveCount(1);
 
-  await editor.getByRole('button', { name: 'Add relation' }).click();
+  await editor.locator('.viswiz-editor-toolbar').getByRole('button', { name: 'Add relation', exact: true }).click();
   dialog = page.locator('dialog.viswiz-editor-dialog');
   await expect(dialog.getByRole('heading', { name: 'Add relation' })).toBeVisible();
   await chooseLazyNode(dialog, 'From', 'Delta Reporter Updated');
