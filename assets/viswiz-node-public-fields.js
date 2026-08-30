@@ -168,7 +168,7 @@
     textarea.value = JSON.stringify(meta, null, 2);
   }
 
-  function makePublicFieldsSection(form, fields) {
+  function makePublicFieldsSection(fields) {
     const section = document.createElement('section');
     section.className = 'viswiz-public-fields';
     section.dataset.viswizPublicFields = '1';
@@ -203,33 +203,30 @@
     return { section, list };
   }
 
-  function moveRawMetadataToAdvanced(textarea) {
+  function moveRawMetadataToAdvanced(textarea, nodeMetadata = false) {
     const label = textarea.closest('label');
-    if (!label || label.closest('.viswiz-node-meta-advanced')) return label;
+    if (!label || label.closest('[data-viswiz-meta-advanced]')) return label;
     const labelText = $('span', label);
-    if (labelText) labelText.textContent = 'Additional metadata JSON';
+    if (labelText) labelText.textContent = nodeMetadata ? 'Additional metadata JSON' : 'Metadata JSON';
 
     const details = document.createElement('details');
     details.className = 'viswiz-editor-advanced viswiz-node-meta-advanced';
-    details.dataset.viswizNodeMetaAdvanced = '1';
+    details.dataset.viswizMetaAdvanced = '1';
+    if (nodeMetadata) details.dataset.viswizNodeMetaAdvanced = '1';
+    else details.dataset.viswizRelationMetaAdvanced = '1';
     const summary = document.createElement('summary');
     summary.textContent = 'Advanced metadata';
     const description = document.createElement('p');
     description.className = 'description';
-    description.textContent = 'Reserved for uncommon or integration-specific metadata. Public fields are managed above.';
+    description.textContent = nodeMetadata
+      ? 'Reserved for uncommon or integration-specific metadata. Public fields are managed above.'
+      : 'Reserved for uncommon or integration-specific relation metadata.';
     label.parentNode.insertBefore(details, label);
     details.append(summary, description, label);
     return details;
   }
 
-  function enhanceDialog(dialog) {
-    if (!dialog || enhanced.has(dialog)) return;
-    const form = $('form.viswiz-dialog-form', dialog);
-    if (!form || !$('[name="node_type"]', form)) return;
-    const textarea = $('textarea[name="meta"]', form);
-    if (!textarea) return;
-    enhanced.add(dialog);
-
+  function enhanceNodeDialog(form, textarea) {
     const meta = parseMeta(textarea);
     const publicFields = Array.isArray(meta?.public_fields) ? meta.public_fields.map(normalizedField) : [];
     if (meta) {
@@ -238,10 +235,27 @@
       textarea.value = JSON.stringify(advanced, null, 2);
     }
 
-    const advanced = moveRawMetadataToAdvanced(textarea);
-    const editor = makePublicFieldsSection(form, publicFields);
+    const advanced = moveRawMetadataToAdvanced(textarea, true);
+    const editor = makePublicFieldsSection(publicFields);
     form.insertBefore(editor.section, advanced || $('.viswiz-dialog-actions', form));
     form.addEventListener('submit', () => syncMeta(textarea, editor.list), true);
+  }
+
+  function enhanceDialog(dialog) {
+    if (!dialog || enhanced.has(dialog)) return;
+    const form = $('form.viswiz-dialog-form', dialog);
+    const textarea = form ? $('textarea[name="meta"]', form) : null;
+    if (!form || !textarea) return;
+
+    if ($('[name="node_type"]', form)) {
+      enhanced.add(dialog);
+      enhanceNodeDialog(form, textarea);
+      return;
+    }
+    if ($('[name="relation_type"]', form)) {
+      enhanced.add(dialog);
+      moveRawMetadataToAdvanced(textarea, false);
+    }
   }
 
   function scan(root = document) {
