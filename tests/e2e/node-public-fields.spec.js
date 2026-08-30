@@ -105,4 +105,14 @@ test('node public fields are structured, ordered and kept separate from advanced
   await expect(publicRows(dialog).nth(0).getByLabel('Label')).toHaveValue('Summary');
   await expect(publicRows(dialog).nth(1).getByLabel('Label')).toHaveValue('Status');
   await expect(publicRows(dialog).nth(1).getByLabel('Value')).toHaveValue('Active');
+
+  const failedAdvanced = dialog.locator('[data-viswiz-node-meta-advanced]');
+  await failedAdvanced.locator('summary').click();
+  await dialog.locator('[name="node_type"]').selectOption('');
+  await dialog.getByRole('button', { name: 'Save node' }).click();
+  await expect(editor.locator('.notice-error')).toContainText('Node title and type are required.');
+  await expect(dialog).toBeVisible();
+  const failedAdvancedValue = await failedAdvanced.locator('textarea[name="meta"]').inputValue();
+  expect(failedAdvancedValue).toContain('"internal_note": "keep-me"');
+  expect(failedAdvancedValue).not.toContain('public_fields');
 });
