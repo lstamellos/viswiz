@@ -48,9 +48,19 @@ final class SpreadsheetEditorTest extends TestCase {
         self::assertStringContainsString( "event.key === 'ArrowDown'", $javascript );
         self::assertStringContainsString( 'unsaved change', $javascript );
         self::assertStringContainsString( 'viswiz_revision_conflict', $javascript );
+        self::assertStringContainsString( "input.tagName === 'TEXTAREA' && !text.includes('\\t')", $javascript );
+        self::assertStringContainsString( 'if (sheet.serverMessage)', $javascript );
+        self::assertStringContainsString( "response.headers.get('X-VisWiz-Revision')", $javascript );
         self::assertStringContainsString( 'data-viswiz-spreadsheet-server-error', $javascript );
         self::assertStringContainsString( 'SIDE_MUTATION_SELECTORS', $javascript );
         self::assertSame( 1, substr_count( $javascript, '/editor/rows/batch' ) );
+    }
+
+    public function test_collection_responses_expose_the_dataset_revision(): void {
+        $api = file_get_contents( $this->root . '/src/Rest/DatasetEditorApi.php' );
+
+        self::assertStringContainsString( "'X-VisWiz-Revision'", $api );
+        self::assertSame( 3, substr_count( $api, "(int) \$dataset['revision']" ) );
     }
 
     public function test_spreadsheet_release_keeps_database_schema_version(): void {
