@@ -17,6 +17,7 @@ final class PretestHardeningTest extends TestCase {
         self::assertStringContainsString( 'RowWriteGuard::normalize_row', $api );
         self::assertStringContainsString( 'RowSchema::normalize_for_editor', $guard );
         self::assertStringContainsString( 'canonicalize_aliases', $guard );
+        self::assertStringContainsString( "'x_value'", $guard );
         self::assertStringContainsString( "'x_numeric'", $guard );
         self::assertStringContainsString( "'y_value'", $guard );
         self::assertStringContainsString( "'latitude'", $guard );
