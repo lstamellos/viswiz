@@ -65,6 +65,10 @@ final class RowWriteGuard {
     }
 
     private static function canonicalize_aliases( string $schema, array $row ): array {
+        if ( 'time_series' === $schema && ! array_key_exists( 'x_value', $row ) && array_key_exists( 'x', $row ) ) {
+            $row['x_value'] = $row['x'];
+        }
+
         if ( 'xy' === $schema ) {
             if ( ! array_key_exists( 'x_numeric', $row ) && array_key_exists( 'x', $row ) ) {
                 $row['x_numeric'] = $row['x'];
