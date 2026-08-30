@@ -16,6 +16,11 @@ final class PretestHardeningTest extends TestCase {
         self::assertGreaterThanOrEqual( 2, substr_count( $api, 'RowWriteGuard::normalize_payload' ) );
         self::assertStringContainsString( 'RowWriteGuard::normalize_row', $api );
         self::assertStringContainsString( 'RowSchema::normalize_for_editor', $guard );
+        self::assertStringContainsString( 'canonicalize_aliases', $guard );
+        self::assertStringContainsString( "'x_numeric'", $guard );
+        self::assertStringContainsString( "'y_value'", $guard );
+        self::assertStringContainsString( "'latitude'", $guard );
+        self::assertStringContainsString( "'longitude'", $guard );
         self::assertStringContainsString( 'viswiz_row_payload_validation', $guard );
     }
 
