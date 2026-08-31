@@ -69,6 +69,16 @@ final class GraphRuntimeTest extends TestCase {
         self::assertStringContainsString( 'focusHops', $javascript );
     }
 
+    public function test_modal_presentation_restores_legacy_blank_line_paragraphs(): void {
+        $runtime = file_get_contents( $this->root . '/src/Runtime/GraphRuntime.php' );
+
+        self::assertStringContainsString( 'paragraphizeLegacyDescription', $runtime );
+        self::assertStringContainsString( "node.textContent.split(/\\n[ \\t]*\\n+/)", $runtime );
+        self::assertStringContainsString( "document.createElement('p')", $runtime );
+        self::assertStringContainsString( 'description.replaceChildren(fragment)', $runtime );
+        self::assertStringContainsString( 'normalizeDescriptionBlocks', $runtime );
+    }
+
     public function test_global_observer_only_tracks_structural_child_changes(): void {
         $javascript = file_get_contents( $this->root . '/assets/viswiz-graph-runtime.js' );
 
