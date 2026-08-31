@@ -48,9 +48,56 @@ CSS;
 (() => {
   'use strict';
 
+  const paragraphizeLegacyDescription = (description) => {
+    if (!description || description.querySelector(':scope > p')) return;
+
+    const blockTags = new Set(['UL', 'OL', 'BLOCKQUOTE', 'PRE', 'TABLE', 'FIGURE', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+    const sourceNodes = [...description.childNodes];
+    const hasContent = sourceNodes.some((node) => node.nodeType !== Node.TEXT_NODE || node.textContent.trim() !== '');
+    if (!hasContent) return;
+
+    const fragment = document.createDocumentFragment();
+    let paragraph = null;
+
+    const ensureParagraph = () => {
+      if (!paragraph) paragraph = document.createElement('p');
+      return paragraph;
+    };
+
+    const flushParagraph = () => {
+      if (!paragraph) return;
+      if (paragraph.textContent.trim() !== '' || paragraph.children.length) fragment.appendChild(paragraph);
+      paragraph = null;
+    };
+
+    sourceNodes.forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE && blockTags.has(node.tagName)) {
+        flushParagraph();
+        fragment.appendChild(node);
+        return;
+      }
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        const chunks = node.textContent.split(/\n[ \t]*\n+/);
+        chunks.forEach((chunk, index) => {
+          if (index > 0) flushParagraph();
+          if (!paragraph && chunk.trim() === '') return;
+          ensureParagraph().appendChild(document.createTextNode(chunk));
+        });
+        return;
+      }
+
+      ensureParagraph().appendChild(node);
+    });
+
+    flushParagraph();
+    if (fragment.childNodes.length) description.replaceChildren(fragment);
+  };
+
   const normalizeDescriptionBlocks = (overlay) => {
     const description = overlay?.querySelector?.('.viswiz-node-description');
     if (!description) return;
+    paragraphizeLegacyDescription(description);
     description.querySelectorAll(':scope > p, :scope > ul, :scope > ol, :scope > blockquote')
       .forEach((block) => block.style.setProperty('display', 'block', 'important'));
   };
