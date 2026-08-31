@@ -48,6 +48,13 @@ CSS;
 (() => {
   'use strict';
 
+  const normalizeDescriptionBlocks = (overlay) => {
+    const description = overlay?.querySelector?.('.viswiz-node-description');
+    if (!description) return;
+    description.querySelectorAll(':scope > p, :scope > ul, :scope > ol, :scope > blockquote')
+      .forEach((block) => block.style.setProperty('display', 'block', 'important'));
+  };
+
   const groupRelatedNodes = (overlay) => {
     const list = overlay?.querySelector?.('.viswiz-related-list');
     if (!list || list.dataset.viswizGroupedRelations === '1') return;
@@ -85,15 +92,18 @@ CSS;
     list.dataset.viswizGroupedRelations = '1';
   };
 
-  const groupOpenModals = () => {
+  const enhanceOpenModals = () => {
     document.querySelectorAll('.viswiz-modal-overlay:not(.viswiz-property-overlay)')
-      .forEach(groupRelatedNodes);
+      .forEach((overlay) => {
+        normalizeDescriptionBlocks(overlay);
+        groupRelatedNodes(overlay);
+      });
   };
 
   let scheduled = 0;
   const schedule = () => {
     window.clearTimeout(scheduled);
-    scheduled = window.setTimeout(groupOpenModals, 0);
+    scheduled = window.setTimeout(enhanceOpenModals, 0);
   };
 
   document.addEventListener('click', schedule, true);

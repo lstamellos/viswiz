@@ -26,10 +26,23 @@ test('public node modal preserves rich-text blocks and groups related nodes by r
   const overlay = page.locator('body > .viswiz-modal-overlay:not(.viswiz-property-overlay)');
   await expect(overlay.locator('.viswiz-node-modal h3')).toHaveText('Alice Reporter');
 
-  await page.addStyleTag({
-    content: '.viswiz-node-description>p{display:inline!important}',
+  const description = overlay.locator('.viswiz-node-description');
+  await description.evaluate((element) => {
+    const second = document.createElement('p');
+    second.textContent = 'Second paragraph for block-flow regression.';
+    element.appendChild(second);
   });
-  await expect(overlay.locator('.viswiz-node-description > p')).toHaveCSS('display', 'block');
+  await page.addStyleTag({
+    content: 'html body .viswiz-modal-overlay .viswiz-node-modal .viswiz-node-description > p{display:inline!important}',
+  });
+  await page.evaluate(() => document.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+  const paragraphs = description.locator(':scope > p');
+  await expect(paragraphs).toHaveCount(2);
+  await expect(paragraphs.nth(0)).toHaveCSS('display', 'block');
+  await expect(paragraphs.nth(1)).toHaveCSS('display', 'block');
+  const paragraphTops = await paragraphs.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().top));
+  expect(paragraphTops[1]).toBeGreaterThan(paragraphTops[0]);
 
   const groups = overlay.locator('.viswiz-related-list > .viswiz-related-group');
   await expect(groups).toHaveCount(2);
