@@ -13,7 +13,7 @@ function captureClientErrors(page) {
   return errors;
 }
 
-test('public node modal restores rich-text blocks, groups relations, and left-aligns wrapped related links', async ({ page }) => {
+test('public node modal restores rich-text blocks, groups relations, and aligns wrapped related links', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await page.goto(`/?page_id=${fixture.pageId}`);
 
@@ -70,11 +70,19 @@ test('public node modal restores rich-text blocks, groups relations, and left-al
     element.style.width = '240px';
   });
   await page.addStyleTag({
-    content: 'html body .viswiz-node-modal .viswiz-related-group-nodes>li{ text-align:center!important } html body .viswiz-node-modal .viswiz-related-group-nodes .viswiz-related-node-link{ text-align:center!important }',
+    content: 'html body .viswiz-node-modal .viswiz-related-group-nodes>li{ text-align:center!important } html body .viswiz-node-modal .viswiz-related-group-nodes .viswiz-related-node-link{ text-align:center!important;vertical-align:baseline!important }',
   });
   await expect(wrappedRelated).toHaveCSS('text-align', 'left');
   await expect(wrappedRelated).toHaveCSS('white-space', 'normal');
+  await expect(wrappedRelated).toHaveCSS('vertical-align', 'top');
   await expect(wrappedRelated.locator('xpath=..')).toHaveCSS('text-align', 'left');
+  const relatedGeometry = await wrappedRelated.evaluate((element) => {
+    const link = element.getBoundingClientRect();
+    const item = element.parentElement.getBoundingClientRect();
+    return { linkTop: link.top, itemTop: item.top, linkHeight: link.height };
+  });
+  expect(relatedGeometry.linkHeight).toBeGreaterThan(30);
+  expect(Math.abs(relatedGeometry.linkTop - relatedGeometry.itemTop)).toBeLessThan(2);
 
   await wrappedRelated.click();
   const nextOverlay = page.locator('body > .viswiz-modal-overlay:not(.viswiz-property-overlay)');
