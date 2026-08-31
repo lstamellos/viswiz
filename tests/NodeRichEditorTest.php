@@ -56,8 +56,8 @@ final class NodeRichEditorTest extends TestCase {
 
     public function test_rich_editor_release_does_not_change_database_schema_version(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        self::assertStringContainsString( 'Version: 2.0.28', $plugin );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.28' );", $plugin );
+        self::assertStringContainsString( 'Version: 2.0.29', $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.29' );", $plugin );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
     }
 }
