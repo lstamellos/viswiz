@@ -40,6 +40,13 @@ final class DatasetEditorPage {
             VISWIZ_VERSION,
             true
         );
+        wp_enqueue_script(
+            'viswiz-dataset-editor-keyboard',
+            VISWIZ_URL . 'assets/viswiz-dataset-editor-keyboard.js',
+            array( 'viswiz-dataset-editor-v2' ),
+            VISWIZ_VERSION,
+            true
+        );
         wp_add_inline_style(
             'viswiz-admin-v2',
             '.viswiz-server-editor-loading{padding:18px 0;color:#646970}.viswiz-server-editor-section+.viswiz-server-editor-section{margin-top:26px}.viswiz-node-picker{display:grid;gap:6px}.viswiz-node-picker select{min-height:150px;width:100%}.viswiz-editor-pager{display:flex;align-items:center;gap:10px;margin:12px 0}.viswiz-server-status{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.viswiz-server-status code{font-size:11px}.viswiz-server-search-note{margin:4px 0 0;color:#646970}'
