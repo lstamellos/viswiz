@@ -13,7 +13,7 @@ function captureClientErrors(page) {
   return errors;
 }
 
-test('public node modal restores legacy rich-text paragraphs and groups related nodes by relation label', async ({ page }) => {
+test('public node modal restores rich-text blocks, groups relations, and left-aligns wrapped related links', async ({ page }) => {
   const clientErrors = captureClientErrors(page);
   await page.goto(`/?page_id=${fixture.pageId}`);
 
@@ -64,7 +64,19 @@ test('public node modal restores legacy rich-text paragraphs and groups related 
   await expect(groups.nth(0).locator('.viswiz-related-node-link')).toHaveText(['Organization Alpha']);
   await expect(groups.nth(1).locator('.viswiz-related-node-link')).toHaveText(['Event Gamma']);
 
-  await groups.nth(0).locator('.viswiz-related-node-link').click();
+  const wrappedRelated = groups.nth(0).locator('.viswiz-related-node-link').first();
+  await wrappedRelated.evaluate((element) => {
+    element.textContent = 'Phase C Organization With An Intentionally Very Long Complete Node Title For Wrapping Verification';
+    element.style.width = '240px';
+  });
+  await page.addStyleTag({
+    content: 'html body .viswiz-node-modal .viswiz-related-group-nodes>li{ text-align:center!important } html body .viswiz-node-modal .viswiz-related-group-nodes .viswiz-related-node-link{ text-align:center!important }',
+  });
+  await expect(wrappedRelated).toHaveCSS('text-align', 'left');
+  await expect(wrappedRelated).toHaveCSS('white-space', 'normal');
+  await expect(wrappedRelated.locator('xpath=..')).toHaveCSS('text-align', 'left');
+
+  await wrappedRelated.click();
   const nextOverlay = page.locator('body > .viswiz-modal-overlay:not(.viswiz-property-overlay)');
   await expect(nextOverlay.locator('.viswiz-node-modal h3')).toHaveText('Organization Alpha');
 
