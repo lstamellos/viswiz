@@ -132,6 +132,7 @@ CSS;
         link.style.setProperty('text-align', 'left', 'important');
         link.style.setProperty('white-space', 'normal');
         link.style.setProperty('max-width', '100%');
+        link.style.setProperty('vertical-align', 'top', 'important');
         item.appendChild(link);
         nodes.appendChild(item);
       });
