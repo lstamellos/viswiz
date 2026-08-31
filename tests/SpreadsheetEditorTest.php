@@ -65,8 +65,8 @@ final class SpreadsheetEditorTest extends TestCase {
 
     public function test_spreadsheet_release_keeps_database_schema_version(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        self::assertStringContainsString( 'Version: 2.0.25', $plugin );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.25' );", $plugin );
+        self::assertStringContainsString( 'Version: 2.0.26', $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.26' );", $plugin );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
     }
 }
