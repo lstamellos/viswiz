@@ -128,6 +128,10 @@ CSS;
       nodes.className = 'viswiz-related-group-nodes';
       links.forEach((link) => {
         const item = document.createElement('li');
+        item.style.setProperty('text-align', 'left', 'important');
+        link.style.setProperty('text-align', 'left', 'important');
+        link.style.setProperty('white-space', 'normal');
+        link.style.setProperty('max-width', '100%');
         item.appendChild(link);
         nodes.appendChild(item);
       });
