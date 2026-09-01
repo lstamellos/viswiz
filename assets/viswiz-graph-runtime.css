@@ -45,6 +45,7 @@
 .viswiz-related-node-link{appearance:none;border:0;padding:0;background:none;color:var(--viswiz-primary,#2563eb);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .viswiz-related-node-link:hover,.viswiz-related-node-link:focus{text-decoration-thickness:2px}
 .viswiz-modal-overlay[data-viswiz-portaled="1"],.viswiz-property-overlay{z-index:2147483000}
+.viswiz-modal-overlay .viswiz-node-modal{box-sizing:border-box!important}
 .viswiz-connection-focus-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:8px 10px;border:1px solid #dbe3ee;border-radius:9px;background:#f8fafc;color:var(--viswiz-text,#111827);font-size:.88rem}
 .viswiz-connection-focus-bar[hidden]{display:none!important}
 .viswiz-connection-focus-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
