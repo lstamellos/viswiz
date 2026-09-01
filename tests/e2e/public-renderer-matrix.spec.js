@@ -109,8 +109,8 @@ const rendererAssertions = {
   progress: ['.viswiz-progress-track', 2],
   map: ['.viswiz-map-marker', 3],
   diagram: ['.viswiz-diagram-card', 2],
-  flow_diagram: ['[data-viswiz-node-uuid]', 4],
-  org_chart: ['[data-viswiz-node-uuid]', 4],
+  flow_diagram: ['.viswiz-graph-node', 4],
+  org_chart: ['.viswiz-graph-node', 4],
 };
 
 test('all public renderer modes remain contained and usable in a narrow constrained host', async ({ page }) => {
