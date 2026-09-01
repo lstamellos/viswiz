@@ -93,8 +93,8 @@ final class GraphRuntimeTest extends TestCase {
     public function test_release_bump_does_not_change_database_schema_version(): void {
         $bootstrap = file_get_contents( $this->root . '/viswiz.php' );
 
-        self::assertStringContainsString( 'Version: 2.0.31', $bootstrap );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.31' );", $bootstrap );
+        self::assertStringContainsString( 'Version: 2.0.32', $bootstrap );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.32' );", $bootstrap );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $bootstrap );
     }
 }
