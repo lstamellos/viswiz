@@ -3,12 +3,14 @@ namespace VisWiz\Admin;
 
 use VisWiz\Database\DatasetCollectionRepository;
 use VisWiz\Database\DatasetRepository;
+use VisWiz\Domain\Registry;
 use VisWiz\Support;
 
 final class DatasetEditorPage {
     public static function register(): void {
         add_action( 'admin_menu', array( self::class, 'replace_dataset_menu' ), 20 );
         add_action( 'admin_enqueue_scripts', array( self::class, 'assets' ), 60 );
+        add_action( 'admin_post_viswiz_visualization_create_from_dataset', array( self::class, 'create_visualization_from_dataset' ) );
     }
 
     public static function replace_dataset_menu(): void {
@@ -74,6 +76,10 @@ final class DatasetEditorPage {
         $revisions = $repo->revisions( $dataset_id );
         $collection_repo = new DatasetCollectionRepository();
         $orphan_count = 'graph' === $dataset['schema_type'] ? $collection_repo->graph_orphan_count( $dataset_id ) : 0;
+        $compatible_renderers = array_filter(
+            Registry::renderers(),
+            static fn( array $renderer ): bool => in_array( $dataset['schema_type'], $renderer['schemas'], true )
+        );
         ?>
         <div class="wrap viswiz-admin-wrap">
             <p><a href="<?php echo esc_url( admin_url( 'admin.php?page=viswiz-datasets' ) ); ?>">&larr; <?php esc_html_e( 'All datasets', 'viswiz' ); ?></a></p>
@@ -129,6 +135,27 @@ final class DatasetEditorPage {
                         <?php endif; ?>
                     </section>
 
+                    <?php if ( current_user_can( 'edit_viswiz_visualizations' ) ) : ?>
+                        <section class="viswiz-card" data-viswiz-create-visualization>
+                            <h2><?php esc_html_e( 'Create visualization', 'viswiz' ); ?></h2>
+                            <p class="description"><?php esc_html_e( 'Start with this dataset already connected. Only compatible renderers are available.', 'viswiz' ); ?></p>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                                <input type="hidden" name="action" value="viswiz_visualization_create_from_dataset">
+                                <input type="hidden" name="dataset_id" value="<?php echo esc_attr( (string) $dataset_id ); ?>">
+                                <?php wp_nonce_field( 'viswiz_visualization_create_from_dataset_' . $dataset_id ); ?>
+                                <label class="viswiz-field">
+                                    <span><?php esc_html_e( 'Renderer', 'viswiz' ); ?></span>
+                                    <select name="renderer" required>
+                                        <?php foreach ( $compatible_renderers as $key => $renderer ) : ?>
+                                            <option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $renderer['label'] ); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                                <button type="submit" class="button button-primary"><?php esc_html_e( 'Create visualization', 'viswiz' ); ?></button>
+                            </form>
+                        </section>
+                    <?php endif; ?>
+
                     <section class="viswiz-card">
                         <h2><?php esc_html_e( 'Import / export', 'viswiz' ); ?></h2>
                         <p><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_export&dataset_id=' . $dataset_id ), 'viswiz_dataset_export_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Export JSON', 'viswiz' ); ?></a></p>
@@ -165,6 +192,49 @@ final class DatasetEditorPage {
             </div>
         </div>
         <?php
+    }
+
+    public static function create_visualization_from_dataset(): void {
+        if ( ! current_user_can( 'edit_viswiz_datasets' ) || ! current_user_can( 'edit_viswiz_visualizations' ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'viswiz' ) );
+        }
+
+        $dataset_id = absint( $_POST['dataset_id'] ?? 0 );
+        check_admin_referer( 'viswiz_visualization_create_from_dataset_' . $dataset_id );
+
+        $repo = new DatasetRepository();
+        $dataset = $repo->get( $dataset_id );
+        if ( ! $dataset ) {
+            wp_die( esc_html__( 'Dataset not found.', 'viswiz' ) );
+        }
+
+        $renderer = sanitize_key( wp_unslash( $_POST['renderer'] ?? '' ) );
+        if ( ! Registry::renderer_supports_schema( $renderer, (string) $dataset['schema_type'] ) ) {
+            wp_die( esc_html__( 'The selected renderer is not compatible with the dataset schema.', 'viswiz' ) );
+        }
+
+        $renderers = Registry::renderers();
+        $renderer_label = (string) ( $renderers[ $renderer ]['label'] ?? $renderer );
+        $post_id = wp_insert_post(
+            array(
+                'post_type'   => 'viswiz_visualization',
+                'post_status' => 'draft',
+                'post_author' => get_current_user_id(),
+                'post_title'  => sanitize_text_field( $dataset['name'] . ' — ' . $renderer_label ),
+            ),
+            true
+        );
+        if ( is_wp_error( $post_id ) ) {
+            wp_die( esc_html( $post_id->get_error_message() ) );
+        }
+
+        $post_id = (int) $post_id;
+        update_post_meta( $post_id, '_viswiz_renderer', $renderer );
+        update_post_meta( $post_id, '_viswiz_source_type', 'dataset' );
+        update_post_meta( $post_id, '_viswiz_dataset_id', $dataset_id );
+
+        wp_safe_redirect( admin_url( 'post.php?post=' . $post_id . '&action=edit&viswiz_created_from_dataset=1' ) );
+        exit;
     }
 
     private static function woo_fields(): void {
