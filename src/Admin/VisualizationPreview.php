@@ -1,10 +1,25 @@
 <?php
 namespace VisWiz\Admin;
 
+use VisWiz\Frontend\Frontend;
+
 final class VisualizationPreview {
+    private const BOOLEAN_SETTINGS = array(
+        'full_screen',
+        'show_legend',
+        'show_graph_toolbar',
+        'show_graph_search',
+        'show_graph_filters',
+        'show_graph_zoom',
+        'show_node_images',
+        'show_type_badges',
+        'show_relation_labels',
+    );
+
     public static function register(): void {
         add_action( 'add_meta_boxes_viswiz_visualization', array( self::class, 'meta_box' ), 20 );
         add_action( 'admin_enqueue_scripts', array( self::class, 'assets' ), 90 );
+        add_action( 'save_post_viswiz_visualization', array( self::class, 'normalize_saved_settings' ), 20, 2 );
     }
 
     public static function meta_box(): void {
@@ -53,5 +68,23 @@ final class VisualizationPreview {
             <p class="description viswiz-live-preview-status" data-viswiz-preview-status aria-live="polite"></p>
         </div>
         <?php
+    }
+
+    public static function normalize_saved_settings( int $post_id, \WP_Post $post ): void {
+        if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+            return;
+        }
+        if ( ! isset( $_POST['viswiz_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['viswiz_nonce'] ) ), 'viswiz_save_visualization' ) ) {
+            return;
+        }
+        if ( ! current_user_can( 'edit_post', $post_id ) || ! isset( $_POST['viswiz_settings'] ) ) {
+            return;
+        }
+
+        $raw = (array) wp_unslash( $_POST['viswiz_settings'] );
+        foreach ( self::BOOLEAN_SETTINGS as $key ) {
+            $raw[ $key ] = isset( $raw[ $key ] ) ? rest_sanitize_boolean( $raw[ $key ] ) : false;
+        }
+        update_post_meta( $post_id, '_viswiz_settings', Frontend::sanitize_settings( $raw ) );
     }
 }
