@@ -6,6 +6,7 @@ use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\ImportUi;
 use VisWiz\Admin\NodePublicFields;
 use VisWiz\Admin\NodeRichEditor;
+use VisWiz\Admin\VisualizationPreview;
 use VisWiz\Database\Migrator;
 use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
@@ -42,6 +43,7 @@ final class Plugin {
         DatasetEditorPage::register();
         NodeRichEditor::register();
         NodePublicFields::register();
+        VisualizationPreview::register();
         ImportUi::register();
         Api::register();
         DatasetEditorApi::register();
@@ -113,6 +115,7 @@ final class Plugin {
             'delete_others_viswiz_visualizations',
             'edit_private_viswiz_visualizations',
             'edit_published_viswiz_visualizations',
+            'create_posts' => 'edit_viswiz_visualizations',
             'edit_viswiz_datasets',
         );
 
