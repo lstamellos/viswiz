@@ -253,11 +253,30 @@ if ( is_wp_error( $page_id ) ) {
 }
 $page_id = (int) $page_id;
 
+$block_page_content = sprintf(
+    '<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">\n<!-- wp:heading {"level":2} -->\n<h2 class="wp-block-heading">VisWiz Gutenberg block fixture</h2>\n<!-- /wp:heading -->\n<!-- wp:viswiz/visualization {"visualizationId":%1$d} /-->\n<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity"/>\n<!-- /wp:separator -->\n<!-- wp:viswiz/visualization {"visualizationId":%1$d} /-->\n</div>\n<!-- /wp:group -->',
+    $visualization_id
+);
+$block_page_id = wp_insert_post(
+    array(
+        'post_type'    => 'page',
+        'post_title'   => 'VisWiz E2E Gutenberg page',
+        'post_status'  => 'publish',
+        'post_content' => $block_page_content,
+    ),
+    true
+);
+if ( is_wp_error( $block_page_id ) ) {
+    viswiz_e2e_fail( 'Could not create E2E Gutenberg page: ' . $block_page_id->get_error_message() );
+}
+$block_page_id = (int) $block_page_id;
+
 $fixture = array(
     'graphDatasetId' => $graph_id,
     'rowDatasetId' => $row_id,
     'visualizationId' => $visualization_id,
     'pageId' => $page_id,
+    'blockPageId' => $block_page_id,
     'graphRevision' => $revision,
     'rowRevision' => $row_revision,
     'nodeUuids' => array(
