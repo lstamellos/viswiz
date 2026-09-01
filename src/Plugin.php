@@ -115,7 +115,6 @@ final class Plugin {
             'delete_others_viswiz_visualizations',
             'edit_private_viswiz_visualizations',
             'edit_published_viswiz_visualizations',
-            'create_posts' => 'edit_viswiz_visualizations',
             'edit_viswiz_datasets',
         );
 
