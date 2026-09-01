@@ -36,23 +36,55 @@ test('public graph remains contained and usable at a narrow mobile viewport', as
   await page.setViewportSize({ width: viewportWidth, height: viewportHeight });
   await page.goto(`/?page_id=${fixture.pageId}`);
 
-  const graph = page.locator('.viswiz-visualization').first();
-  const toolbar = graph.locator('.viswiz-graph-toolbar');
-  await expect(graph.locator('.viswiz-graph-frame')).toBeVisible();
-  await expect(toolbar).toBeVisible();
-  await expectInsideViewport(graph, viewportWidth);
+  const graphs = page.locator('.viswiz-visualization');
+  await expect(graphs).toHaveCount(2);
+  for (const instance of await graphs.all()) {
+    await expect(instance.locator('.viswiz-graph-frame')).toBeVisible();
+    await expectInsideViewport(instance, viewportWidth);
+  }
 
+  const graph = graphs.first();
+  const toolbar = graph.locator('.viswiz-graph-toolbar');
+  await expect(toolbar).toBeVisible();
   for (const control of await toolbar.locator('input, select, button').all()) {
     if (await control.isVisible()) await expectContained(control, graph);
   }
 
-  // The stock WordPress E2E theme may itself be wider than the emulated mobile
-  // viewport. Measure that baseline separately: VisWiz must not make the page
-  // wider than it already is, rather than claiming ownership of theme overflow.
-  const overflowMetrics = await page.evaluate(() => {
+  const overflowMetrics = await page.evaluate((mobileWidth) => {
     const root = document.documentElement;
-    const withVisWiz = root.scrollWidth;
     const visualizations = [...document.querySelectorAll('.viswiz-visualization')];
+    const box = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        tag: element.tagName,
+        className: typeof element.className === 'string' ? element.className : element.className?.baseVal || '',
+        left: Math.round(rect.left * 100) / 100,
+        right: Math.round(rect.right * 100) / 100,
+        width: Math.round(rect.width * 100) / 100,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowX: getComputedStyle(element).overflowX,
+      };
+    };
+
+    const withVisWiz = root.scrollWidth;
+    const visualizationBoxes = visualizations.map(box);
+    const offenders = visualizations
+      .flatMap((visualization, visualizationIndex) => [...visualization.querySelectorAll('*')]
+        .map((element) => ({ visualizationIndex, ...box(element) })))
+      .filter((entry) => entry.left < -1 || entry.right > mobileWidth + 1)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 20);
+
+    const hiddenIndividually = visualizations.map((element) => {
+      const previous = element.style.getPropertyValue('display');
+      element.style.setProperty('display', 'none', 'important');
+      const scrollWidth = root.scrollWidth;
+      if (previous) element.style.setProperty('display', previous);
+      else element.style.removeProperty('display');
+      return scrollWidth;
+    });
+
     const previous = visualizations.map((element) => element.style.getPropertyValue('display'));
     visualizations.forEach((element) => element.style.setProperty('display', 'none', 'important'));
     const withoutVisWiz = root.scrollWidth;
@@ -60,9 +92,13 @@ test('public graph remains contained and usable at a narrow mobile viewport', as
       if (previous[index]) element.style.setProperty('display', previous[index]);
       else element.style.removeProperty('display');
     });
-    return { withVisWiz, withoutVisWiz };
-  });
-  expect(overflowMetrics.withVisWiz).toBeLessThanOrEqual(Math.max(viewportWidth, overflowMetrics.withoutVisWiz));
+
+    return { withVisWiz, withoutVisWiz, visualizationBoxes, hiddenIndividually, offenders };
+  }, viewportWidth);
+  expect(
+    overflowMetrics.withVisWiz,
+    `VisWiz mobile overflow diagnostics:\n${JSON.stringify(overflowMetrics, null, 2)}`
+  ).toBeLessThanOrEqual(Math.max(viewportWidth, overflowMetrics.withoutVisWiz));
 
   const alice = graph.locator(`[data-viswiz-node-uuid="${fixture.nodeUuids.alice}"]`);
   await alice.click();
