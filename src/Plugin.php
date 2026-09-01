@@ -11,6 +11,7 @@ use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
 use VisWiz\Rest\DatasetEditorApi;
 use VisWiz\Rest\ImportApi;
+use VisWiz\Rest\VisualizationPreviewApi;
 use VisWiz\Update\GitHubUpdater;
 use VisWiz\WooCommerce\Compatibility;
 
@@ -45,6 +46,7 @@ final class Plugin {
         Api::register();
         DatasetEditorApi::register();
         ImportApi::register();
+        VisualizationPreviewApi::register();
         Frontend::register();
         GitHubUpdater::register();
         Compatibility::register();
