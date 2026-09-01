@@ -6,11 +6,13 @@ use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\ImportUi;
 use VisWiz\Admin\NodePublicFields;
 use VisWiz\Admin\NodeRichEditor;
+use VisWiz\Admin\VisualizationPreview;
 use VisWiz\Database\Migrator;
 use VisWiz\Frontend\Frontend;
 use VisWiz\Rest\Api;
 use VisWiz\Rest\DatasetEditorApi;
 use VisWiz\Rest\ImportApi;
+use VisWiz\Rest\VisualizationPreviewApi;
 use VisWiz\Update\GitHubUpdater;
 use VisWiz\WooCommerce\Compatibility;
 
@@ -41,10 +43,12 @@ final class Plugin {
         DatasetEditorPage::register();
         NodeRichEditor::register();
         NodePublicFields::register();
+        VisualizationPreview::register();
         ImportUi::register();
         Api::register();
         DatasetEditorApi::register();
         ImportApi::register();
+        VisualizationPreviewApi::register();
         Frontend::register();
         GitHubUpdater::register();
         Compatibility::register();
