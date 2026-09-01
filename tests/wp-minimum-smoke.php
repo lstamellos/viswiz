@@ -10,7 +10,7 @@ function viswiz_minimum_assert( bool $condition, string $message ): void {
 
 viswiz_minimum_assert( version_compare( get_bloginfo( 'version' ), '6.5', '>=' ), 'WordPress is older than the declared minimum.' );
 viswiz_minimum_assert( (int) get_option( 'viswiz_db_schema_version' ) === VISWIZ_DB_VERSION, 'DB migration did not complete on the minimum WordPress version.' );
-viswiz_minimum_assert( '2.0.30' === VISWIZ_VERSION, 'Unexpected plugin version in minimum-version smoke test.' );
+viswiz_minimum_assert( '2.0.31' === VISWIZ_VERSION, 'Unexpected plugin version in minimum-version smoke test.' );
 
 $invalid = RowWriteGuard::normalize_payload( 'geo', array( 'rows' => array( array( 'label' => 'Missing coordinates' ) ) ) );
 viswiz_minimum_assert( is_wp_error( $invalid ) && 'viswiz_row_payload_validation' === $invalid->get_error_code(), 'Canonical row guard did not reject an invalid geo payload.' );
