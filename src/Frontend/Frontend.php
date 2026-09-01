@@ -83,19 +83,47 @@ final class Frontend {
             return new WP_Error( 'viswiz_visualization_not_found', __( 'Visualization not found.', 'viswiz' ), array( 'status' => 404 ) );
         }
 
-        $renderer = sanitize_key( (string) get_post_meta( $post_id, '_viswiz_renderer', true ) );
+        return self::build_payload(
+            array(
+                'id'          => $post_id,
+                'title'       => get_the_title( $post_id ),
+                'renderer'    => get_post_meta( $post_id, '_viswiz_renderer', true ),
+                'source_type' => get_post_meta( $post_id, '_viswiz_source_type', true ),
+                'dataset_id'  => get_post_meta( $post_id, '_viswiz_dataset_id', true ),
+                'settings'    => get_post_meta( $post_id, '_viswiz_settings', true ),
+                'woo_config'  => Support::json_decode_array( get_post_meta( $post_id, '_viswiz_woo_config', true ) ),
+            )
+        );
+    }
+
+    public static function preview_payload( array $config ) {
+        return self::build_payload(
+            array(
+                'id'          => absint( $config['id'] ?? 0 ),
+                'title'       => sanitize_text_field( (string) ( $config['title'] ?? '' ) ),
+                'renderer'    => $config['renderer'] ?? 'pie',
+                'source_type' => $config['source_type'] ?? 'dataset',
+                'dataset_id'  => $config['dataset_id'] ?? 0,
+                'settings'    => (array) ( $config['settings'] ?? array() ),
+                'woo_config'  => (array) ( $config['woo_config'] ?? array() ),
+            )
+        );
+    }
+
+    private static function build_payload( array $config ) {
+        $renderer = sanitize_key( (string) ( $config['renderer'] ?? 'pie' ) );
         if ( ! Registry::renderer_exists( $renderer ) ) {
             $renderer = 'pie';
         }
-        $source   = sanitize_key( (string) get_post_meta( $post_id, '_viswiz_source_type', true ) );
-        $settings = self::settings( $post_id );
+        $source   = sanitize_key( (string) ( $config['source_type'] ?? 'dataset' ) );
+        $settings = self::sanitize_settings( $config['settings'] ?? array() );
         $schema   = Registry::default_schema_for_renderer( $renderer );
         $data     = array();
         $meta     = array();
 
         if ( 'woo_live' === $source ) {
             $query  = new SalesQuery();
-            $result = $query->query( Support::json_decode_array( get_post_meta( $post_id, '_viswiz_woo_config', true ) ), true );
+            $result = $query->query( (array) ( $config['woo_config'] ?? array() ), true );
             if ( is_wp_error( $result ) ) {
                 return $result;
             }
@@ -106,7 +134,7 @@ final class Frontend {
             );
         } else {
             $source     = 'dataset';
-            $dataset_id = absint( get_post_meta( $post_id, '_viswiz_dataset_id', true ) );
+            $dataset_id = absint( $config['dataset_id'] ?? 0 );
             if ( ! $dataset_id ) {
                 return new WP_Error( 'viswiz_dataset_missing', __( 'This visualization is not connected to a dataset.', 'viswiz' ), array( 'status' => 409 ) );
             }
@@ -128,8 +156,8 @@ final class Frontend {
         }
 
         return array(
-            'id'          => $post_id,
-            'title'       => get_the_title( $post_id ),
+            'id'          => absint( $config['id'] ?? 0 ),
+            'title'       => (string) ( $config['title'] ?? '' ),
             'renderer'    => $renderer,
             'schema'      => $schema,
             'source_type' => $source,
@@ -139,7 +167,6 @@ final class Frontend {
             'refresh_ms'  => 'woo_live' === $source ? max( 60000, absint( $settings['refresh_ms'] ?? 120000 ) ) : 0,
         );
     }
-
 
     private static function public_dataset_payload( string $schema, array $payload ): array {
         if ( 'graph' === $schema ) {
