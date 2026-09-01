@@ -49,6 +49,18 @@ final class VisualizationPreview {
             VISWIZ_VERSION,
             true
         );
+        wp_localize_script(
+            'viswiz-visualization-preview',
+            'VisWizVisualizationPreview',
+            array(
+                'i18n' => array(
+                    'updating'            => __( 'Updating unsaved preview…', 'viswiz' ),
+                    'updated'             => __( 'Preview updated. These changes are still unsaved.', 'viswiz' ),
+                    'rendererUnavailable' => __( 'The public visualization renderer is unavailable.', 'viswiz' ),
+                    'updateError'         => __( 'Could not update the preview.', 'viswiz' ),
+                ),
+            )
+        );
         wp_add_inline_style(
             'viswiz-admin-v2',
             '.viswiz-live-preview-note{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.viswiz-live-preview-badge{display:inline-block;padding:2px 7px;border:1px solid #dba617;border-radius:999px;background:#fcf9e8;font-weight:600}.viswiz-admin-live-preview{min-height:180px;max-width:100%;overflow:hidden;border:1px solid #dcdcde;border-radius:4px;padding:12px;background:#fff;box-sizing:border-box}.viswiz-live-preview-status{margin:8px 0 0}.viswiz-live-preview-status.is-error{color:#b32d2e}'
