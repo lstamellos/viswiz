@@ -96,21 +96,41 @@ final class Registry {
     }
 
     public static function renderers(): array {
+        $common = array( 'title', 'primary_color', 'secondary_color', 'text_color', 'background_color', 'full_screen' );
+        $graph  = array_merge(
+            $common,
+            array(
+                'node_modal_title_fallback',
+                'node_modal_close_label',
+                'node_modal_previous_image_label',
+                'node_modal_next_image_label',
+                'node_modal_related_heading',
+                'node_modal_relation_fallback',
+                'show_node_images',
+                'show_type_badges',
+                'show_relation_labels',
+                'show_graph_toolbar',
+                'show_graph_search',
+                'show_graph_filters',
+                'show_graph_zoom',
+            )
+        );
+
         return array(
-            'pie'          => array( 'label' => 'Pie', 'schemas' => array( 'categorical' ) ),
-            'bar'          => array( 'label' => 'Bar', 'schemas' => array( 'categorical' ) ),
-            'column'       => array( 'label' => 'Column', 'schemas' => array( 'categorical' ) ),
-            'line'         => array( 'label' => 'Line', 'schemas' => array( 'time_series', 'categorical' ) ),
-            'area'         => array( 'label' => 'Area', 'schemas' => array( 'time_series', 'categorical' ) ),
-            'scatter'      => array( 'label' => 'Scatter', 'schemas' => array( 'xy' ) ),
-            'progress'     => array( 'label' => 'Progress', 'schemas' => array( 'progress', 'categorical' ) ),
-            'counter'      => array( 'label' => 'Counter', 'schemas' => array( 'categorical' ) ),
-            'timeline'     => array( 'label' => 'Timeline', 'schemas' => array( 'time_series' ) ),
-            'map'          => array( 'label' => 'Map', 'schemas' => array( 'geo' ) ),
-            'graph'        => array( 'label' => 'Graph', 'schemas' => array( 'graph' ) ),
-            'flow_diagram' => array( 'label' => 'Flow diagram', 'schemas' => array( 'graph' ) ),
-            'org_chart'    => array( 'label' => 'Org chart', 'schemas' => array( 'graph' ) ),
-            'diagram'      => array( 'label' => 'Diagram', 'schemas' => array( 'diagram' ) ),
+            'pie'          => array( 'label' => 'Pie', 'schemas' => array( 'categorical' ), 'woo_live' => true, 'settings' => array_merge( $common, array( 'show_legend' ) ) ),
+            'bar'          => array( 'label' => 'Bar', 'schemas' => array( 'categorical' ), 'woo_live' => true, 'settings' => $common ),
+            'column'       => array( 'label' => 'Column', 'schemas' => array( 'categorical' ), 'woo_live' => true, 'settings' => $common ),
+            'line'         => array( 'label' => 'Line', 'schemas' => array( 'time_series', 'categorical' ), 'woo_live' => true, 'settings' => $common ),
+            'area'         => array( 'label' => 'Area', 'schemas' => array( 'time_series', 'categorical' ), 'woo_live' => true, 'settings' => $common ),
+            'scatter'      => array( 'label' => 'Scatter', 'schemas' => array( 'xy' ), 'woo_live' => false, 'settings' => $common ),
+            'progress'     => array( 'label' => 'Progress', 'schemas' => array( 'progress', 'categorical' ), 'woo_live' => true, 'settings' => array_merge( $common, array( 'target' ) ) ),
+            'counter'      => array( 'label' => 'Counter', 'schemas' => array( 'categorical' ), 'woo_live' => true, 'settings' => $common ),
+            'timeline'     => array( 'label' => 'Timeline', 'schemas' => array( 'time_series' ), 'woo_live' => true, 'settings' => $common ),
+            'map'          => array( 'label' => 'Map', 'schemas' => array( 'geo' ), 'woo_live' => false, 'settings' => $common ),
+            'graph'        => array( 'label' => 'Graph', 'schemas' => array( 'graph' ), 'woo_live' => false, 'settings' => $graph ),
+            'flow_diagram' => array( 'label' => 'Flow diagram', 'schemas' => array( 'graph' ), 'woo_live' => false, 'settings' => $graph ),
+            'org_chart'    => array( 'label' => 'Org chart', 'schemas' => array( 'graph' ), 'woo_live' => false, 'settings' => $graph ),
+            'diagram'      => array( 'label' => 'Diagram', 'schemas' => array( 'diagram' ), 'woo_live' => false, 'settings' => $common ),
         );
     }
 
@@ -125,6 +145,47 @@ final class Registry {
     public static function renderer_supports_schema( string $renderer, string $schema ): bool {
         $renderers = self::renderers();
         return isset( $renderers[ $renderer ] ) && in_array( $schema, $renderers[ $renderer ]['schemas'], true );
+    }
+
+    public static function renderer_supports_woo_live( string $renderer ): bool {
+        $renderers = self::renderers();
+        return ! empty( $renderers[ $renderer ]['woo_live'] );
+    }
+
+    public static function renderer_settings( string $renderer ): array {
+        $renderers = self::renderers();
+        return isset( $renderers[ $renderer ] ) ? (array) $renderers[ $renderer ]['settings'] : array();
+    }
+
+    public static function renderer_setting_defaults( string $renderer = '' ): array {
+        $known  = self::renderer_exists( $renderer );
+        $active = $known ? self::renderer_settings( $renderer ) : array();
+        $enabled = static fn( string $key ): bool => ! $known || in_array( $key, $active, true );
+
+        return array(
+            'title'                 => '',
+            'primary_color'         => '#2563eb',
+            'secondary_color'       => '#64748b',
+            'text_color'            => '#111827',
+            'background_color'      => '#ffffff',
+            'full_screen'           => true,
+            'show_legend'           => $enabled( 'show_legend' ),
+            'show_graph_toolbar'    => $enabled( 'show_graph_toolbar' ),
+            'show_graph_search'     => $enabled( 'show_graph_search' ),
+            'show_graph_filters'    => $enabled( 'show_graph_filters' ),
+            'show_graph_zoom'       => $enabled( 'show_graph_zoom' ),
+            'show_node_images'      => $enabled( 'show_node_images' ),
+            'show_type_badges'      => $enabled( 'show_type_badges' ),
+            'show_relation_labels'  => $enabled( 'show_relation_labels' ),
+            'node_modal_title_fallback'       => __( 'Node details', 'viswiz' ),
+            'node_modal_close_label'          => __( 'Close node details', 'viswiz' ),
+            'node_modal_previous_image_label' => __( 'Previous image', 'viswiz' ),
+            'node_modal_next_image_label'     => __( 'Next image', 'viswiz' ),
+            'node_modal_related_heading'      => __( 'Related nodes', 'viswiz' ),
+            'node_modal_relation_fallback'    => __( 'Relation', 'viswiz' ),
+            'target'                => 0.0,
+            'refresh_ms'            => 120000,
+        );
     }
 
     public static function default_schema_for_renderer( string $renderer ): string {
