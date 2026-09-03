@@ -2,6 +2,7 @@
   'use strict';
 
   const cfg = window.VisWizAdminV2 || {};
+  const runtime = window.VisWizRendererSettings || {};
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -119,9 +120,11 @@
 
     const meta = cfg.renderers?.[renderer.value] || {};
     const active = new Set(Array.isArray(meta.settings) ? meta.settings : []);
+    const supportsWoo = meta.woo_live === true;
+    const canSelectWoo = supportsWoo && runtime.wooAvailable === true;
 
-    if (requestedSource === 'woo_live' && meta.woo_live === true) source.value = 'woo_live';
-    if (meta.woo_live !== true && source.value === 'woo_live') source.value = 'dataset';
+    if (requestedSource === 'woo_live' && canSelectWoo) source.value = 'woo_live';
+    if (!supportsWoo && source.value === 'woo_live') source.value = 'dataset';
 
     $$('[data-viswiz-setting]', root).forEach((label) => {
       const key = label.dataset.viswizSetting || '';
@@ -133,7 +136,7 @@
     });
 
     const wooOption = [...source.options].find((option) => option.value === 'woo_live');
-    if (wooOption) wooOption.disabled = meta.woo_live !== true;
+    if (wooOption) wooOption.disabled = !canSelectWoo;
 
     $$('[data-viswiz-source-panel]', root).forEach((panel) => {
       panel.hidden = panel.dataset.viswizSourcePanel !== source.value;
