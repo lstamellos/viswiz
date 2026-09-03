@@ -4,7 +4,6 @@
   const cfg = window.VisWizWooSourceSelection || {};
   const i18n = cfg.i18n || {};
   const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const tr = (key, fallback) => i18n[key] || fallback;
 
   function ids(value) {
@@ -27,7 +26,7 @@
   }
 
   function picker(input, kind) {
-    if (!input || input.dataset.viswizWooPickerAdapted === '1') return null;
+    if (!input || input.dataset.viswizWooPickerAdapted === '1' || cfg.searchable !== true) return null;
     const key = input.dataset.viswizWoo || '';
     const label = input.closest('label');
     const labelText = label?.querySelector('span');
@@ -48,7 +47,6 @@
       : tr('searchCategories', 'Search product categories…');
     if (kind === 'category') select.dataset.returnId = 'true';
     select.style.width = '100%';
-    select.disabled = cfg.available !== true;
 
     values.forEach((id) => {
       const option = document.createElement('option');
@@ -85,6 +83,9 @@
           ? tr('liveDescription', 'Live query: recalculates from current WooCommerce orders when requested and uses the configured cache/refresh interval. No rows are copied into a dataset.')
           : tr('woocommerceInactive', 'WooCommerce is not active. Existing WooCommerce filter values are preserved, but new live queries or snapshots cannot be run.')
       );
+      if (cfg.available === true && cfg.searchable !== true) {
+        insertDescription(livePanel, 'manual-ids', tr('manualIdsFallback', 'WooCommerce search pickers are not available for this account. Product and category IDs remain editable manually.'));
+      }
     }
 
     const snapshotButton = $('[data-viswiz-commerce-snapshot]');
@@ -96,9 +97,15 @@
       if (cfg.available !== true) {
         snapshotButton.disabled = true;
         insertDescription(snapshot, 'unavailable', tr('woocommerceInactive', 'WooCommerce is not active. Existing WooCommerce filter values are preserved, but new live queries or snapshots cannot be run.'));
+      } else if (cfg.snapshotAllowed !== true) {
+        snapshotButton.disabled = true;
+        insertDescription(snapshot, 'permission', tr('snapshotPermission', 'Your account does not have permission to run WooCommerce snapshots.'));
       } else if (dataset?.dataset.schema === 'graph') {
         snapshotButton.disabled = true;
         insertDescription(snapshot, 'graph', tr('graphSnapshotDisabled', 'WooCommerce snapshots require a row-based dataset and cannot replace graph data.'));
+      }
+      if (cfg.available === true && cfg.searchable !== true) {
+        insertDescription(snapshot, 'manual-ids', tr('manualIdsFallback', 'WooCommerce search pickers are not available for this account. Product and category IDs remain editable manually.'));
       }
     }
   }
@@ -108,7 +115,7 @@
     const category = picker($('[data-viswiz-woo="category_ids"]'), 'category');
     clarifySourceModes();
 
-    if (cfg.available === true && (product || category) && window.jQuery) {
+    if (cfg.searchable === true && (product || category) && window.jQuery) {
       window.jQuery(document.body).trigger('wc-enhanced-select-init');
     }
   }
