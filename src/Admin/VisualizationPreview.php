@@ -1,6 +1,7 @@
 <?php
 namespace VisWiz\Admin;
 
+use VisWiz\Domain\Registry;
 use VisWiz\Frontend\Frontend;
 
 final class VisualizationPreview {
@@ -43,9 +44,16 @@ final class VisualizationPreview {
         wp_enqueue_script( 'viswiz-frontend' );
         wp_enqueue_script( 'viswiz-graph-runtime' );
         wp_enqueue_script(
+            'viswiz-renderer-settings',
+            VISWIZ_URL . 'assets/viswiz-renderer-settings.js',
+            array( 'viswiz-admin-v2' ),
+            VISWIZ_VERSION,
+            true
+        );
+        wp_enqueue_script(
             'viswiz-visualization-preview',
             VISWIZ_URL . 'assets/viswiz-visualization-preview.js',
-            array( 'viswiz-admin-v2', 'viswiz-frontend', 'viswiz-graph-runtime' ),
+            array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' ),
             VISWIZ_VERSION,
             true
         );
@@ -93,10 +101,15 @@ final class VisualizationPreview {
             return;
         }
 
+        $renderer = sanitize_key( (string) wp_unslash( $_POST['viswiz_renderer'] ?? get_post_meta( $post_id, '_viswiz_renderer', true ) ) );
+        if ( ! Registry::renderer_exists( $renderer ) ) {
+            $renderer = 'pie';
+        }
+
         $raw = (array) wp_unslash( $_POST['viswiz_settings'] );
         foreach ( self::BOOLEAN_SETTINGS as $key ) {
             $raw[ $key ] = isset( $raw[ $key ] ) ? rest_sanitize_boolean( $raw[ $key ] ) : false;
         }
-        update_post_meta( $post_id, '_viswiz_settings', Frontend::sanitize_settings( $raw ) );
+        update_post_meta( $post_id, '_viswiz_settings', Frontend::sanitize_settings( $raw, $renderer ) );
     }
 }
