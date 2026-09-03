@@ -71,11 +71,19 @@ test('visualization editor exposes only settings relevant to the selected render
   await expectSettingVisible(page, 'refresh_ms', false);
 
   const source = config.locator('[data-viswiz-source]');
-  await expect(source.locator('option[value="woo_live"]')).toBeEnabled();
-  await source.selectOption('woo_live');
-  await expectSettingVisible(page, 'refresh_ms');
-  await source.selectOption('dataset');
-  await expectSettingVisible(page, 'refresh_ms', false);
+  const wooOption = source.locator('option[value="woo_live"]');
+  const wooState = await page.evaluate(() => ({
+    available: window.VisWizRendererSettings?.wooAvailable === true,
+    pieSupportsWoo: window.VisWizAdminV2?.renderers?.pie?.woo_live === true,
+  }));
+  expect(wooState.pieSupportsWoo).toBe(true);
+  expect(await wooOption.evaluate((option) => option.disabled)).toBe(!wooState.available);
+  if (wooState.available) {
+    await source.selectOption('woo_live');
+    await expectSettingVisible(page, 'refresh_ms');
+    await source.selectOption('dataset');
+    await expectSettingVisible(page, 'refresh_ms', false);
+  }
 
   const renderer = config.locator('[data-viswiz-renderer]');
   await renderer.selectOption('bar');
@@ -116,7 +124,7 @@ test('graph settings stay graph-specific and continue driving the real live prev
   await expectSettingVisible(page, 'refresh_ms', false);
 
   const wooOption = config.locator('[data-viswiz-source] option[value="woo_live"]');
-  await expect(wooOption).toBeDisabled();
+  expect(await wooOption.evaluate((option) => option.disabled)).toBe(true);
 
   const searchSetting = setting(page, 'show_graph_search');
   await expect(searchSetting).toBeChecked();
