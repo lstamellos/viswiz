@@ -14,23 +14,30 @@ final class WooSourceSelectionTest extends TestCase {
 
         self::assertStringContainsString( 'use VisWiz\\Admin\\WooSourceSelection;', $plugin );
         self::assertStringContainsString( 'WooSourceSelection::register();', $plugin );
-        self::assertStringContainsString( "wp_script_is( 'wc-enhanced-select', 'registered' )", $admin );
+        self::assertStringContainsString( "current_user_can( 'edit_products' )", $admin );
+        self::assertStringContainsString( "current_user_can( 'manage_woocommerce' )", $admin );
+        self::assertStringContainsString( "if ( \$searchable && wp_script_is( 'wc-enhanced-select', 'registered' ) )", $admin );
         self::assertStringContainsString( "wp_enqueue_script( 'wc-enhanced-select' );", $admin );
         self::assertStringContainsString( "WC()->plugin_url() . '/assets/css/select2.css'", $admin );
+        self::assertStringContainsString( "'searchable'", $admin );
+        self::assertStringContainsString( "'snapshotAllowed'", $admin );
         self::assertStringContainsString( 'selected_product_labels', $admin );
         self::assertStringContainsString( 'selected_category_labels', $admin );
     }
 
-    public function test_adapter_replaces_raw_id_text_controls_with_native_woo_search_pickers(): void {
+    public function test_adapter_progressively_enhances_ids_only_when_native_woo_search_is_usable(): void {
         $javascript = file_get_contents( $this->root . '/assets/viswiz-woo-source-selection.js' );
 
+        self::assertStringContainsString( "cfg.searchable !== true", $javascript );
         self::assertStringContainsString( "input.type = 'hidden';", $javascript );
         self::assertStringContainsString( "'wc-product-search'", $javascript );
         self::assertStringContainsString( "'wc-category-search'", $javascript );
         self::assertStringContainsString( "select.dataset.returnId = 'true'", $javascript );
         self::assertStringContainsString( "select.dataset.minimumInputLength = '1'", $javascript );
+        self::assertStringContainsString( "cfg.searchable === true && (product || category)", $javascript );
         self::assertStringContainsString( "window.jQuery(document.body).trigger('wc-enhanced-select-init')", $javascript );
         self::assertStringContainsString( "input.value = [...select.selectedOptions]", $javascript );
+        self::assertStringContainsString( "Product and category IDs remain editable manually.", $javascript );
         self::assertStringNotContainsString( 'fetch(', $javascript );
         self::assertStringNotContainsString( 'restUrl', $javascript );
     }
@@ -44,8 +51,10 @@ final class WooSourceSelectionTest extends TestCase {
         self::assertStringContainsString( 'Snapshot: runs the WooCommerce query once', $admin );
         self::assertStringContainsString( 'do not stay synchronized with WooCommerce', $admin );
         self::assertStringContainsString( 'WooCommerce is not active.', $admin );
+        self::assertStringContainsString( 'does not have permission to run WooCommerce snapshots', $admin );
         self::assertStringContainsString( "liveOption.textContent = tr('liveOption'", $javascript );
         self::assertStringContainsString( "snapshotButton.textContent = tr('snapshotButton'", $javascript );
+        self::assertStringContainsString( "cfg.snapshotAllowed !== true", $javascript );
     }
 
     public function test_existing_query_contract_and_database_schema_stay_unchanged(): void {
