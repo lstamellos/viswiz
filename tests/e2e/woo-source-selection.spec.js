@@ -20,7 +20,7 @@ function captureClientErrors(page) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+    if (message.type() === 'error') errors.push(`console: ${message.text()}`));
   });
   return errors;
 }
@@ -54,8 +54,8 @@ test('Woo source filters preserve editable fallback and graceful inactive-Woo be
 
   const productCanonical = page.locator('[data-viswiz-woo="product_ids"]');
   const categoryCanonical = page.locator('[data-viswiz-woo="category_ids"]');
-  await expect(productCanonical).toHaveAttribute('type', 'text');
-  await expect(categoryCanonical).toHaveAttribute('type', 'text');
+  expect(await productCanonical.evaluate((input) => input.type)).toBe('text');
+  expect(await categoryCanonical.evaluate((input) => input.type)).toBe('text');
   await expect(productCanonical).toBeEditable();
   await expect(categoryCanonical).toBeEditable();
   await expect(page.locator('[data-viswiz-woo-picker="product_ids"]')).toHaveCount(0);
