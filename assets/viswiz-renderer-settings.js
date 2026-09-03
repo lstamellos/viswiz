@@ -42,6 +42,12 @@
     return label;
   }
 
+  function setSettingVisible(label, visible) {
+    label.hidden = !visible;
+    if (visible) label.style.removeProperty('display');
+    else label.style.setProperty('display', 'none', 'important');
+  }
+
   function settingsGrid(root, keys) {
     const grid = document.createElement('div');
     grid.className = 'viswiz-form-grid';
@@ -120,10 +126,10 @@
     $$('[data-viswiz-setting]', root).forEach((label) => {
       const key = label.dataset.viswizSetting || '';
       if (key === 'refresh_ms') {
-        label.hidden = source.value !== 'woo_live';
+        setSettingVisible(label, source.value === 'woo_live');
         return;
       }
-      label.hidden = !active.has(key);
+      setSettingVisible(label, active.has(key));
     });
 
     const wooOption = [...source.options].find((option) => option.value === 'woo_live');
