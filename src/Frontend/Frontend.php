@@ -116,12 +116,15 @@ final class Frontend {
             $renderer = 'pie';
         }
         $source   = sanitize_key( (string) ( $config['source_type'] ?? 'dataset' ) );
-        $settings = self::sanitize_settings( $config['settings'] ?? array() );
+        $settings = self::sanitize_settings( $config['settings'] ?? array(), $renderer );
         $schema   = Registry::default_schema_for_renderer( $renderer );
         $data     = array();
         $meta     = array();
 
         if ( 'woo_live' === $source ) {
+            if ( ! Registry::renderer_supports_woo_live( $renderer ) ) {
+                return new WP_Error( 'viswiz_renderer_source_mismatch', __( 'This renderer requires a dataset and cannot use WooCommerce live data.', 'viswiz' ), array( 'status' => 409 ) );
+            }
             $query  = new SalesQuery();
             $result = $query->query( (array) ( $config['woo_config'] ?? array() ), true );
             if ( is_wp_error( $result ) ) {
@@ -273,36 +276,37 @@ final class Frontend {
         return array( 'rows' => $rows );
     }
 
-    public static function sanitize_settings( mixed $value ): array {
-        $raw = Support::json_decode_array( $value );
+    public static function sanitize_settings( mixed $value, string $renderer = '' ): array {
+        $raw      = Support::json_decode_array( $value );
+        $defaults = Registry::renderer_setting_defaults( $renderer );
         return array(
-            'title'                 => sanitize_text_field( (string) ( $raw['title'] ?? '' ) ),
-            'primary_color'         => Support::sanitize_color( $raw['primary_color'] ?? '', '#2563eb' ),
-            'secondary_color'       => Support::sanitize_color( $raw['secondary_color'] ?? '', '#64748b' ),
-            'text_color'            => Support::sanitize_color( $raw['text_color'] ?? '', '#111827' ),
-            'background_color'      => Support::sanitize_color( $raw['background_color'] ?? '', '#ffffff' ),
-            'full_screen'           => ! isset( $raw['full_screen'] ) || Support::bool( $raw['full_screen'] ),
-            'show_legend'           => ! isset( $raw['show_legend'] ) || Support::bool( $raw['show_legend'] ),
-            'show_graph_toolbar'    => ! isset( $raw['show_graph_toolbar'] ) || Support::bool( $raw['show_graph_toolbar'] ),
-            'show_graph_search'     => ! isset( $raw['show_graph_search'] ) || Support::bool( $raw['show_graph_search'] ),
-            'show_graph_filters'    => ! isset( $raw['show_graph_filters'] ) || Support::bool( $raw['show_graph_filters'] ),
-            'show_graph_zoom'       => ! isset( $raw['show_graph_zoom'] ) || Support::bool( $raw['show_graph_zoom'] ),
-            'show_node_images'      => ! isset( $raw['show_node_images'] ) || Support::bool( $raw['show_node_images'] ),
-            'show_type_badges'      => ! isset( $raw['show_type_badges'] ) || Support::bool( $raw['show_type_badges'] ),
-            'show_relation_labels'  => ! isset( $raw['show_relation_labels'] ) || Support::bool( $raw['show_relation_labels'] ),
-            'node_modal_title_fallback'       => sanitize_text_field( (string) ( $raw['node_modal_title_fallback'] ?? __( 'Node details', 'viswiz' ) ) ),
-            'node_modal_close_label'          => sanitize_text_field( (string) ( $raw['node_modal_close_label'] ?? __( 'Close node details', 'viswiz' ) ) ),
-            'node_modal_previous_image_label' => sanitize_text_field( (string) ( $raw['node_modal_previous_image_label'] ?? __( 'Previous image', 'viswiz' ) ) ),
-            'node_modal_next_image_label'     => sanitize_text_field( (string) ( $raw['node_modal_next_image_label'] ?? __( 'Next image', 'viswiz' ) ) ),
-            'node_modal_related_heading'      => sanitize_text_field( (string) ( $raw['node_modal_related_heading'] ?? __( 'Related nodes', 'viswiz' ) ) ),
-            'node_modal_relation_fallback'    => sanitize_text_field( (string) ( $raw['node_modal_relation_fallback'] ?? __( 'Relation', 'viswiz' ) ) ),
-            'target'                => isset( $raw['target'] ) ? (float) $raw['target'] : 0.0,
-            'refresh_ms'            => max( 60000, min( 1800000, absint( $raw['refresh_ms'] ?? 120000 ) ) ),
+            'title'                 => sanitize_text_field( (string) ( $raw['title'] ?? $defaults['title'] ) ),
+            'primary_color'         => Support::sanitize_color( $raw['primary_color'] ?? '', $defaults['primary_color'] ),
+            'secondary_color'       => Support::sanitize_color( $raw['secondary_color'] ?? '', $defaults['secondary_color'] ),
+            'text_color'            => Support::sanitize_color( $raw['text_color'] ?? '', $defaults['text_color'] ),
+            'background_color'      => Support::sanitize_color( $raw['background_color'] ?? '', $defaults['background_color'] ),
+            'full_screen'           => isset( $raw['full_screen'] ) ? Support::bool( $raw['full_screen'] ) : (bool) $defaults['full_screen'],
+            'show_legend'           => isset( $raw['show_legend'] ) ? Support::bool( $raw['show_legend'] ) : (bool) $defaults['show_legend'],
+            'show_graph_toolbar'    => isset( $raw['show_graph_toolbar'] ) ? Support::bool( $raw['show_graph_toolbar'] ) : (bool) $defaults['show_graph_toolbar'],
+            'show_graph_search'     => isset( $raw['show_graph_search'] ) ? Support::bool( $raw['show_graph_search'] ) : (bool) $defaults['show_graph_search'],
+            'show_graph_filters'    => isset( $raw['show_graph_filters'] ) ? Support::bool( $raw['show_graph_filters'] ) : (bool) $defaults['show_graph_filters'],
+            'show_graph_zoom'       => isset( $raw['show_graph_zoom'] ) ? Support::bool( $raw['show_graph_zoom'] ) : (bool) $defaults['show_graph_zoom'],
+            'show_node_images'      => isset( $raw['show_node_images'] ) ? Support::bool( $raw['show_node_images'] ) : (bool) $defaults['show_node_images'],
+            'show_type_badges'      => isset( $raw['show_type_badges'] ) ? Support::bool( $raw['show_type_badges'] ) : (bool) $defaults['show_type_badges'],
+            'show_relation_labels'  => isset( $raw['show_relation_labels'] ) ? Support::bool( $raw['show_relation_labels'] ) : (bool) $defaults['show_relation_labels'],
+            'node_modal_title_fallback'       => sanitize_text_field( (string) ( $raw['node_modal_title_fallback'] ?? $defaults['node_modal_title_fallback'] ) ),
+            'node_modal_close_label'          => sanitize_text_field( (string) ( $raw['node_modal_close_label'] ?? $defaults['node_modal_close_label'] ) ),
+            'node_modal_previous_image_label' => sanitize_text_field( (string) ( $raw['node_modal_previous_image_label'] ?? $defaults['node_modal_previous_image_label'] ) ),
+            'node_modal_next_image_label'     => sanitize_text_field( (string) ( $raw['node_modal_next_image_label'] ?? $defaults['node_modal_next_image_label'] ) ),
+            'node_modal_related_heading'      => sanitize_text_field( (string) ( $raw['node_modal_related_heading'] ?? $defaults['node_modal_related_heading'] ) ),
+            'node_modal_relation_fallback'    => sanitize_text_field( (string) ( $raw['node_modal_relation_fallback'] ?? $defaults['node_modal_relation_fallback'] ) ),
+            'target'                => isset( $raw['target'] ) ? (float) $raw['target'] : (float) $defaults['target'],
+            'refresh_ms'            => max( 60000, min( 1800000, absint( $raw['refresh_ms'] ?? $defaults['refresh_ms'] ) ) ),
         );
     }
 
-    private static function settings( int $post_id ): array {
-        return self::sanitize_settings( get_post_meta( $post_id, '_viswiz_settings', true ) );
+    private static function settings( int $post_id, string $renderer = '' ): array {
+        return self::sanitize_settings( get_post_meta( $post_id, '_viswiz_settings', true ), $renderer );
     }
 
     private static function register_assets(): void {

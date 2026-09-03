@@ -1,6 +1,7 @@
 <?php
 namespace VisWiz\Admin;
 
+use VisWiz\Domain\Registry;
 use VisWiz\Frontend\Frontend;
 
 final class VisualizationPreview {
@@ -43,9 +44,23 @@ final class VisualizationPreview {
         wp_enqueue_script( 'viswiz-frontend' );
         wp_enqueue_script( 'viswiz-graph-runtime' );
         wp_enqueue_script(
+            'viswiz-renderer-settings',
+            VISWIZ_URL . 'assets/viswiz-renderer-settings.js',
+            array( 'viswiz-admin-v2' ),
+            VISWIZ_VERSION,
+            true
+        );
+        wp_localize_script(
+            'viswiz-renderer-settings',
+            'VisWizRendererSettings',
+            array(
+                'wooAvailable' => class_exists( '\WooCommerce' ),
+            )
+        );
+        wp_enqueue_script(
             'viswiz-visualization-preview',
             VISWIZ_URL . 'assets/viswiz-visualization-preview.js',
-            array( 'viswiz-admin-v2', 'viswiz-frontend', 'viswiz-graph-runtime' ),
+            array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' ),
             VISWIZ_VERSION,
             true
         );
@@ -89,7 +104,23 @@ final class VisualizationPreview {
         if ( ! isset( $_POST['viswiz_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['viswiz_nonce'] ) ), 'viswiz_save_visualization' ) ) {
             return;
         }
-        if ( ! current_user_can( 'edit_post', $post_id ) || ! isset( $_POST['viswiz_settings'] ) ) {
+        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+            return;
+        }
+
+        $renderer = sanitize_key( (string) wp_unslash( $_POST['viswiz_renderer'] ?? get_post_meta( $post_id, '_viswiz_renderer', true ) ) );
+        if ( ! Registry::renderer_exists( $renderer ) ) {
+            $renderer = 'pie';
+        }
+
+        $requested_source = sanitize_key( (string) wp_unslash( $_POST['viswiz_source_type'] ?? get_post_meta( $post_id, '_viswiz_source_type', true ) ) );
+        $source = 'woo_live' === $requested_source && Registry::renderer_supports_woo_live( $renderer ) ? 'woo_live' : 'dataset';
+        update_post_meta( $post_id, '_viswiz_source_type', $source );
+        if ( 'woo_live' === $source ) {
+            update_post_meta( $post_id, '_viswiz_dataset_id', 0 );
+        }
+
+        if ( ! isset( $_POST['viswiz_settings'] ) ) {
             return;
         }
 
@@ -97,6 +128,6 @@ final class VisualizationPreview {
         foreach ( self::BOOLEAN_SETTINGS as $key ) {
             $raw[ $key ] = isset( $raw[ $key ] ) ? rest_sanitize_boolean( $raw[ $key ] ) : false;
         }
-        update_post_meta( $post_id, '_viswiz_settings', Frontend::sanitize_settings( $raw ) );
+        update_post_meta( $post_id, '_viswiz_settings', Frontend::sanitize_settings( $raw, $renderer ) );
     }
 }
