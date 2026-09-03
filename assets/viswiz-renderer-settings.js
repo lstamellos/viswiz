@@ -106,13 +106,16 @@
     root.dataset.viswizRendererSettingsGrouped = '1';
   }
 
-  function refresh(root) {
+  function refresh(root, requestedSource) {
     const renderer = $('[data-viswiz-renderer]', root);
     const source = $('[data-viswiz-source]', root);
     if (!renderer || !source) return;
 
     const meta = cfg.renderers?.[renderer.value] || {};
     const active = new Set(Array.isArray(meta.settings) ? meta.settings : []);
+
+    if (requestedSource === 'woo_live' && meta.woo_live === true) source.value = 'woo_live';
+    if (meta.woo_live !== true && source.value === 'woo_live') source.value = 'dataset';
 
     $$('[data-viswiz-setting]', root).forEach((label) => {
       const key = label.dataset.viswizSetting || '';
@@ -125,7 +128,6 @@
 
     const wooOption = [...source.options].find((option) => option.value === 'woo_live');
     if (wooOption) wooOption.disabled = meta.woo_live !== true;
-    if (meta.woo_live !== true && source.value === 'woo_live') source.value = 'dataset';
 
     $$('[data-viswiz-source-panel]', root).forEach((panel) => {
       panel.hidden = panel.dataset.viswizSourcePanel !== source.value;
@@ -148,9 +150,15 @@
     buildSections(root);
     const renderer = $('[data-viswiz-renderer]', root);
     const source = $('[data-viswiz-source]', root);
-    renderer?.addEventListener('change', () => refresh(root));
-    source?.addEventListener('change', () => refresh(root));
-    refresh(root);
+    if (!renderer || !source) return;
+
+    let requestedSource = source.value;
+    renderer.addEventListener('change', () => refresh(root, requestedSource));
+    source.addEventListener('change', () => {
+      requestedSource = source.value;
+      refresh(root, requestedSource);
+    });
+    refresh(root, requestedSource);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
