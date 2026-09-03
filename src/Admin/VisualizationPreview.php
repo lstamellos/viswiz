@@ -97,13 +97,24 @@ final class VisualizationPreview {
         if ( ! isset( $_POST['viswiz_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['viswiz_nonce'] ) ), 'viswiz_save_visualization' ) ) {
             return;
         }
-        if ( ! current_user_can( 'edit_post', $post_id ) || ! isset( $_POST['viswiz_settings'] ) ) {
+        if ( ! current_user_can( 'edit_post', $post_id ) ) {
             return;
         }
 
         $renderer = sanitize_key( (string) wp_unslash( $_POST['viswiz_renderer'] ?? get_post_meta( $post_id, '_viswiz_renderer', true ) ) );
         if ( ! Registry::renderer_exists( $renderer ) ) {
             $renderer = 'pie';
+        }
+
+        $requested_source = sanitize_key( (string) wp_unslash( $_POST['viswiz_source_type'] ?? get_post_meta( $post_id, '_viswiz_source_type', true ) ) );
+        $source = 'woo_live' === $requested_source && Registry::renderer_supports_woo_live( $renderer ) ? 'woo_live' : 'dataset';
+        update_post_meta( $post_id, '_viswiz_source_type', $source );
+        if ( 'woo_live' === $source ) {
+            update_post_meta( $post_id, '_viswiz_dataset_id', 0 );
+        }
+
+        if ( ! isset( $_POST['viswiz_settings'] ) ) {
+            return;
         }
 
         $raw = (array) wp_unslash( $_POST['viswiz_settings'] );
