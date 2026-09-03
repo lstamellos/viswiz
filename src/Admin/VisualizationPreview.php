@@ -50,6 +50,13 @@ final class VisualizationPreview {
             VISWIZ_VERSION,
             true
         );
+        wp_localize_script(
+            'viswiz-renderer-settings',
+            'VisWizRendererSettings',
+            array(
+                'wooAvailable' => class_exists( '\WooCommerce' ),
+            )
+        );
         wp_enqueue_script(
             'viswiz-visualization-preview',
             VISWIZ_URL . 'assets/viswiz-visualization-preview.js',
