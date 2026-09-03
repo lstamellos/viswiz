@@ -43,9 +43,12 @@ final class RendererSpecificSettingsTest extends TestCase {
         self::assertStringContainsString( 'cfg.renderers?.[renderer.value]', $javascript );
         self::assertStringContainsString( 'meta.settings', $javascript );
         self::assertStringContainsString( 'meta.woo_live', $javascript );
+        self::assertStringContainsString( 'runtime.wooAvailable === true', $javascript );
         self::assertStringNotContainsString( "['graph', 'flow_diagram', 'org_chart'", $javascript );
         self::assertStringNotContainsString( ':has(', $javascript );
         self::assertStringContainsString( 'viswiz-renderer-settings.js', $preview );
+        self::assertStringContainsString( "'VisWizRendererSettings'", $preview );
+        self::assertStringContainsString( "'wooAvailable' => class_exists( '\\WooCommerce' )", $preview );
         self::assertStringContainsString( "array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' )", $preview );
     }
 
