@@ -67,8 +67,9 @@
 
     const firstGrid = $(':scope > .viswiz-form-grid', root);
     const sourcePanels = $$(':scope > [data-viswiz-source-panel]', root);
-    const displaySection = $(':scope > .viswiz-config-section:has([name^="viswiz_settings["])', root);
-    const embedSection = $$(':scope > .viswiz-config-section', root).find((candidate) => candidate.querySelector('code'));
+    const configSections = $$(':scope > .viswiz-config-section', root);
+    const displaySection = configSections.find((candidate) => candidate.querySelector('[name^="viswiz_settings["]'));
+    const embedSection = configSections.find((candidate) => candidate.querySelector('code'));
     if (!firstGrid || !displaySection) return;
 
     const dataSection = section('data', 'Data / source');
