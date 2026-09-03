@@ -53,6 +53,7 @@ final class VisualizationPreviewTest extends TestCase {
         self::assertStringContainsString( 'normalize_saved_settings', $admin );
         self::assertStringContainsString( 'BOOLEAN_SETTINGS', $admin );
         self::assertStringContainsString( "isset( \$raw[ \$key ] ) ? rest_sanitize_boolean( \$raw[ \$key ] ) : false", $admin );
-        self::assertStringContainsString( "Frontend::sanitize_settings( \$raw )", $admin );
+        self::assertStringContainsString( 'Registry::renderer_exists( $renderer )', $admin );
+        self::assertStringContainsString( 'Frontend::sanitize_settings( $raw, $renderer )', $admin );
     }
 }
