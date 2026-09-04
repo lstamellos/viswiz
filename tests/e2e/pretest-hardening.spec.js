@@ -93,6 +93,9 @@ test('legacy and replacement writes preserve supported row aliases', async ({ pa
 test('dirty spreadsheet drafts block side mutations until save or discard', async ({ page }) => {
   await login(page);
   const { editor } = await createDataset(page, 'E2E dirty mutation guard', 'categorical');
+  const snapshotButton = page.locator('[data-viswiz-commerce-snapshot]');
+  await expect(snapshotButton).toBeVisible();
+  const snapshotInitiallyDisabled = await snapshotButton.isDisabled();
 
   await editor.getByRole('button', { name: 'Add item' }).click();
   const row = editor.locator('tbody tr').last();
@@ -100,13 +103,13 @@ test('dirty spreadsheet drafts block side mutations until save or discard', asyn
   await row.locator('[data-field-path="value"]').fill('5');
 
   await expect(page.locator('[data-viswiz-import-button]')).toBeDisabled();
-  await expect(page.locator('[data-viswiz-commerce-snapshot]')).toBeDisabled();
+  await expect(snapshotButton).toBeDisabled();
   const metadataSubmit = page.locator('form').filter({ has: page.locator('input[name="action"][value="viswiz_dataset_update"]') }).getByRole('button', { name: 'Save metadata' });
   await expect(metadataSubmit).toBeDisabled();
 
   await editor.getByRole('button', { name: 'Discard changes' }).click();
   await expect(page.locator('[data-viswiz-import-button]')).toBeEnabled();
-  await expect(page.locator('[data-viswiz-commerce-snapshot]')).toBeEnabled();
+  expect(await snapshotButton.isDisabled()).toBe(snapshotInitiallyDisabled);
   await expect(metadataSubmit).toBeEnabled();
 });
 
