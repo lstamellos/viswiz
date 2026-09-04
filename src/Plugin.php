@@ -7,6 +7,7 @@ use VisWiz\Admin\ImportUi;
 use VisWiz\Admin\NodePublicFields;
 use VisWiz\Admin\NodeRichEditor;
 use VisWiz\Admin\VisualizationDuplicator;
+use VisWiz\Admin\VisualizationPresets;
 use VisWiz\Admin\VisualizationPreview;
 use VisWiz\Admin\WooSourceSelection;
 use VisWiz\Database\Migrator;
@@ -47,6 +48,7 @@ final class Plugin {
         NodePublicFields::register();
         VisualizationPreview::register();
         VisualizationDuplicator::register();
+        VisualizationPresets::register();
         WooSourceSelection::register();
         ImportUi::register();
         Api::register();
