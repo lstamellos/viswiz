@@ -99,11 +99,11 @@ test('personal display presets apply as unsaved renderer-compatible form changes
   await fullScreen.check();
   await legend.uncheck();
 
-  const previewResponse = page.waitForResponse((response) => (
-    response.url().includes('/wp-json/viswiz/v2/visualizations/preview')
-      && response.request().method() === 'POST'
-      && response.ok()
-  ));
+  const previewResponse = page.waitForResponse((response) => {
+    if (!response.url().includes('/wp-json/viswiz/v2/visualizations/preview') || response.request().method() !== 'POST' || !response.ok()) return false;
+    const body = response.request().postData() || '';
+    return body.includes('"renderer":"pie"') && body.includes('"primary_color":"#123456"');
+  });
   await presets.getByRole('button', { name: 'Apply' }).click();
   await previewResponse;
 
@@ -143,11 +143,14 @@ test('personal display presets apply as unsaved renderer-compatible form changes
   expect(afterVisualizationSave.body.settings.show_legend).toBe(false);
 
   const reloadedPresets = page.locator('[data-viswiz-display-presets]');
-  await reloadedPresets.locator('[data-viswiz-preset-select]').selectOption({ label: /E2E display preset/ });
+  const presetSelect = reloadedPresets.locator('[data-viswiz-preset-select]');
+  const presetValue = await presetSelect.locator('option').filter({ hasText: 'E2E display preset' }).getAttribute('value');
+  expect(presetValue).toBeTruthy();
+  await presetSelect.selectOption(presetValue);
   page.once('dialog', (dialog) => dialog.accept());
   await reloadedPresets.getByRole('button', { name: 'Delete' }).click();
   await expect(reloadedPresets.locator('[data-viswiz-preset-status]')).toContainText('Display preset deleted.');
-  await expect(reloadedPresets.locator('[data-viswiz-preset-select] option')).toHaveCount(1);
+  await expect(presetSelect.locator('option')).toHaveCount(1);
 
   expect(clientErrors).toEqual([]);
 });
