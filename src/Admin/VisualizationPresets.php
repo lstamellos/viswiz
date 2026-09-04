@@ -52,16 +52,16 @@ final class VisualizationPresets {
                 'nonce'   => wp_create_nonce( 'viswiz_visualization_presets' ),
                 'presets' => self::presets(),
                 'i18n'    => array(
-                    'selectPreset'  => __( 'Select preset', 'viswiz' ),
-                    'saved'         => __( 'Display preset saved.', 'viswiz' ),
-                    'applied'       => __( 'Preset applied to unsaved display settings.', 'viswiz' ),
-                    'nothingApplied'=> __( 'This preset has no settings supported by the current renderer.', 'viswiz' ),
-                    'deleted'       => __( 'Display preset deleted.', 'viswiz' ),
-                    'saving'        => __( 'Saving preset…', 'viswiz' ),
-                    'deleting'      => __( 'Deleting preset…', 'viswiz' ),
-                    'nameRequired'  => __( 'Enter a preset name.', 'viswiz' ),
-                    'requestError'  => __( 'The display preset change could not be saved.', 'viswiz' ),
-                    'confirmDelete' => __( 'Delete this display preset?', 'viswiz' ),
+                    'selectPreset'   => __( 'Select preset', 'viswiz' ),
+                    'saved'          => __( 'Display preset saved.', 'viswiz' ),
+                    'applied'        => __( 'Preset applied to unsaved display settings.', 'viswiz' ),
+                    'nothingApplied' => __( 'This preset has no settings supported by the current renderer.', 'viswiz' ),
+                    'deleted'        => __( 'Display preset deleted.', 'viswiz' ),
+                    'saving'         => __( 'Saving preset…', 'viswiz' ),
+                    'deleting'       => __( 'Deleting preset…', 'viswiz' ),
+                    'nameRequired'   => __( 'Enter a preset name.', 'viswiz' ),
+                    'requestError'   => __( 'The display preset change could not be saved.', 'viswiz' ),
+                    'confirmDelete'  => __( 'Delete this display preset?', 'viswiz' ),
                 ),
             )
         );
@@ -111,8 +111,9 @@ final class VisualizationPresets {
         if ( '' === $name ) {
             wp_send_json_error( array( 'message' => __( 'Enter a preset name.', 'viswiz' ) ), 400 );
         }
-        if ( strlen( $name ) > 80 ) {
-            $name = substr( $name, 0, 80 );
+        $name_length = function_exists( 'mb_strlen' ) ? mb_strlen( $name ) : strlen( $name );
+        if ( $name_length > 80 ) {
+            wp_send_json_error( array( 'message' => __( 'Preset names can contain at most 80 characters.', 'viswiz' ) ), 400 );
         }
 
         $presets = self::presets();
@@ -197,9 +198,9 @@ final class VisualizationPresets {
     }
 
     private static function preset_settings( mixed $value, string $renderer ): array {
-        $raw       = Support::json_decode_array( $value );
-        $sanitized = Frontend::sanitize_settings( $raw, $renderer );
-        $allowed   = array_values( array_diff( Registry::renderer_settings( $renderer ), array( 'title' ) ) );
+        $raw          = Support::json_decode_array( $value );
+        $sanitized    = Frontend::sanitize_settings( $raw, $renderer );
+        $allowed      = array_values( array_diff( Registry::renderer_settings( $renderer ), array( 'title' ) ) );
         $allowed_keys = array_fill_keys( $allowed, true );
         $present_keys = array_fill_keys( array_keys( $raw ), true );
 
