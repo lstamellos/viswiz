@@ -37,6 +37,14 @@ async function createBarVisualization(page) {
   return Number(new URL(page.url()).searchParams.get('post'));
 }
 
+async function setColor(locator, value) {
+  await locator.evaluate((field, next) => {
+    field.value = next;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+}
+
 async function savedSpec(page, postId) {
   return page.evaluate(async (id) => {
     const cfg = window.VisWizAdminV2;
@@ -73,7 +81,7 @@ test('personal display presets apply as unsaved renderer-compatible form changes
   expect(initialSaved.body.settings.primary_color).toBe('#2563eb');
   expect(initialSaved.body.settings.full_screen).toBe(true);
 
-  await primary.fill('#123456');
+  await setColor(primary, '#123456');
   await fullScreen.uncheck();
 
   const presets = page.locator('[data-viswiz-display-presets]');
@@ -95,7 +103,7 @@ test('personal display presets apply as unsaved renderer-compatible form changes
   await expect(dataset).toHaveValue(String(fixture.rowDatasetId));
   await expect(legend.locator('xpath=ancestor::label[1]')).toBeVisible();
 
-  await primary.fill('#abcdef');
+  await setColor(primary, '#abcdef');
   await fullScreen.check();
   await legend.uncheck();
 
