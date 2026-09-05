@@ -42,8 +42,8 @@ final class PretestHardeningTest extends TestCase {
 
     public function test_hardening_release_keeps_database_schema_version(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        self::assertStringContainsString( 'Version: 2.0.37', $plugin );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.37' );", $plugin );
+        self::assertStringContainsString( 'Version: 2.0.38', $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.38' );", $plugin );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
     }
 }
