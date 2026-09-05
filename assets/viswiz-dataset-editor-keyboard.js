@@ -47,12 +47,18 @@
     return candidates.find((button) => !button.disabled && invokerKey(button) === key) || null;
   }
 
+  function fallbackFocusTarget() {
+    const search = document.querySelector('[data-viswiz-dataset-search]');
+    if (search instanceof HTMLElement && !search.matches(':disabled')) return search;
+    return editor.querySelector('.viswiz-editor-toolbar button:not(:disabled)');
+  }
+
   function restoreFocus(context) {
     if (!context) return;
     const original = context.element;
-    const target = original?.isConnected && !original.disabled
+    const target = (original?.isConnected && !original.disabled
       ? original
-      : matchingInvoker(context.key);
+      : matchingInvoker(context.key)) || fallbackFocusTarget();
     if (!(target instanceof HTMLElement)) return;
     window.setTimeout(() => {
       if (target.isConnected && !target.matches(':disabled')) target.focus();
