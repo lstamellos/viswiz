@@ -33,6 +33,9 @@ final class AdminDialogKeyboardTest extends TestCase {
         self::assertStringContainsString( "dialog.setAttribute('aria-modal', 'true');", $keyboard );
         self::assertStringContainsString( 'const context = pendingInvoker;', $keyboard );
         self::assertStringContainsString( 'matchingInvoker(context.key)', $keyboard );
+        self::assertStringContainsString( "document.querySelector('[data-viswiz-dataset-search]')", $keyboard );
+        self::assertStringContainsString( "editor.querySelector('.viswiz-editor-toolbar button:not(:disabled)')", $keyboard );
+        self::assertStringContainsString( '|| fallbackFocusTarget()', $keyboard );
         self::assertStringContainsString( "dialog.addEventListener('close', () => restoreFocus(context)", $keyboard );
         self::assertStringContainsString( "editor.addEventListener('click', rememberInvoker, true);", $keyboard );
     }
