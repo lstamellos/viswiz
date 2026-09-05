@@ -42,6 +42,7 @@ test('saving an edit that leaves the active search returns focus to the dataset 
 
   const search = page.locator('[data-viswiz-dataset-search]');
   await search.fill('FocusNeedle');
+  await expect.poll(() => editor.evaluate((element) => element.__viswizServerState?.search || '')).toBe('FocusNeedle');
   const row = editor.locator('tbody tr').filter({ hasText: 'FocusNeedle Node' }).first();
   await expect(row).toBeVisible();
 
