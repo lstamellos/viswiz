@@ -1,16 +1,30 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.23, 2026-08-30.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.38, 2026-09-06.
 
-This backlog consolidates the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, without undoing the dataset-first storage model introduced in VisWiz 2.
+This backlog tracks the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, while preserving the dataset-first storage model introduced in VisWiz 2.
 
 Priority meanings:
 
 - **P0** — required before the plugin should be treated as reliably usable for routine production work.
-- **P1** — strong usability/maintainability improvement after the core path is stable.
-- **P2** — useful extension once workflow and architecture have settled.
+- **P1** — strong usability, accessibility, maintainability, performance and observability improvements after the core path is stable.
+- **P2** — useful extensions once workflow and architecture have settled.
 
 Pre-production datasets are disposable test fixtures rather than a backwards-compatibility contract. Legacy migration work is retained only when it saves meaningful setup/testing time and must not constrain the current data model.
+
+## Current project status
+
+The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow milestones are also complete through VisWiz 2.0.38. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers.
+
+The remaining stabilization work is now concentrated in:
+
+1. public graph accessibility audit;
+2. JavaScript localization consolidation;
+3. explicit verification/closure of single payload/state ownership after the recent editor/runtime additions;
+4. representative performance budgets;
+5. administrator-facing diagnostics.
+
+P2 extensibility work should remain behind those remaining P1 quality milestones.
 
 ## P0 — stabilize the current runtime
 
@@ -18,67 +32,37 @@ Pre-production datasets are disposable test fixtures rather than a backwards-com
 
 Completed in VisWiz 2.0.15 / PR #81.
 
-Current graph behavior was previously spread across the main renderer plus a dependency chain of compatibility/UX scripts. The stabilized behavior now uses one graph runtime/state model and the obsolete patch chain has been removed.
-
-Regression target:
-
-- one documented graph state model
-- no duplicate/competing filter implementations
-- no compatibility script whose sole purpose is to repair another compatibility script
-- no self-triggering observer paths
-- graph preview and public graph use the same stable behavior
+The stabilized graph surface uses one graph runtime/state model. The obsolete chained compatibility/UX patch stack was removed. This remains a regression requirement: no duplicate filter implementations, no competing graph state owner, no self-triggering observer path.
 
 ### 2. Add real browser/end-to-end tests — COMPLETED
 
-Implemented in PR #82 with Playwright/Chromium against a clean WordPress + MySQL installation. The browser suite supplements PHP/integration and source-level tests with actual editor/visitor interaction coverage.
+Completed in PR #82 with Playwright/Chromium against a clean WordPress + MySQL installation.
 
-Browser regression coverage includes:
-
-- create/edit/delete row
-- create/edit/delete node and relation
-- dialog open/close and focus return
-- Enter/Escape editor paths
-- graph search and clear
-- type/subtype facets and native graph filters
-- relation filters
-- property views
-- related-node navigation while filters are active
-- 1-hop/2-hop connection focus
-- relation-aware connection focus
-- zoom/reset/pan
-- fullscreen enter/exit
-- multiple visualizations on one page
-- dynamically inserted visualization containers through the lazy-render path
+Coverage has since expanded across dataset editing, graph editing, public interaction, fullscreen, modals/galleries, multiple instances, responsive layouts, Gutenberg embedding and the visualization editor.
 
 ### 3. Verify 1.x → 2.x migration with production-shaped data — DEFERRED / NOT A P0 BLOCKER
 
-The existing datasets are pre-production test data. Preserving 1.x behavior is therefore not a product requirement and must not force compatibility code into the v2 model.
+The existing datasets are pre-production test data. Preserving 1.x behavior is not a product requirement and must not force compatibility code into the v2 model.
 
-Migration validation may still be used as a developer convenience when it is faster than recreating useful test fixtures. Before any future legacy-table cleanup, a focused migration/backup check may be performed if those old tables are still worth retaining. This item does **not** block the remaining P0 usability work.
+Before any future legacy-table cleanup, perform a focused migration/backup check only if the old tables still contain fixtures worth retaining.
 
 ### 4. Replace JSON-only import as the normal import workflow — COMPLETED
 
 Completed in VisWiz 2.0.16 / PR #83.
 
-The normal import path is now a guided CSV/TSV/spreadsheet workflow with file upload or paste, practical encoding/delimiter detection, schema-aware column mapping, validation preview, append/upsert/replace modes, stable import keys, row-level issues and a summary before commit. Graph node/relation imports resolve stable external keys to canonical internal UUIDs. JSON replacement remains available as an advanced interchange/backup path.
-
-Destructive replacement continues through the canonical revisioned dataset write path so the existing revision/snapshot safety model remains authoritative.
+Guided CSV/TSV/spreadsheet import supports file upload or paste, encoding/delimiter handling, schema-aware mapping, preview/validation, append/upsert/replace, stable import keys and graph endpoint resolution. JSON replacement remains an advanced interchange/backup path.
 
 ### 5. Make large dataset editing server-aware — COMPLETED
 
 Completed in VisWiz 2.0.17 / PR #84.
 
-The dataset detail editor now uses bounded server-backed collections instead of embedding the whole canonical payload in wp-admin. Rows, graph nodes and graph relations are paged and searched through authenticated REST endpoints, with `per_page` capped at 100 and WordPress-style pagination metadata.
-
-Graph relation endpoints use lazy searchable node pickers, so nodes outside the current page can be selected without rendering the complete node set into a `<select>`. Targeted mutations retain the canonical revision/conflict checks and refetch only affected collections. Browser coverage includes 230-row and 130-node datasets, server-side search beyond the first page, targeted edits and lazy relation endpoint lookup.
+Rows, graph nodes and graph relations use bounded authenticated REST collections with server-side paging/search. Relation endpoints use lazy searchable node lookup. Targeted writes remain revision-checked and refetch only affected bounded collections.
 
 ### 6. Fix preview state ownership — RESOLVED BY ARCHITECTURE
 
 Resolved by VisWiz 2.0.17 / PR #84.
 
-The dataset detail editor no longer renders an automatic graph preview and no longer embeds the initial canonical payload. That removes the competing preview cache/state owner which originally motivated this item. Targeted row/node/relation mutations now update the server-aware editor state and refetch the affected bounded collection only; there is no stale dataset preview to synchronize after a write.
-
-Do **not** reintroduce an automatic graph preview on the dataset editing surface merely to satisfy this historical item. A future live preview belongs to the visualization editor milestone (#13), where it must use the same public renderer/runtime and one explicit state/data-acquisition path.
+The dataset detail editor no longer embeds the complete canonical payload or owns an automatic graph preview. Visualization preview belongs to the visualization editor and now uses the real public renderer/runtime through the shared payload path implemented in #114.
 
 ## P0 — make creation/editing usable
 
@@ -86,265 +70,227 @@ Do **not** reintroduce an automatic graph preview on the dataset editing surface
 
 Completed in VisWiz 2.0.18 / PR #86.
 
-Row-based dataset editing now follows a schema contract from `Registry::schemas()` rather than exposing every canonical storage column in one generic form. Normal editing surfaces are limited to the fields that belong to the active schema:
-
-- categorical: label/value/color
-- time series: date-time/value/label/color
-- X/Y: X/Y/label/color
-- geographic: latitude/longitude/label/value/color
-- progress: label/current value/target/text/color
-- diagram: section title/section text/accent color
-- graph: remains the dedicated node/relation editor
-
-Stable row keys and metadata outside the structured schema remain available under **Advanced** instead of occupying the normal workflow. Progress and diagram fields map to canonical structured metadata (`meta.target`, `meta.text`). Targeted row writes are independently validated server-side for required/numeric/geo constraints; time-series values derive `x_numeric` in the WordPress site timezone.
-
-The editor remains server-paged and revision-checked. Chromium coverage creates and persists all six row schemas and verifies that invalid targeted writes are rejected even when browser validation is bypassed.
-
-Spreadsheet-style inline editing, direct grid paste and richer cell-level keyboard movement were completed separately in VisWiz 2.0.19 / PR #87 and hardened in VisWiz 2.0.20 / PRs #89 and #88.
+Row editing is Registry-driven by schema. Normal forms expose only schema-relevant fields; stable keys/additional metadata remain under Advanced. Server-side RowSchema validation remains authoritative.
 
 ### 8. Spreadsheet-like editing and batch paste — COMPLETED
 
-Completed in VisWiz 2.0.19 / PR #87, with post-review fixes and pre-test hardening in VisWiz 2.0.20 / PRs #89 and #88.
+Completed in VisWiz 2.0.19 / PR #87, with post-review fixes and hardening in VisWiz 2.0.20 / PRs #89 and #88.
 
-Row-based datasets now use a schema-aware editable grid with:
-
-- Tab/Shift+Tab cell navigation
-- arrow-key movement where appropriate
-- Enter movement/row creation and Ctrl/Cmd+Enter explicit save
-- multi-row tab/newline paste from spreadsheet software
-- native newline-only paste preserved in textarea cells
-- add/remove rows without modal churn, with Undo before save
-- validation inline with the affected cell/row
-- explicit saved/unsaved/saving/validation/conflict/error states
-- one revision-checked atomic batch save instead of a per-cell autosave queue
-- conflict discard/reload against the current paginated server revision
-- protection against side mutations while spreadsheet drafts are dirty
-
-The 2.0.20 hardening also applies the row schema contract consistently to legacy/raw external writes while preserving previously accepted row aliases (`x`, `y`, `lat`, `lng`) before validation. Full PHP 8.1/8.3, WordPress/WooCommerce, WordPress 6.5 minimum-platform and Chromium CI cover the stabilized path.
+The schema-aware grid includes keyboard navigation, explicit revisioned batch save, spreadsheet range paste, native multiline textarea paste, Remove/Undo, inline validation, conflict retention/reload and protection against side mutations while drafts are dirty.
 
 ### 9. Improve graph node/relation editing — COMPLETED
 
 Completed in VisWiz 2.0.21 / PR #91.
 
-The server-aware graph editor now supports:
-
-- lazy searchable relation endpoint selectors
-- relation creation directly from node context
-- quick creation of a missing endpoint node without losing the relation draft
-- predictable relation-type defaults
-- visible non-fatal type/subtype constraint warnings consistent with `GraphValidator`
-- server-paged incoming/outgoing relations inside the node editor
-- duplicate node and duplicate relation actions through the canonical editors
-- optional server-side `node_uuid` relation filtering without loading the full graph
-
-The primary `viswiz-dataset-editor.js` remains the single graph data/state owner and all writes continue through revision-checked targeted endpoints.
+Includes node-context relation creation, incoming/outgoing relation visibility, quick-create missing endpoints without losing relation drafts, type/subtype warnings, duplicate node/relation actions and server-side relation filtering. `viswiz-dataset-editor.js` remains the canonical graph data/mutation owner.
 
 ### 10. Use a WordPress-native rich editor for node descriptions — COMPLETED
 
 Completed in VisWiz 2.0.22 / PR #92.
 
-Node descriptions now use the WordPress dynamic editor API (`wp_enqueue_editor()` plus `wp.editor.initialize()`) with Visual and Text modes. The integration is a lifecycle-only adapter around the existing node dialog; it does not fetch or mutate graph data and does not create a second graph state owner.
-
-Lifecycle guarantees include:
-
-- initialization only after the native dialog is inserted and open
-- unique editor instances for repeated and nested node dialogs
-- textarea synchronization before the canonical node save reads `FormData`
-- `wp.editor.remove()` teardown before normal dialog removal
-- cleanup on Save, Cancel, close-button and Escape paths
-- usable textarea fallback if the WordPress editor API is unavailable
-- continued server-side sanitization through `wp_kses_post`
-
-Chromium regression coverage verifies Visual/Text keyboard switching, formatted-content persistence and repeated editor teardown/reinitialization.
+Node descriptions use the WordPress dynamic editor API with Visual/Text modes, lifecycle-safe initialization/teardown and textarea fallback. Server-side `wp_kses_post` remains authoritative.
 
 ### 11. Remove raw metadata JSON from normal workflows — COMPLETED
 
 Completed in VisWiz 2.0.23 / PR #93.
 
-Graph-node public metadata now has a structured editor backed by the existing canonical `meta.public_fields` contract. The normal node workflow supports:
+Node public fields have a structured editor using the existing `meta.public_fields` contract. Raw node/relation metadata is relegated to Advanced, while unrelated metadata remains preserved.
 
-- label
-- type (`short`, `long`, `url`, `formatted`)
-- value
-- add/remove
-- move up/down ordering, which is preserved as the public display order
+## Phase C — live frontend / responsive and theme compatibility
 
-Raw node metadata is now under a collapsed **Advanced metadata** section as **Additional metadata JSON**, with `public_fields` removed from that raw editing surface so there is one authoritative UI for public fields. Unrelated metadata keys are preserved. Raw relation metadata is also under a collapsed Advanced section.
+### Public modal and relation-grouping fixes — COMPLETED
 
-The adapter does not own graph data, perform fetches or issue REST writes; `viswiz-dataset-editor.js` remains the sole graph mutation/revision owner. Structured public fields are injected only for the primary editor's synchronous `FormData` snapshot and the Advanced-only textarea is restored on the next task, including after rejected saves, preventing a duplicate/stale raw editing surface.
+Completed across PRs #98–#107 / VisWiz 2.0.26–2.0.30.
 
-Existing backend sanitization and public payload behavior remain authoritative, including `esc_url_raw`, `wp_kses_post` and the existing `short|long|url|formatted` field contract. `VISWIZ_DB_VERSION` remains `20000`; no migration was required. Chromium coverage verifies add/reorder/save/reopen/remove persistence and Advanced-metadata isolation on both successful and rejected saves.
+The production audit fixed and regression-covered:
+
+- public rich-text paragraph/list semantics under hostile theme CSS;
+- legacy paragraph-less rich text normalization;
+- grouping related nodes by displayed relation label/type;
+- left alignment of long wrapped related-node titles;
+- alignment of native list markers with the first line of multiline related-node titles.
+
+### Responsive/theme compatibility matrix — COMPLETED
+
+Closed by PRs #108, #110 and #111, with the production fix released in VisWiz 2.0.31.
+
+Browser coverage includes:
+
+- graph toolbar/mobile containment;
+- fullscreen enter/exit;
+- node/property modals and galleries;
+- long labels/titles;
+- all 13 non-graph renderer modes in constrained mobile containers;
+- real serialized Gutenberg embedding;
+- multiple visualization instances in constrained containers;
+- independence of per-instance graph/runtime state;
+- no VisWiz-introduced document-level horizontal overflow.
 
 ## P1 — visualization creation workflow
 
-### 12. Create visualization from dataset in one action
+### 12. Create visualization from dataset in one action — COMPLETED
 
-From a dataset page, add **Create visualization** and show only compatible renderer choices.
+Completed in PR #112 and released as VisWiz 2.0.32 / PR #113.
 
-After creation, open a focused visualization editor with the dataset already connected.
+Dataset pages expose **Create visualization** with renderer choices derived from the canonical Registry schema contract. Creation produces a preconnected draft and redirects into the existing visualization editor.
 
-### 13. Add live visualization preview to the visualization editor
+### 13. Add live visualization preview to the visualization editor — COMPLETED
 
-The current configuration screen should show the actual renderer while display settings change.
+Completed in PR #114 and released as VisWiz 2.0.33 / PR #115.
 
-Requirements:
+The editor preview reuses the same `Frontend` payload builder, public `window.VisWiz.render()` implementation and graph runtime as published output. Unsaved preview state is explicitly distinguished from saved state.
 
-- uses the same renderer/runtime as public output
-- does not maintain a duplicate rendering implementation
-- clearly distinguishes unsaved preview settings from saved state
-- works for dataset and supported WooCommerce live sources
+### 14. Simplify visualization settings by renderer — COMPLETED
 
-### 14. Simplify visualization settings by renderer
+Completed in PR #116 and released as VisWiz 2.0.34 / PR #117.
 
-Do not show graph-only controls for charts or irrelevant controls for other renderer families.
+Renderer capabilities in Registry drive setting applicability and defaults. Controls are grouped into Data/source, Appearance, Labels/content, Interaction and Advanced. Unsupported renderer/source combinations are rejected through the shared contract.
 
-Group settings into predictable sections such as:
+### 15. Improve WooCommerce source selection — COMPLETED
 
-- Data/source
-- Appearance
-- Labels/content
-- Interaction
-- Advanced
+Completed in PR #118 and released as VisWiz 2.0.35 / PR #119.
 
-Use renderer-specific defaults rather than one expanding generic form.
+WooCommerce Product/Category filters use native searchable SelectWoo controls when available and fall back to editable IDs otherwise. Live query vs one-time dataset snapshot semantics and permissions are explicit.
 
-### 15. Improve WooCommerce source selection
+### 16. Add visualization duplication and presets — COMPLETED
 
-Replace raw Product ID / Category ID text fields with searchable product/category pickers.
+Visualization duplication was completed in PR #120 and released as VisWiz 2.0.36 / PR #121.
 
-Clarify the distinction between:
-
-- **Live query** — recalculated/cached data
-- **Snapshot** — data copied into a canonical dataset and then edited independently
-
-### 16. Add visualization duplication and presets
-
-Allow a visualization to be duplicated while reusing the same dataset. Later, consider reusable display presets only after settings stabilize.
+Reusable personal display presets were completed in PR #123 and released as VisWiz 2.0.37 / PR #124. Presets store sanitized display settings only and never own renderer/source/dataset/canonical data state.
 
 ## P1 — accessibility, localization and responsive behavior
 
-### 17. Complete keyboard behavior for admin dialogs
+### 17. Complete keyboard behavior for admin dialogs — COMPLETED
 
-Target behavior:
+Completed in PR #126 and released as VisWiz 2.0.38 / PR #127.
 
-- native Tab/Shift+Tab focus order
-- arrow keys in native selects/listboxes
-- Enter commits the intended action where unambiguous
-- Escape closes without saving
-- focus returns to the invoking control
-- destructive actions require an explicit confirmation path
+The admin dialog contract now includes:
 
-Avoid global key handlers that override expected browser/form behavior.
+- native Tab/Shift+Tab focus order and native dialog focus containment;
+- native Escape cancellation without save;
+- local relation endpoint Enter handling instead of a document-level key handler;
+- focus restoration after cancel/save and after canonical editor rerenders;
+- nested quick-create focus return to the still-open relation dialog;
+- accessible dialog naming via `aria-labelledby` and modal semantics;
+- stable fallback focus when the invoking row disappears under an active filter;
+- explicit confirmation for destructive dataset editor actions.
 
-### 18. Accessibility audit for public graph UI
+### 18. Accessibility audit for public graph UI — OPEN / NEXT
 
-Audit:
+Perform a focused public-runtime accessibility audit covering at minimum:
 
-- accessible names/roles for SVG interaction targets
-- keyboard activation of node cards and tags
-- focus visibility
-- dialog semantics/focus return
-- screen-reader status updates for filtering/focus state
-- color contrast
-- reduced-motion behavior
-- fullscreen state announcement
+- accessible names/roles for SVG and graph interaction targets;
+- keyboard activation of node cards and tags;
+- visible focus states;
+- modal semantics, initial focus, focus containment and focus return;
+- screen-reader status updates for search/filter/focus state;
+- color contrast;
+- reduced-motion behavior;
+- fullscreen state announcement;
+- multiple visualization instances without ambiguous labels/IDs.
 
-### 19. Centralize JavaScript localization
+Where browser coverage already exists, convert it into explicit accessibility assertions rather than duplicating the interaction path.
 
-Compatibility scripts currently contain local English/Greek fallback strings and some hard-coded admin strings. Move user-visible strings into the WordPress translation pipeline and keep one i18n source per runtime.
+### 19. Centralize JavaScript localization — OPEN
 
-### 20. Responsive/theme compatibility matrix
+Audit all current frontend/admin JavaScript user-visible strings. Move remaining hard-coded/fallback strings into the WordPress translation pipeline and keep one authoritative i18n source per runtime/adapter.
 
-Test representative WordPress themes and widths for:
+Do not introduce new compatibility-layer-local translation tables.
 
-- graph toolbar wrapping
-- fullscreen
-- modals/galleries
-- chart labels
-- Gutenberg embedding
-- multiple visualizations in constrained containers
+### 20. Responsive/theme compatibility matrix — COMPLETED
+
+Closed by Phase C PRs #108, #110 and #111. Keep the established constrained-mobile/Gutenberg/multiple-instance browser matrix as regression coverage.
 
 ## P1 — performance and observability
 
-### 21. Establish performance budgets
+### 21. Establish performance budgets — OPEN
 
 Create representative benchmarks for:
 
-- row datasets: 1k / 10k / 50k rows
-- graphs: 100 / 500 / 1k / 5k nodes with realistic edge densities
+- row datasets: 1k / 10k / 50k rows;
+- graphs: 100 / 500 / 1k / 5k nodes with realistic edge densities.
 
 Measure:
 
-- admin page payload
-- initial render time
-- filter/search latency
-- memory use
-- layout/interaction responsiveness
+- admin page payload;
+- initial render time;
+- filter/search latency;
+- memory use;
+- layout/interaction responsiveness.
 
-Use measurements to decide whether SVG remains appropriate at every graph size or whether Canvas/WebGL/layout workers are needed for larger tiers.
+Use the measurements to decide whether SVG remains appropriate at every graph tier or whether larger tiers need Canvas/WebGL/layout workers or explicit supported-size limits.
 
-### 22. Avoid duplicate data fetch/state derivation
+### 22. Avoid duplicate data fetch/state derivation — IMPLEMENTED ARCHITECTURALLY / VERIFY AND CLOSE
 
-Every visualization instance should have one payload acquisition path and one state owner. Compatibility/enhancement modules should receive state rather than independently refetching the visualization endpoint.
+The major architecture is already in place:
 
-### 23. Add useful diagnostics
+- #81 consolidated graph runtime state into one per-visualization owner;
+- #84 removed competing dataset-editor preview state;
+- #114 made visualization preview share the public payload builder and renderer/runtime;
+- #116 kept renderer applicability in Registry rather than a second JavaScript capability map;
+- #126 kept the keyboard layer lifecycle/event-only rather than a second editor state owner.
 
-For administrators, expose concise diagnostics for failed visualization loads/imports/migrations without leaking sensitive query data publicly.
+Before marking this item fully complete, perform one explicit source/architecture audit of the current 2.0.38 tree to verify that no newer adapter independently refetches visualization payloads or derives persistent competing state.
+
+### 23. Add useful diagnostics — OPEN / PARTIALLY IMPLEMENTED
+
+Current editors already surface validation, mutation, request and conflict failures in-context, including graph modal mutation errors from #94 and spreadsheet request/conflict states from #88/#89.
+
+Remaining work: define a concise administrator diagnostics surface for failed public visualization loads, import failures and migration/legacy maintenance tasks without exposing sensitive query/data details publicly.
 
 ## P2 — extensibility after stabilization
 
-### 24. Formalize renderer/schema extension APIs
+### 24. Formalize renderer/schema extension APIs — OPEN
 
-`Registry` is currently static. Once core renderer behavior stabilizes, define supported WordPress filters/actions or registration APIs for:
-
-- dataset schemas
-- renderers
-- display settings
-- import adapters
+`Registry` is currently static. Once the remaining P1 quality milestones are closed, define supported WordPress filters/actions or registration APIs for dataset schemas, renderers, display settings and import adapters.
 
 Do not expose an extension API before its contracts are stable.
 
-### 25. Additional import adapters
+### 25. Additional import adapters — OPEN
 
-Only after CSV/paste import is mature, consider:
+Only after the remaining stabilization work, consider remote CSV/JSON URL, scheduled refresh, Google Sheets or other connectors. These must map into canonical datasets rather than introduce a parallel data model.
 
-- remote CSV/JSON URL
-- scheduled refresh
-- Google Sheets or other connectors
+### 26. Export/share formats — OPEN
 
-These should map into canonical datasets rather than introduce a parallel data model.
+Potential additions include CSV export for row datasets, graph CSV node/relation pairs and SVG/PNG export where renderer semantics permit it.
 
-### 26. Export/share formats
+### 27. Legacy-table retirement policy — OPEN / DEFERRED
 
-Potential later additions:
+Legacy tables are not retained for a backwards-compatibility promise. If cleanup is later performed, first verify any wanted fixtures/backups and make retirement an explicit, versioned action rather than a silent routine-update side effect.
 
-- CSV export for row datasets
-- graph CSV pair (nodes/relations)
-- SVG/PNG export where renderer semantics permit it
+## Recommended next sequence
 
-### 27. Legacy-table retirement policy
+1. **#18 Public graph accessibility audit**.
+2. **#19 JavaScript localization consolidation**.
+3. **#22 Explicit single-state/payload ownership verification and closure**.
+4. **#21 Performance budgets and representative scale benchmarks**.
+5. **#23 Administrator diagnostics**.
+6. Reassess P2 #24–#27 only after the above are closed.
 
-Legacy tables are not retained to satisfy a backwards-compatibility promise. If they are still useful when cleanup is considered, first verify that any wanted test fixtures/backups can be recovered or migrated. Cleanup must remain an explicit, versioned action rather than a silent routine-update side effect.
+## Permanent regression requirements
 
-## Already implemented / no longer open requirements
+The following are implemented behavior and must remain covered while the runtime/editor evolves:
 
-The following earlier requirements are substantially present and should be treated as regression requirements rather than new backlog items:
-
-- canonical dataset ownership of graph data
-- targeted node/relation writes and revision conflict detection
-- graph validation and revision restore
-- full node-title wrapping on current graph cards
-- node images and node detail modal/gallery
-- customizable node-modal labels in visualization display settings
-- public fullscreen control
-- graph search/type/relation filtering
-- multi-select type/subtype facets
-- property views
-- related-node navigation through filtered graphs
-- graph zoom/reset/panning
-- 1-hop/2-hop connection focus
-- WordPress-native per-plugin auto-update preference with GitHub release package delivery
-- automated release ZIP creation and WordPress/WooCommerce smoke testing
-- Playwright/Chromium browser regression coverage for core editor and graph workflows
-
-These behaviors remain regression requirements and should stay covered as the core runtime/editor is simplified further.
+- canonical dataset ownership of graph data;
+- targeted writes, revision conflict detection and revision restore;
+- guided import and schema-aware spreadsheet editing;
+- lazy relation endpoint lookup and graph editor node/relation workflows;
+- WordPress-native node rich editing and structured public fields;
+- full node-title wrapping, images and node detail gallery;
+- rich-text semantics under hostile theme CSS;
+- grouped related-node navigation with correct long-title/bullet alignment;
+- customizable node-modal labels;
+- graph search/type/relation filters and multi-select type/subtype facets;
+- property views and related-node navigation through filtered graphs;
+- graph zoom/reset/panning and 1-hop/2-hop connection focus;
+- fullscreen across graph and non-graph renderers;
+- constrained-mobile and Gutenberg embedding behavior;
+- multiple visualization instances with independent state;
+- dataset → visualization one-action creation;
+- live visualization preview using the public renderer/runtime;
+- renderer-specific settings contract;
+- WooCommerce live-query/snapshot UX;
+- visualization duplication and personal display presets;
+- admin dialog keyboard/focus behavior;
+- WordPress-native per-plugin auto-update preference with GitHub release package delivery;
+- automated release ZIP creation and WordPress/WooCommerce/minimum-platform/Chromium CI.
