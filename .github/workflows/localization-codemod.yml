@@ -94,6 +94,7 @@ jobs:
           text = text.replace("(\"['labels', 'Labels / content']\", \"['labels', __('Labels / content', 'viswiz')]\"),", "(\"section('labels', 'Labels / content')\", \"section('labels', __('Labels / content', 'viswiz'))\"),")
           text = text.replace("(\"['interaction', 'Interaction']\", \"['interaction', __('Interaction', 'viswiz')]\"),", "(\"section('interaction', 'Interaction')\", \"section('interaction', __('Interaction', 'viswiz'))\"),")
           text = text.replace("(\"['advanced', 'Advanced']\", \"['advanced', __('Advanced', 'viswiz')]\"),", "(\"section('advanced', 'Advanced')\", \"section('advanced', __('Advanced', 'viswiz'))\"),")
+          text = '\n'.join(line for line in text.splitlines() if not ('field.parentNode' in line and 'Description' in line)) + '\n'
           p.write_text(text)
           PY
       - name: Apply deterministic localization codemod
