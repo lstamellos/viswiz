@@ -82,7 +82,7 @@ test('public graph accessibility semantics, focus lifecycle and reduced motion',
   await selectedFacet.focus();
   await page.keyboard.press('Enter');
   await expect(selectedFacet).toHaveCount(0);
-  await expect(graph.locator('.viswiz-clear-all-filters')).toBeFocused();
+  await expect(graph.locator('input[type="search"]')).toBeFocused();
 
   await alice.click();
   nodeOverlay = page.locator('body > .viswiz-modal-overlay:not(.viswiz-property-overlay)');
