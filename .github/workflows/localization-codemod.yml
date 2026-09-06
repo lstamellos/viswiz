@@ -51,6 +51,18 @@ jobs:
               block = ''.join(lines[start:end + 1])
               if "'wp-i18n'" in block:
                   return
+              if '$dependencies' in block:
+                  source = ''.join(lines)
+                  pattern = re.compile(r"\$dependencies\s*=\s*array\(([^)]*)\);")
+                  match = pattern.search(source)
+                  if not match:
+                      raise RuntimeError(f'dynamic dependency declaration for {handle} missing in {path}')
+                  inner = match.group(1).strip()
+                  if "'wp-i18n'" not in inner:
+                      inner = inner.rstrip() + ", 'wp-i18n'"
+                      source = source[:match.start(1)] + inner + source[match.end(1):]
+                      write(path, source)
+                  return
               pattern = re.compile(r'array\(([^()]*)\)')
               matches = list(pattern.finditer(block))
               if not matches:
