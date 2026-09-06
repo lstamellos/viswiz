@@ -1,12 +1,13 @@
 (() => {
   'use strict';
-  const { __, sprintf } = window.wp.i18n;
+  const { __ } = window.wp.i18n;
 
   const svgNS = 'http://www.w3.org/2000/svg';
   const stateMap = new WeakMap();
   const queued = new WeakSet();
   const loadQueued = new WeakSet();
-  const enhancedModals = new WeakSet();  const $ = (selector, root = document) => root.querySelector(selector);
+  const enhancedModals = new WeakSet();
+  const $ = (selector, root = document) => root.querySelector(selector);
 
   function stateFor(container) {
     if (!stateMap.has(container)) {

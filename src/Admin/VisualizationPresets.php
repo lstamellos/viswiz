@@ -40,7 +40,7 @@ final class VisualizationPresets {
         wp_enqueue_script(
             'viswiz-visualization-presets',
             VISWIZ_URL . 'assets/viswiz-visualization-presets.js',
-            array('viswiz-visualization-preview', 'wp-i18n' ),
+            array( 'viswiz-visualization-preview', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
@@ -52,16 +52,6 @@ final class VisualizationPresets {
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'nonce'   => wp_create_nonce( 'viswiz_visualization_presets' ),
                 'presets' => self::presets(),
-                    'saved'          => __( 'Display preset saved.', 'viswiz' ),
-                    'applied'        => __( 'Preset applied to unsaved display settings.', 'viswiz' ),
-                    'nothingApplied' => __( 'This preset has no settings supported by the current renderer.', 'viswiz' ),
-                    'deleted'        => __( 'Display preset deleted.', 'viswiz' ),
-                    'saving'         => __( 'Saving preset…', 'viswiz' ),
-                    'deleting'       => __( 'Deleting preset…', 'viswiz' ),
-                    'nameRequired'   => __( 'Enter a preset name.', 'viswiz' ),
-                    'requestError'   => __( 'The display preset change could not be saved.', 'viswiz' ),
-                    'confirmDelete'  => __( 'Delete this display preset?', 'viswiz' ),
-                ),
             )
         );
         wp_add_inline_style(

@@ -20,7 +20,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.code) {
-      const error = new Error(data?.message || __('The change could not be saved.', 'viswiz') || `HTTP ${response.status}`);
+      const error = new Error(data?.message || sprintf(__('The request failed with HTTP status %d.', 'viswiz'), response.status));
       error.code = data?.code || '';
       error.data = data?.data || {};
       throw error;
@@ -423,7 +423,7 @@
 
   function duplicateNodeSeed(node) {
     const id = uuid();
-    const baseSlug = String(node.slug || node.title || __('node', 'viswiz')).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || __('node', 'viswiz');
+    const baseSlug = String(node.slug || node.title || 'node').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'node';
     return {
       ...clone(node),
       uuid: id,
@@ -763,6 +763,15 @@
     return messages;
   }
 
+  function directionLabel(value) {
+    const labels = {
+      directed: __('Directed', 'viswiz'),
+      bidirectional: __('Bidirectional', 'viswiz'),
+      undirected: __('Undirected', 'viswiz'),
+    };
+    return labels[value] || value || labels.directed;
+  }
+
   function openRelationDialog(state, relation, options = {}) {
     const current = clone(relation || options.seed || { uuid: uuid(), from_node_uuid: '', to_node_uuid: '', relation_type: '', label: '', inverse_label: '', direction: 'directed', intensity: 1, meta: {} });
     if (!current.uuid) current.uuid = uuid();
@@ -781,7 +790,7 @@
     pickerGrid.className = 'viswiz-form-grid';
     const fromPicker = nodePicker(
       state,
-      'From',
+      __('From', 'viswiz'),
       'from_node_uuid',
       current.from_node_uuid,
       current.from_title || current.from_slug || __('Current source', 'viswiz'),
@@ -789,7 +798,7 @@
     );
     const toPicker = nodePicker(
       state,
-      'To',
+      __('To', 'viswiz'),
       'to_node_uuid',
       current.to_node_uuid,
       current.to_title || current.to_slug || __('Current target', 'viswiz'),
@@ -800,7 +809,7 @@
 
     const relationOptions = Object.entries(cfg.relationTypes || {}).map(([key, item]) => `<option value="${esc(key)}" ${current.relation_type === key ? 'selected' : ''}>${esc(item.label || key)}</option>`).join('');
     const rest = document.createElement('div');
-    rest.innerHTML = `<label class="viswiz-field"><span>${__('Relation type', 'viswiz')}</span><select name="relation_type"><option value="">${__('Unspecified', 'viswiz')}</option>${relationOptions}</select></label><div class="notice notice-warning inline viswiz-relation-constraint-warning" data-viswiz-relation-constraint hidden><p></p></div><div class="viswiz-form-grid">${field(__('Label', 'viswiz'), 'label', current.label)}${field(__('Inverse label', 'viswiz'), 'inverse_label', current.inverse_label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>${__('Direction', 'viswiz')}</span><select name="direction">${['directed', 'bidirectional', 'undirected'].map((direction) => `<option ${current.direction === direction ? 'selected' : ''}>${direction}</option>`).join('')}</select></label>${field(__('Intensity', 'viswiz'), 'intensity', current.intensity, 'number', 'step="0.1" min="0.1" max="20"')}</div>${textareaField(__('Metadata JSON', 'viswiz'), 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>${__('Cancel', 'viswiz')}</button><button type="submit" class="button button-primary">${__('Save relation', 'viswiz')}</button></div>`;
+    rest.innerHTML = `<label class="viswiz-field"><span>${__('Relation type', 'viswiz')}</span><select name="relation_type"><option value="">${__('Unspecified', 'viswiz')}</option>${relationOptions}</select></label><div class="notice notice-warning inline viswiz-relation-constraint-warning" data-viswiz-relation-constraint hidden><p></p></div><div class="viswiz-form-grid">${field(__('Label', 'viswiz'), 'label', current.label)}${field(__('Inverse label', 'viswiz'), 'inverse_label', current.inverse_label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>${__('Direction', 'viswiz')}</span><select name="direction">${['directed', 'bidirectional', 'undirected'].map((direction) => `<option value="${direction}" ${current.direction === direction ? 'selected' : ''}>${directionLabel(direction)}</option>`).join('')}</select></label>${field(__('Intensity', 'viswiz'), 'intensity', current.intensity, 'number', 'step="0.1" min="0.1" max="20"')}</div>${textareaField(__('Metadata JSON', 'viswiz'), 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>${__('Cancel', 'viswiz')}</button><button type="submit" class="button button-primary">${__('Save relation', 'viswiz')}</button></div>`;
     while (rest.firstChild) form.appendChild(rest.firstChild);
     modal.body.appendChild(form);
     document.body.appendChild(modal.dialog);

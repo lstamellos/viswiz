@@ -1,9 +1,9 @@
 (() => {
   'use strict';
-  const { __, sprintf } = window.wp.i18n;
+  const { __ } = window.wp.i18n;
 
   const cfg = window.VisWizAdminV2 || {};
-  const previewCfg = window.VisWizVisualizationPreview || {};  const $ = (selector, root = document) => root.querySelector(selector);
+  const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   let timer = 0;
   let controller = null;

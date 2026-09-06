@@ -32,7 +32,15 @@ final class JavaScriptLocalizationTest extends TestCase {
             self::assertStringNotContainsString( 'previewCfg.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'VisWizFrontendV2?.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'const tr = (key, fallback)', $javascript, $file );
+            self::assertDoesNotMatchRegularExpression( '/(?:=|:|\?)[ \t]*[\'"][^\r\n]*\$\{__\(/', $javascript, $file . ' must not embed gettext interpolation inside a quoted literal.' );
         }
+    }
+
+    public function test_machine_identifiers_and_relation_enum_values_stay_stable(): void {
+        $dataset = file_get_contents( $this->root . '/assets/viswiz-dataset-editor.js' );
+        self::assertStringNotContainsString( "node.slug || node.title || __('node', 'viswiz')", $dataset );
+        self::assertStringContainsString( 'value="${direction}"', $dataset );
+        self::assertStringContainsString( "__('Directed', 'viswiz')", $dataset );
     }
 
     public function test_static_translation_maps_are_removed_from_php_config(): void {

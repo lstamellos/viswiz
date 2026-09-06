@@ -38,7 +38,7 @@ final class DatasetEditorPage {
         wp_enqueue_script(
             'viswiz-dataset-editor-v2',
             VISWIZ_URL . 'assets/viswiz-dataset-editor.js',
-            array('viswiz-admin-v2', 'wp-i18n' ),
+            array( 'viswiz-admin-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );

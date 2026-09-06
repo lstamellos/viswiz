@@ -55,7 +55,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.code) {
-      const error = new Error(data?.message || __('The import request failed.', 'viswiz') || `HTTP ${response.status}`);
+      const error = new Error(data?.message || sprintf(__('The import request failed with HTTP status %d.', 'viswiz'), response.status));
       error.code = data?.code || '';
       error.data = data?.data || {};
       throw error;
@@ -303,7 +303,7 @@
       </div>
       <label class="viswiz-field"><span>${__('Paste CSV / TSV / spreadsheet cells', 'viswiz')}</span><textarea rows="8" data-viswiz-import-source placeholder="row_key&#9;label&#9;value&#10;alpha&#9;Alpha&#9;10"></textarea></label>
       <div class="viswiz-import-options">
-        ${schema === 'graph' ? '<label class="viswiz-field"><span>${__('Graph data', 'viswiz')}</span><select data-viswiz-import-kind><option value="nodes">${__('Nodes', 'viswiz')}</option><option value="relations">${__('Relations', 'viswiz')}</option></select></label>' : ''}
+        ${schema === 'graph' ? `<label class="viswiz-field"><span>${__('Graph data', 'viswiz')}</span><select data-viswiz-import-kind><option value="nodes">${__('Nodes', 'viswiz')}</option><option value="relations">${__('Relations', 'viswiz')}</option></select></label>` : ''}
         <label class="viswiz-field"><span>${__('Import mode', 'viswiz')}</span><select data-viswiz-import-mode><option value="append">${__('Append — add new items', 'viswiz')}</option><option value="upsert">${__('Upsert — update matching keys, add missing', 'viswiz')}</option><option value="replace">${__('Replace — replace this item set', 'viswiz')}</option></select></label>
       </div>
       <p class="description" data-viswiz-import-mode-help>${__('Append adds records without changing existing ones.', 'viswiz')}</p>
@@ -372,7 +372,7 @@
     kind?.addEventListener('change', resetPrepared);
     mode.addEventListener('change', () => {
       const help = {
-        append: '${__('Append adds records without changing existing ones.', 'viswiz')}',
+        append: __('Append adds records without changing existing ones.', 'viswiz'),
         upsert: state.schema === 'graph' ? __('Upsert preserves internal UUIDs for matching external keys and adds missing items.', 'viswiz') : __('Upsert matches the mapped row key, updates existing rows and adds missing rows.', 'viswiz'),
         replace: state.schema === 'graph' ? __('Replace swaps the selected node/relation set. The preview lists any dependent relations that would be removed.', 'viswiz') : __('Replace removes the current rows and replaces them with the imported rows.', 'viswiz'),
       };
@@ -405,7 +405,7 @@
         previewButton.disabled = false;
         commitRow.hidden = true;
         $('[data-viswiz-import-preview]', root).hidden = true;
-        const name = chosen === '\t' ? 'tab' : chosen === ',' ? 'comma' : chosen === ';' ? 'semicolon' : 'pipe';
+        const name = chosen === '\t' ? __('tab', 'viswiz') : chosen === ',' ? __('comma', 'viswiz') : chosen === ';' ? __('semicolon', 'viswiz') : __('pipe', 'viswiz');
         setMessage(root, sprintf(__('%1$d records parsed using %2$s delimiter. Map columns, then validate preview.', 'viswiz'), state.parsed.records.length, name), 'success');
       } catch (error) {
         state.parsed = null;

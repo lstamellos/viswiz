@@ -1,9 +1,10 @@
 (() => {
   'use strict';
-  const { __, sprintf } = window.wp.i18n;
+  const { __ } = window.wp.i18n;
 
   const cfg = window.VisWizVisualizationPresets || {};
-  const adminCfg = window.VisWizAdminV2 || {};  const $ = (selector, root = document) => root.querySelector(selector);
+  const adminCfg = window.VisWizAdminV2 || {};
+  const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   let presets = Array.isArray(cfg.presets) ? cfg.presets : [];
 

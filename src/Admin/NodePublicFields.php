@@ -23,7 +23,7 @@ final class NodePublicFields {
         wp_enqueue_script(
             'viswiz-node-public-fields',
             VISWIZ_URL . 'assets/viswiz-node-public-fields.js',
-            array('viswiz-dataset-editor-v2', 'wp-i18n' ),
+            array( 'viswiz-dataset-editor-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );

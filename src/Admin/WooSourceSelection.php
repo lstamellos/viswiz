@@ -20,7 +20,7 @@ final class WooSourceSelection {
         $woo_available = class_exists( '\\WooCommerce' ) && function_exists( 'WC' ) && WC();
         $searchable = $woo_available && current_user_can( 'edit_products' );
         $snapshot_allowed = $woo_available && current_user_can( 'manage_woocommerce' );
-        $dependencies = array('viswiz-admin-v2', 'wp-i18n');
+        $dependencies = array( 'viswiz-admin-v2', 'wp-i18n');
 
         if ( $searchable && wp_script_is( 'wc-enhanced-select', 'registered' ) ) {
             wp_enqueue_script( 'wc-enhanced-select' );
@@ -45,18 +45,6 @@ final class WooSourceSelection {
                 'snapshotAllowed' => (bool) $snapshot_allowed,
                 'products'        => self::selected_product_labels( $is_visualization ),
                 'categories'      => self::selected_category_labels( $is_visualization ),
-                    'categories'             => __( 'Categories', 'viswiz' ),
-                    'searchProducts'         => __( 'Search products…', 'viswiz' ),
-                    'searchCategories'       => __( 'Search product categories…', 'viswiz' ),
-                    'liveOption'             => __( 'WooCommerce live query', 'viswiz' ),
-                    'liveDescription'        => __( 'Live query: recalculates from current WooCommerce orders when requested and uses the configured cache/refresh interval. No rows are copied into a dataset.', 'viswiz' ),
-                    'snapshotDescription'    => __( 'Snapshot: runs the WooCommerce query once and replaces this canonical dataset with the current results. The copied rows can then be edited independently and do not stay synchronized with WooCommerce.', 'viswiz' ),
-                    'snapshotButton'         => __( 'Replace dataset with current snapshot', 'viswiz' ),
-                    'woocommerceInactive'    => __( 'WooCommerce is not active. Existing WooCommerce filter values are preserved, but new live queries or snapshots cannot be run.', 'viswiz' ),
-                    'manualIdsFallback'      => __( 'WooCommerce search pickers are not available for this account. Product and category IDs remain editable manually.', 'viswiz' ),
-                    'snapshotPermission'     => __( 'Your account does not have permission to run WooCommerce snapshots.', 'viswiz' ),
-                    'graphSnapshotDisabled'  => __( 'WooCommerce snapshots require a row-based dataset and cannot replace graph data.', 'viswiz' ),
-                ),
             )
         );
     }

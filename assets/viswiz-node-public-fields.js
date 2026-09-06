@@ -73,7 +73,7 @@
     row.dataset.viswizPublicFieldRow = '1';
 
     const labelWrap = document.createElement('label');
-    labelWrap.innerHTML = '<span>${__('Label', 'viswiz')}</span>';
+    labelWrap.innerHTML = `<span>${__('Label', 'viswiz')}</span>`;
     const labelInput = document.createElement('input');
     labelInput.type = 'text';
     labelInput.value = current.label;
@@ -81,7 +81,7 @@
     labelWrap.appendChild(labelInput);
 
     const typeWrap = document.createElement('label');
-    typeWrap.innerHTML = '<span>${__('Type', 'viswiz')}</span>';
+    typeWrap.innerHTML = `<span>${__('Type', 'viswiz')}</span>`;
     const select = document.createElement('select');
     select.dataset.viswizPublicFieldType = '1';
     TYPES.forEach((type) => {
@@ -95,7 +95,7 @@
 
     const valueWrap = document.createElement('label');
     valueWrap.className = 'viswiz-public-field-value';
-    valueWrap.innerHTML = '<span>${__('Value', 'viswiz')}</span>';
+    valueWrap.innerHTML = `<span>${__('Value', 'viswiz')}</span>`;
     let valueControl = fieldValueControl(current.type, current.value);
     valueWrap.appendChild(valueControl);
 

@@ -24,7 +24,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.code) {
-      const error = new Error(data?.message || __('The change could not be saved.', 'viswiz') || `HTTP ${response.status}`);
+      const error = new Error(data?.message || sprintf(__('The request failed with HTTP status %d.', 'viswiz'), response.status));
       error.code = data?.code || '';
       error.data = data?.data || {};
       throw error;
@@ -333,14 +333,14 @@
         <button type="button" class="button" data-grid-action="add">${esc(sprintf(__('Add %s', 'viswiz'), editor.noun || __('row', 'viswiz')))}</button>
         <button type="button" class="button button-primary" data-grid-action="save" ${!dirty || sheet.saving || sheet.errors.size ? 'disabled' : ''}>${__('Save changes', 'viswiz')}</button>
         <button type="button" class="button" data-grid-action="discard" ${!dirty || sheet.saving ? 'disabled' : ''}>${__('Discard changes', 'viswiz')}</button>
-        ${sheet.conflict ? '<button type="button" class="button" data-grid-action="reload">${__('Reload server version', 'viswiz')}</button>' : ''}
-        <span>${shownTotal} ${esc(editor.plural || 'rows')} · ${esc(cfg.schemas?.[sheet.schema]?.label || sheet.schema)}</span>
+        ${sheet.conflict ? `<button type="button" class="button" data-grid-action="reload">${__('Reload server version', 'viswiz')}</button>` : ''}
+        <span>${shownTotal} ${esc(editor.plural || __('rows', 'viswiz'))} · ${esc(cfg.schemas?.[sheet.schema]?.label || sheet.schema)}</span>
         <span class="viswiz-grid-state ${esc(status.kind)}" data-viswiz-grid-state>${esc(status.text)}</span>
       </div>
       ${sheet.serverMessage ? `<div class="notice notice-error inline viswiz-spreadsheet-server-error" data-viswiz-spreadsheet-server-error><p>${esc(sheet.serverMessage)}</p></div>` : ''}
       ${sheet.guardMessage ? `<div class="notice notice-warning inline viswiz-spreadsheet-guard-message" data-viswiz-spreadsheet-guard-message><p>${esc(sheet.guardMessage)}</p></div>` : ''}
       <p class="viswiz-grid-help">${__('Edit cells directly. Tab / Shift+Tab moves between cells, Enter moves down, and Arrow Up/Down moves between text cells. Paste tab-separated rows from spreadsheet software into any cell. Changes remain local until Save changes.', 'viswiz')}</p>
-      ${dirty ? '<p class="viswiz-grid-unsaved-note">${__('Save or discard the pending grid changes before searching, changing pages or replacing dataset state from another control.', 'viswiz')}</p>' : ''}
+      ${dirty ? `<p class="viswiz-grid-unsaved-note">${__('Save or discard the pending grid changes before searching, changing pages or replacing dataset state from another control.', 'viswiz')}</p>` : ''}
       <div class="viswiz-grid-wrap">
         <table class="widefat striped viswiz-grid" data-viswiz-grid>
           <thead><tr><th class="viswiz-grid-index">#</th>${fields.map((definition) => `<th>${esc(definition.label || definition.path)}</th>`).join('')}<th>${__('Row', 'viswiz')}</th></tr></thead>
@@ -360,7 +360,7 @@
                   ${Object.keys(errors).some((path) => !fields.some((definition) => definition.path === path)) ? `<span class="viswiz-grid-row-error">${esc(Object.values(errors)[0])}</span>` : ''}
                 </td>
               </tr>`;
-            }).join('') : `<tr class="viswiz-grid-empty"><td colspan="${fields.length + 2}">No ${esc(editor.plural || 'rows')} found. Add a row or paste data to begin.</td></tr>`}
+            }).join('') : `<tr class="viswiz-grid-empty"><td colspan="${fields.length + 2}">${esc(sprintf(__('No %s found. Add a row or paste data to begin.', 'viswiz'), editor.plural || __('rows', 'viswiz')))}</td></tr>`}
           </tbody>
         </table>
       </div>

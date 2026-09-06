@@ -64,10 +64,6 @@ final class Admin {
                 'renderers'     => Registry::renderers(),
                 'nodeTypes'     => Registry::node_types(),
                 'relationTypes' => Registry::relation_types(),
-                    'error'    => __( 'The change could not be saved.', 'viswiz' ),
-                    'saved'    => __( 'Saved.', 'viswiz' ),
-                    'confirmDelete' => __( 'Delete this item?', 'viswiz' ),
-                ),
             )
         );
 

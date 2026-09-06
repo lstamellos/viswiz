@@ -46,7 +46,7 @@ final class VisualizationPreview {
         wp_enqueue_script(
             'viswiz-renderer-settings',
             VISWIZ_URL . 'assets/viswiz-renderer-settings.js',
-            array('viswiz-admin-v2', 'wp-i18n' ),
+            array( 'viswiz-admin-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
@@ -61,7 +61,7 @@ final class VisualizationPreview {
         wp_enqueue_script(
             'viswiz-visualization-preview',
             VISWIZ_URL . 'assets/viswiz-visualization-preview.js',
-            array('viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime', 'wp-i18n' ),
+            array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
