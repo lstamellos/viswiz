@@ -22,9 +22,10 @@ final class ImportUi {
         wp_enqueue_script(
             'viswiz-import-v2',
             VISWIZ_URL . 'assets/viswiz-import.js',
-            array( 'viswiz-admin-v2' ),
+            array( 'viswiz-admin-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-import-v2', 'viswiz', VISWIZ_DIR . 'languages' );
     }
 }

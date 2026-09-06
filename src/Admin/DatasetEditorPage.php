@@ -38,10 +38,11 @@ final class DatasetEditorPage {
         wp_enqueue_script(
             'viswiz-dataset-editor-v2',
             VISWIZ_URL . 'assets/viswiz-dataset-editor.js',
-            array( 'viswiz-admin-v2' ),
+            array( 'viswiz-admin-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-dataset-editor-v2', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_enqueue_script(
             'viswiz-dataset-editor-keyboard',
             VISWIZ_URL . 'assets/viswiz-dataset-editor-keyboard.js',

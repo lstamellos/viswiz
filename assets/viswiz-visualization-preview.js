@@ -1,10 +1,8 @@
 (() => {
   'use strict';
+  const { __ } = window.wp.i18n;
 
   const cfg = window.VisWizAdminV2 || {};
-  const previewCfg = window.VisWizVisualizationPreview || {};
-  const i18n = previewCfg.i18n || {};
-  const tr = (key, fallback) => i18n[key] || fallback;
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   let timer = 0;
@@ -43,7 +41,7 @@
     const current = ++requestId;
     if (controller) controller.abort();
     controller = new AbortController();
-    setStatus(status, tr('updating', 'Updating unsaved preview…'));
+    setStatus(status, __('Updating unsaved preview…', 'viswiz'));
 
     try {
       const response = await fetch(`${cfg.restUrl}/visualizations/preview`, {
@@ -59,21 +57,21 @@
       const spec = await response.json().catch(() => ({}));
       if (current !== requestId) return;
       if (!response.ok || spec?.code) throw new Error(spec?.message || `HTTP ${response.status}`);
-      if (!window.VisWiz?.render) throw new Error(tr('rendererUnavailable', 'The public visualization renderer is unavailable.'));
+      if (!window.VisWiz?.render) throw new Error(__('The public visualization renderer is unavailable.', 'viswiz'));
 
       const previousRenderer = canvas.dataset.viswizPreviewRenderer || '';
       if (previousRenderer) canvas.classList.remove(`is-${previousRenderer}`);
       canvas.dataset.viswizPreviewRenderer = spec.renderer || '';
       window.VisWiz.render(canvas, spec);
-      setStatus(status, tr('updated', 'Preview updated. These changes are still unsaved.'));
+      setStatus(status, __('Preview updated. These changes are still unsaved.', 'viswiz'));
     } catch (error) {
       if (error?.name === 'AbortError' || current !== requestId) return;
       canvas.replaceChildren();
       const message = document.createElement('p');
       message.className = 'viswiz-error';
-      message.textContent = error?.message || tr('updateError', 'Could not update the preview.');
+      message.textContent = error?.message || __('Could not update the preview.', 'viswiz');
       canvas.appendChild(message);
-      setStatus(status, error?.message || tr('updateError', 'Could not update the preview.'), true);
+      setStatus(status, error?.message || __('Could not update the preview.', 'viswiz'), true);
     }
   }
 

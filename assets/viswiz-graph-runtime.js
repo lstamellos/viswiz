@@ -1,49 +1,12 @@
 (() => {
   'use strict';
+  const { __ } = window.wp.i18n;
 
   const svgNS = 'http://www.w3.org/2000/svg';
   const stateMap = new WeakMap();
   const queued = new WeakSet();
   const loadQueued = new WeakSet();
   const enhancedModals = new WeakSet();
-  const i18n = window.VisWizFrontendV2?.i18n || {};
-  const greek = (document.documentElement.lang || '').toLowerCase().startsWith('el');
-  const labels = greek ? {
-    clearSearch: 'Καθαρισμός αναζήτησης',
-    clearAllFilters: 'Καθαρισμός όλων των φίλτρων',
-    selectedFilters: 'Επιλεγμένα φίλτρα',
-    nodeType: 'Τύπος',
-    nodeSubtype: 'Ιδιότητα',
-    nodesWithProperty: 'Nodes με αυτή την ιδιότητα',
-    selectInGraph: 'Επισήμανση στο γράφημα',
-    close: 'Κλείσιμο',
-    focusConnections: 'Εστίαση στις συνδέσεις',
-    connectionFocus: 'Συνδέσεις',
-    clearFocus: 'Καθαρισμός εστίασης',
-    oneHop: '1 hop',
-    twoHops: '2 hops',
-    node: 'Node',
-    relatedNodes: 'Σχετικά nodes',
-    relation: 'Σχέση',
-  } : {
-    clearSearch: 'Clear search',
-    clearAllFilters: 'Clear all filters',
-    selectedFilters: 'Selected filters',
-    nodeType: 'Type',
-    nodeSubtype: 'Property',
-    nodesWithProperty: 'Nodes with this property',
-    selectInGraph: 'Highlight in graph',
-    close: 'Close',
-    focusConnections: 'Focus on connections',
-    connectionFocus: 'Connections',
-    clearFocus: 'Clear focus',
-    oneHop: '1 hop',
-    twoHops: '2 hops',
-    node: 'Node',
-    relatedNodes: 'Related nodes',
-    relation: 'Relation',
-  };
-  const tr = (key, fallback = '') => i18n[key] || labels[key] || fallback || key;
   const $ = (selector, root = document) => root.querySelector(selector);
 
   function stateFor(container) {
@@ -280,7 +243,7 @@
       class: 'viswiz-node-card-tag',
       role: 'button',
       tabindex: '0',
-      'aria-label': `${kind === 'node_subtype' ? tr('nodeSubtype', 'Property') : tr('nodeType', 'Type')}: ${labelize(rawLabel)}`,
+      'aria-label': `${kind === 'node_subtype' ? __('Property', 'viswiz') : __('Type', 'viswiz')}: ${labelize(rawLabel)}`,
       'aria-pressed': 'false',
     });
     tag.dataset.viswizPropertyKind = kind;
@@ -448,8 +411,8 @@
       clear.type = 'button';
       clear.className = 'viswiz-graph-tool viswiz-clear-search';
       clear.textContent = '×';
-      clear.setAttribute('aria-label', tr('clearSearch', 'Clear search'));
-      clear.title = tr('clearSearch', 'Clear search');
+      clear.setAttribute('aria-label', __('Clear search', 'viswiz'));
+      clear.title = __('Clear search', 'viswiz');
       group.appendChild(clear);
       clear.addEventListener('click', () => {
         if (!search.value) return;
@@ -478,9 +441,9 @@
       clear = document.createElement('button');
       clear.type = 'button';
       clear.className = 'viswiz-graph-tool viswiz-clear-all-filters';
-      clear.textContent = tr('clearAllFilters', 'Clear all filters');
-      clear.setAttribute('aria-label', tr('clearAllFilters', 'Clear all filters'));
-      clear.title = tr('clearAllFilters', 'Clear all filters');
+      clear.textContent = __('Clear all filters', 'viswiz');
+      clear.setAttribute('aria-label', __('Clear all filters', 'viswiz'));
+      clear.title = __('Clear all filters', 'viswiz');
       relationSelect.after(clear);
       clear.addEventListener('click', () => {
         nativeFilterSelects(toolbar).forEach((select) => {
@@ -512,7 +475,7 @@
     if (!host) {
       host = document.createElement('div');
       host.className = 'viswiz-selected-facets';
-      host.setAttribute('aria-label', tr('selectedFilters', 'Selected filters'));
+      host.setAttribute('aria-label', __('Selected filters', 'viswiz'));
       const filterGroup = toolbar.querySelector(':scope > .viswiz-filter-group');
       if (filterGroup) filterGroup.after(host);
       else toolbar.appendChild(host);
@@ -531,9 +494,9 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'viswiz-selected-facet';
-      const kindLabel = facet.kind === 'node_subtype' ? tr('nodeSubtype', 'Property') : tr('nodeType', 'Type');
+      const kindLabel = facet.kind === 'node_subtype' ? __('Property', 'viswiz') : __('Type', 'viswiz');
       button.textContent = `× ${kindLabel}: ${labelize(facet.value)}`;
-      button.setAttribute('aria-label', `${tr('clearAllFilters', 'Clear filter')}: ${labelize(facet.value)}`);
+      button.setAttribute('aria-label', `${__('Clear filter', 'viswiz')}: ${labelize(facet.value)}`);
       button.addEventListener('click', () => {
         state.selectedFacets.delete(key);
         applyState(container);
@@ -644,7 +607,7 @@
   }
 
   function nodeLabel(node) {
-    return node?.title || node?.label || node?.slug || tr('node', 'Node');
+    return node?.title || node?.label || node?.slug || __('Node', 'viswiz');
   }
 
   function connectionNeighborhood(spec, rootUuid, hops, relationType = '') {
@@ -690,7 +653,7 @@
     bar.setAttribute('aria-live', 'polite');
     const text = document.createElement('div');
     text.className = 'viswiz-connection-focus-label';
-    text.append(document.createTextNode(`${tr('connectionFocus', 'Connections')}: `));
+    text.append(document.createTextNode(`${__('Connections', 'viswiz')}: `));
     const name = document.createElement('strong');
     name.className = 'viswiz-connection-focus-name';
     text.appendChild(name);
@@ -700,18 +663,18 @@
     one.type = 'button';
     one.className = 'viswiz-connection-hop';
     one.dataset.hops = '1';
-    one.textContent = tr('oneHop', '1 hop');
+    one.textContent = __('1 hop', 'viswiz');
     const two = document.createElement('button');
     two.type = 'button';
     two.className = 'viswiz-connection-hop';
     two.dataset.hops = '2';
-    two.textContent = tr('twoHops', '2 hops');
+    two.textContent = __('2 hops', 'viswiz');
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'viswiz-connection-focus-clear';
     clear.textContent = '×';
-    clear.title = tr('clearFocus', 'Clear focus');
-    clear.setAttribute('aria-label', tr('clearFocus', 'Clear focus'));
+    clear.title = __('Clear focus', 'viswiz');
+    clear.setAttribute('aria-label', __('Clear focus', 'viswiz'));
     controls.append(one, two, clear);
     bar.append(text, controls);
     toolbar.after(bar);
@@ -802,23 +765,23 @@
     overlay.className = 'viswiz-modal-overlay viswiz-property-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', `${kind === 'node_subtype' ? tr('nodeSubtype', 'Property') : tr('nodeType', 'Type')}: ${labelize(value)}`);
+    overlay.setAttribute('aria-label', `${kind === 'node_subtype' ? __('Property', 'viswiz') : __('Type', 'viswiz')}: ${labelize(value)}`);
     const modal = document.createElement('div');
     modal.className = 'viswiz-node-modal viswiz-property-modal';
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'viswiz-modal-close';
-    close.setAttribute('aria-label', tr('close', 'Close'));
+    close.setAttribute('aria-label', __('Close', 'viswiz'));
     close.textContent = '×';
     const title = document.createElement('h3');
     title.textContent = labelize(value);
     const kindText = document.createElement('p');
     kindText.className = 'viswiz-property-kind';
-    kindText.textContent = kind === 'node_subtype' ? tr('nodeSubtype', 'Property') : tr('nodeType', 'Type');
+    kindText.textContent = kind === 'node_subtype' ? __('Property', 'viswiz') : __('Type', 'viswiz');
     const select = document.createElement('button');
     select.type = 'button';
     select.className = 'viswiz-property-select-in-graph';
-    select.textContent = tr('selectInGraph', 'Highlight in graph');
+    select.textContent = __('Highlight in graph', 'viswiz');
     select.addEventListener('click', () => {
       const state = stateFor(container);
       state.selectedFacets.set(facetKey(kind, String(value)), { kind, value: String(value) });
@@ -1014,15 +977,15 @@
     } else {
       list.replaceChildren();
     }
-    if (heading) heading.textContent = spec.settings?.node_modal_related_heading || tr('relatedNodes', 'Related nodes');
+    if (heading) heading.textContent = spec.settings?.node_modal_related_heading || __('Related nodes', 'viswiz');
     related.forEach((relation) => {
       const outgoing = String(relation.from_node_uuid) === String(node.uuid);
       const otherUuid = outgoing ? relation.to_node_uuid : relation.from_node_uuid;
       const other = nodeMap.get(String(otherUuid));
       if (!other) return;
       const relationLabel = outgoing
-        ? (relation.label || relation.relation_type || spec.settings?.node_modal_relation_fallback || tr('relation', 'Relation'))
-        : (relation.inverse_label || relation.label || relation.relation_type || spec.settings?.node_modal_relation_fallback || tr('relation', 'Relation'));
+        ? (relation.label || relation.relation_type || spec.settings?.node_modal_relation_fallback || __('Relation', 'viswiz'))
+        : (relation.inverse_label || relation.label || relation.relation_type || spec.settings?.node_modal_relation_fallback || __('Relation', 'viswiz'));
       const item = document.createElement('li');
       const relationText = document.createElement('span');
       relationText.className = 'viswiz-related-relation';
@@ -1052,7 +1015,7 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'viswiz-node-property-link';
-      button.textContent = `${kind === 'node_subtype' ? tr('nodeSubtype', 'Property') : tr('nodeType', 'Type')}: ${labelize(value)}`;
+      button.textContent = `${kind === 'node_subtype' ? __('Property', 'viswiz') : __('Type', 'viswiz')}: ${labelize(value)}`;
       button.addEventListener('click', () => showPropertyView(container, spec, kind, value, button));
       row.appendChild(button);
     });
@@ -1069,7 +1032,7 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'viswiz-focus-connections';
-    button.textContent = tr('focusConnections', 'Focus on connections');
+    button.textContent = __('Focus on connections', 'viswiz');
     button.addEventListener('click', () => {
       focusConnections(container, node.uuid, 1);
       $('.viswiz-modal-close', modal)?.click();

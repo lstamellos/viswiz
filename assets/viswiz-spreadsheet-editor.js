@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const { __, _n, sprintf } = window.wp.i18n;
 
   const cfg = window.VisWizAdminV2 || {};
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -23,7 +24,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.code) {
-      const error = new Error(data?.message || cfg.i18n?.error || `HTTP ${response.status}`);
+      const error = new Error(data?.message || sprintf(__('The request failed with HTTP status %d.', 'viswiz'), response.status));
       error.code = data?.code || '';
       error.data = data?.data || {};
       throw error;
@@ -43,11 +44,11 @@
     const editor = cfg.schemas?.[sheet.schema]?.editor;
     if (editor && Array.isArray(editor.fields) && editor.fields.length) return editor;
     return {
-      noun: 'row',
-      plural: 'rows',
+      noun: __('row', 'viswiz'),
+      plural: __('rows', 'viswiz'),
       fields: [
-        { path: 'label', label: 'Label', type: 'text', table: true, required: true },
-        { path: 'value', label: 'Value', type: 'number', table: true, required: true, step: 'any' },
+        { path: 'label', label: __('Label', 'viswiz'), type: 'text', table: true, required: true },
+        { path: 'value', label: __('Value', 'viswiz'), type: 'number', table: true, required: true, step: 'any' },
       ],
     };
   }
@@ -195,7 +196,7 @@
     const path = String(definition.path || '');
     const value = fieldValueForInput(definition, row);
     const type = definition.type === 'color' ? 'text' : (definition.type || 'text');
-    const common = `class="viswiz-grid-input" data-grid-row="${esc(row.uuid)}" data-grid-index="${rowIndex}" data-grid-col="${colIndex}" data-field-path="${esc(path)}" aria-label="${esc(definition.label || path)} row ${rowIndex + 1}" ${fieldAttributes(definition)} ${disabled ? 'disabled' : ''}`;
+    const common = `class="viswiz-grid-input" data-grid-row="${esc(row.uuid)}" data-grid-index="${rowIndex}" data-grid-col="${colIndex}" data-field-path="${esc(path)}" aria-label="${esc(sprintf(__('%1$s row %2$d', 'viswiz'), definition.label || path, rowIndex + 1))}" ${fieldAttributes(definition)} ${disabled ? 'disabled' : ''}`;
     if (definition.type === 'textarea') {
       return `<textarea ${common} rows="2">${esc(value)}</textarea>`;
     }
@@ -209,24 +210,24 @@
       const value = pathValue(row, path);
       const blank = value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
       if (definition.required && blank) {
-        errors[path] = `${definition.label || path} is required.`;
+        errors[path] = sprintf(__('%s is required.', 'viswiz'), definition.label || path);
         return;
       }
       if (blank) return;
       if (definition.type === 'number') {
         const number = Number(value);
         if (!Number.isFinite(number)) {
-          errors[path] = `${definition.label || path} must be a number.`;
+          errors[path] = sprintf(__('%s must be a number.', 'viswiz'), definition.label || path);
           return;
         }
-        if (definition.min !== undefined && number < Number(definition.min)) errors[path] = `${definition.label || path} must be at least ${definition.min}.`;
-        if (definition.max !== undefined && number > Number(definition.max)) errors[path] = `${definition.label || path} must be at most ${definition.max}.`;
+        if (definition.min !== undefined && number < Number(definition.min)) errors[path] = sprintf(__('%1$s must be at least %2$s.', 'viswiz'), definition.label || path, definition.min);
+        if (definition.max !== undefined && number > Number(definition.max)) errors[path] = sprintf(__('%1$s must be at most %2$s.', 'viswiz'), definition.label || path, definition.max);
       }
       if (definition.type === 'datetime-local' && Number.isNaN(Date.parse(String(value)))) {
-        errors[path] = `${definition.label || path} must be a valid date/time.`;
+        errors[path] = sprintf(__('%s must be a valid date/time.', 'viswiz'), definition.label || path);
       }
       if (definition.type === 'color' && String(value).trim() && !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value).trim())) {
-        errors[path] = `${definition.label || path} must be a hexadecimal color such as #2563eb.`;
+        errors[path] = sprintf(__('%s must be a hexadecimal color such as #2563eb.', 'viswiz'), definition.label || path);
       }
     });
     return errors;
@@ -257,13 +258,13 @@
   }
 
   function statusLabel(sheet) {
-    if (sheet.saving) return { text: `Saving ${dirtyCount(sheet)} change${dirtyCount(sheet) === 1 ? '' : 's'}…`, kind: 'is-saving' };
-    if (sheet.conflict) return { text: 'Conflict: newer server revision detected', kind: 'is-conflict' };
-    if (sheet.errors.size) return { text: `${sheet.errors.size} row${sheet.errors.size === 1 ? '' : 's'} need attention`, kind: 'is-error' };
+    if (sheet.saving) return { text: sprintf(_n('Saving %d change…', 'Saving %d changes…', dirtyCount(sheet), 'viswiz'), dirtyCount(sheet)), kind: 'is-saving' };
+    if (sheet.conflict) return { text: __('Conflict: newer server revision detected', 'viswiz'), kind: 'is-conflict' };
+    if (sheet.errors.size) return { text: sprintf(_n('%d row needs attention', '%d rows need attention', sheet.errors.size, 'viswiz'), sheet.errors.size), kind: 'is-error' };
     if (sheet.serverMessage) return { text: sheet.serverMessage, kind: 'is-error' };
     const count = dirtyCount(sheet);
-    if (count) return { text: `${count} unsaved change${count === 1 ? '' : 's'}`, kind: 'is-dirty' };
-    return { text: `All changes saved · r${sheet.revision}`, kind: '' };
+    if (count) return { text: sprintf(_n('%d unsaved change', '%d unsaved changes', count, 'viswiz'), count), kind: 'is-dirty' };
+    return { text: sprintf(__('All changes saved · r%d', 'viswiz'), sheet.revision), kind: '' };
   }
 
   function setGuardedDisabled(control, disabled, title) {
@@ -286,14 +287,14 @@
     const dirty = isDirty(sheet) || sheet.saving;
     if (sheet.searchInput) {
       sheet.searchInput.disabled = dirty;
-      sheet.searchInput.title = dirty ? 'Save or discard spreadsheet changes before searching.' : '';
+      sheet.searchInput.title = dirty ? __('Save or discard spreadsheet changes before searching.', 'viswiz') : '';
     }
     SIDE_MUTATION_SELECTORS.forEach((selector) => {
-      $$(selector).forEach((control) => setGuardedDisabled(control, dirty, 'Save or discard spreadsheet changes first.'));
+      $$(selector).forEach((control) => setGuardedDisabled(control, dirty, __('Save or discard spreadsheet changes first.', 'viswiz')));
     });
     if (sheet.metadataForm) {
       $$('button[type="submit"],input[type="submit"]', sheet.metadataForm).forEach((control) => {
-        setGuardedDisabled(control, dirty, 'Save or discard spreadsheet changes first.');
+        setGuardedDisabled(control, dirty, __('Save or discard spreadsheet changes first.', 'viswiz'));
       });
     }
   }
@@ -329,20 +330,20 @@
     sheet.root.dataset.viswizSpreadsheetEditor = '1';
     sheet.root.innerHTML = `
       <div class="viswiz-spreadsheet-toolbar">
-        <button type="button" class="button" data-grid-action="add">Add ${esc(editor.noun || 'row')}</button>
-        <button type="button" class="button button-primary" data-grid-action="save" ${!dirty || sheet.saving || sheet.errors.size ? 'disabled' : ''}>Save changes</button>
-        <button type="button" class="button" data-grid-action="discard" ${!dirty || sheet.saving ? 'disabled' : ''}>Discard changes</button>
-        ${sheet.conflict ? '<button type="button" class="button" data-grid-action="reload">Reload server version</button>' : ''}
-        <span>${shownTotal} ${esc(editor.plural || 'rows')} · ${esc(cfg.schemas?.[sheet.schema]?.label || sheet.schema)}</span>
+        <button type="button" class="button" data-grid-action="add">${esc(sprintf(__('Add %s', 'viswiz'), editor.noun || __('row', 'viswiz')))}</button>
+        <button type="button" class="button button-primary" data-grid-action="save" ${!dirty || sheet.saving || sheet.errors.size ? 'disabled' : ''}>${__('Save changes', 'viswiz')}</button>
+        <button type="button" class="button" data-grid-action="discard" ${!dirty || sheet.saving ? 'disabled' : ''}>${__('Discard changes', 'viswiz')}</button>
+        ${sheet.conflict ? `<button type="button" class="button" data-grid-action="reload">${__('Reload server version', 'viswiz')}</button>` : ''}
+        <span>${shownTotal} ${esc(editor.plural || __('rows', 'viswiz'))} · ${esc(cfg.schemas?.[sheet.schema]?.label || sheet.schema)}</span>
         <span class="viswiz-grid-state ${esc(status.kind)}" data-viswiz-grid-state>${esc(status.text)}</span>
       </div>
       ${sheet.serverMessage ? `<div class="notice notice-error inline viswiz-spreadsheet-server-error" data-viswiz-spreadsheet-server-error><p>${esc(sheet.serverMessage)}</p></div>` : ''}
       ${sheet.guardMessage ? `<div class="notice notice-warning inline viswiz-spreadsheet-guard-message" data-viswiz-spreadsheet-guard-message><p>${esc(sheet.guardMessage)}</p></div>` : ''}
-      <p class="viswiz-grid-help">Edit cells directly. Tab / Shift+Tab moves between cells, Enter moves down, and Arrow Up/Down moves between text cells. Paste tab-separated rows from spreadsheet software into any cell. Changes remain local until <strong>Save changes</strong>.</p>
-      ${dirty ? '<p class="viswiz-grid-unsaved-note">Save or discard the pending grid changes before searching, changing pages or replacing dataset state from another control.</p>' : ''}
+      <p class="viswiz-grid-help">${__('Edit cells directly. Tab / Shift+Tab moves between cells, Enter moves down, and Arrow Up/Down moves between text cells. Paste tab-separated rows from spreadsheet software into any cell. Changes remain local until Save changes.', 'viswiz')}</p>
+      ${dirty ? `<p class="viswiz-grid-unsaved-note">${__('Save or discard the pending grid changes before searching, changing pages or replacing dataset state from another control.', 'viswiz')}</p>` : ''}
       <div class="viswiz-grid-wrap">
         <table class="widefat striped viswiz-grid" data-viswiz-grid>
-          <thead><tr><th class="viswiz-grid-index">#</th>${fields.map((definition) => `<th>${esc(definition.label || definition.path)}</th>`).join('')}<th>Row</th></tr></thead>
+          <thead><tr><th class="viswiz-grid-index">#</th>${fields.map((definition) => `<th>${esc(definition.label || definition.path)}</th>`).join('')}<th>${__('Row', 'viswiz')}</th></tr></thead>
           <tbody>
             ${rows.length ? rows.map((row, rowIndex) => {
               const entry = draftEntry(sheet, row.uuid);
@@ -354,16 +355,16 @@
                 <td class="viswiz-grid-index">${serverIndex}</td>
                 ${fields.map((definition, colIndex) => `<td class="viswiz-grid-cell ${errors[definition.path] ? 'is-invalid' : ''}" data-grid-cell-path="${esc(definition.path)}">${gridInput(definition, row, rowIndex, colIndex, pendingDelete)}${rowErrorMarkup(errors, definition.path)}</td>`).join('')}
                 <td class="viswiz-grid-actions">
-                  <button type="button" class="button button-small" data-grid-action="advanced" data-row-uuid="${esc(row.uuid)}" ${pendingDelete ? 'disabled' : ''}>Advanced</button>
-                  <button type="button" class="${pendingDelete ? 'button button-small' : 'button-link-delete'}" data-grid-action="delete" data-row-uuid="${esc(row.uuid)}">${pendingDelete ? 'Undo' : 'Remove'}</button>
+                  <button type="button" class="button button-small" data-grid-action="advanced" data-row-uuid="${esc(row.uuid)}" ${pendingDelete ? 'disabled' : ''}>${__('Advanced', 'viswiz')}</button>
+                  <button type="button" class="${pendingDelete ? 'button button-small' : 'button-link-delete'}" data-grid-action="delete" data-row-uuid="${esc(row.uuid)}">${pendingDelete ? __('Undo', 'viswiz') : __('Remove', 'viswiz')}</button>
                   ${Object.keys(errors).some((path) => !fields.some((definition) => definition.path === path)) ? `<span class="viswiz-grid-row-error">${esc(Object.values(errors)[0])}</span>` : ''}
                 </td>
               </tr>`;
-            }).join('') : `<tr class="viswiz-grid-empty"><td colspan="${fields.length + 2}">No ${esc(editor.plural || 'rows')} found. Add a row or paste data to begin.</td></tr>`}
+            }).join('') : `<tr class="viswiz-grid-empty"><td colspan="${fields.length + 2}">${esc(sprintf(__('No %s found. Add a row or paste data to begin.', 'viswiz'), editor.plural || __('rows', 'viswiz')))}</td></tr>`}
           </tbody>
         </table>
       </div>
-      ${sheet.totalPages > 1 ? `<div class="viswiz-grid-pager"><button type="button" class="button button-small" data-grid-action="previous" ${sheet.page <= 1 || dirty ? 'disabled' : ''}>Previous</button><span class="viswiz-editor-status">Page ${sheet.page} / ${sheet.totalPages} · ${sheet.total} ${esc(editor.plural || 'rows')}</span><button type="button" class="button button-small" data-grid-action="next" ${sheet.page >= sheet.totalPages || dirty ? 'disabled' : ''}>Next</button></div>` : ''}`;
+      ${sheet.totalPages > 1 ? `<div class="viswiz-grid-pager"><button type="button" class="button button-small" data-grid-action="previous" ${sheet.page <= 1 || dirty ? 'disabled' : ''}>${__('Previous', 'viswiz')}</button><span class="viswiz-editor-status">${esc(sprintf(__('Page %1$d / %2$d · %3$d %4$s', 'viswiz'), sheet.page, sheet.totalPages, sheet.total, editor.plural || __('rows', 'viswiz')))}</span><button type="button" class="button button-small" data-grid-action="next" ${sheet.page >= sheet.totalPages || dirty ? 'disabled' : ''}>${__('Next', 'viswiz')}</button></div>` : ''}`;
     updateExternalControls(sheet);
   }
 
@@ -489,7 +490,7 @@
     const startRow = Number(input.dataset.gridIndex || 0);
     const startCol = Number(input.dataset.gridCol || 0);
     if (matrix.length > MAX_BATCH) {
-      window.alert(`Paste is limited to ${MAX_BATCH} rows at a time.`);
+      window.alert(sprintf(__('Paste is limited to %d rows at a time.', 'viswiz'), MAX_BATCH));
       return;
     }
 
@@ -533,7 +534,7 @@
       const rowUuid = issue.uuid || entry?.row?.uuid;
       if (!rowUuid) return;
       const errors = sheet.errors.get(rowUuid) || {};
-      errors[issue.field || '_row'] = issue.message || 'Validation error.';
+      errors[issue.field || '_row'] = issue.message || __('Validation error.', 'viswiz');
       sheet.errors.set(rowUuid, errors);
     });
   }
@@ -547,7 +548,7 @@
     }
     const changed = dirtyCount(sheet);
     if (changed > MAX_BATCH) {
-      window.alert(`A single save is limited to ${MAX_BATCH} changed rows.`);
+      window.alert(sprintf(__('A single save is limited to %d changed rows.', 'viswiz'), MAX_BATCH));
       return;
     }
 
@@ -605,11 +606,11 @@
     const dialog = document.createElement('dialog');
     dialog.className = 'viswiz-grid-advanced-dialog';
     dialog.innerHTML = `<form method="dialog" class="viswiz-grid-advanced-body">
-      <h2>Advanced row data</h2>
-      <label class="viswiz-field"><span>Stable key</span><input name="row_key" value="${esc(row.row_key || '')}"></label>
-      <label class="viswiz-field"><span>Additional metadata JSON</span><textarea name="meta" rows="8">${esc(JSON.stringify(additionalMeta(row, editor), null, 2))}</textarea></label>
-      <p class="description">Structured schema fields are edited in the spreadsheet. This JSON contains only additional metadata.</p>
-      <div class="viswiz-grid-dialog-actions"><button type="button" class="button" data-advanced-cancel>Cancel</button><button type="submit" class="button button-primary" value="save">Apply</button></div>
+      <h2>${__('Advanced row data', 'viswiz')}</h2>
+      <label class="viswiz-field"><span>${__('Stable key', 'viswiz')}</span><input name="row_key" value="${esc(row.row_key || '')}"></label>
+      <label class="viswiz-field"><span>${__('Additional metadata JSON', 'viswiz')}</span><textarea name="meta" rows="8">${esc(JSON.stringify(additionalMeta(row, editor), null, 2))}</textarea></label>
+      <p class="description">${__('Structured schema fields are edited in the spreadsheet. This JSON contains only additional metadata.', 'viswiz')}</p>
+      <div class="viswiz-grid-dialog-actions"><button type="button" class="button" data-advanced-cancel>${__('Cancel', 'viswiz')}</button><button type="submit" class="button button-primary" value="save">${__('Apply', 'viswiz')}</button></div>
     </form>`;
     document.body.appendChild(dialog);
     dialog.showModal();
@@ -621,12 +622,12 @@
         try {
           advanced = JSON.parse($('[name="meta"]', dialog).value || '{}');
         } catch (_) {
-          window.alert('Additional metadata JSON is invalid.');
+          window.alert(__('Additional metadata JSON is invalid.', 'viswiz'));
           dialog.remove();
           return;
         }
         if (!advanced || Array.isArray(advanced) || typeof advanced !== 'object') {
-          window.alert('Additional metadata must be a JSON object.');
+          window.alert(__('Additional metadata must be a JSON object.', 'viswiz'));
           dialog.remove();
           return;
         }
@@ -729,7 +730,7 @@
     sheet.metadataForm.addEventListener('submit', (event) => {
       if (!isDirty(sheet) && !sheet.saving) return;
       event.preventDefault();
-      sheet.guardMessage = 'Save or discard spreadsheet changes before changing dataset metadata.';
+      sheet.guardMessage = __('Save or discard spreadsheet changes before changing dataset metadata.', 'viswiz');
       render(sheet);
     }, true);
   }

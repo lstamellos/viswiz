@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const { __ } = window.wp.i18n;
 
   const cfg = window.VisWizAdminV2 || {};
   const runtime = window.VisWizRendererSettings || {};
@@ -79,21 +80,21 @@
     const embedSection = configSections.find((candidate) => candidate.querySelector('code'));
     if (!firstGrid || !displaySection) return;
 
-    const dataSection = section('data', 'Data / source');
+    const dataSection = section('data', __('Data / source', 'viswiz'));
     dataSection.appendChild(firstGrid);
     sourcePanels.forEach((panel) => dataSection.appendChild(panel));
 
-    const appearance = section('appearance', 'Appearance');
+    const appearance = section('appearance', __('Appearance', 'viswiz'));
     appearance.appendChild(settingsGrid(root, GROUPS.appearance));
 
-    const labels = section('labels', 'Labels / content');
+    const labels = section('labels', __('Labels / content', 'viswiz'));
     labels.appendChild(settingsGrid(root, GROUPS.labels.filter((key) => !key.startsWith('show_'))));
     labels.appendChild(settingsChecks(root, GROUPS.labels.filter((key) => key.startsWith('show_'))));
 
-    const interaction = section('interaction', 'Interaction');
+    const interaction = section('interaction', __('Interaction', 'viswiz'));
     interaction.appendChild(settingsChecks(root, GROUPS.interaction));
 
-    const advanced = section('advanced', 'Advanced');
+    const advanced = section('advanced', __('Advanced', 'viswiz'));
     advanced.appendChild(settingsGrid(root, GROUPS.advanced));
     const refresh = settingLabel(root, 'refresh_ms');
     if (refresh) refresh.dataset.viswizSourceSetting = 'woo_live';

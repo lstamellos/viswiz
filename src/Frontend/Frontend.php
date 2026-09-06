@@ -31,6 +31,7 @@ final class Frontend {
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-block-editor', 'viswiz', VISWIZ_DIR . 'languages' );
         register_block_type(
             VISWIZ_DIR . 'blocks/visualization',
             array(
@@ -314,39 +315,8 @@ final class Frontend {
             return;
         }
         wp_register_style( 'viswiz-frontend', VISWIZ_URL . 'assets/viswiz.css', array(), VISWIZ_VERSION );
-        wp_register_script( 'viswiz-frontend', VISWIZ_URL . 'assets/viswiz.js', array(), VISWIZ_VERSION, true );
-        wp_localize_script(
-            'viswiz-frontend',
-            'VisWizFrontendV2',
-            array(
-                'i18n' => array(
-                    'visualization' => __( 'Visualization', 'viswiz' ),
-                    'searchNodes'       => __( 'Search nodes', 'viswiz' ),
-                    'filterNodeType'    => __( 'Filter node type', 'viswiz' ),
-                    'allNodeTypes'      => __( 'All node types', 'viswiz' ),
-                    'filterRelationType'=> __( 'Filter relation type', 'viswiz' ),
-                    'allRelationTypes'  => __( 'All relation types', 'viswiz' ),
-                    'zoomIn'            => __( 'Zoom in', 'viswiz' ),
-                    'zoomOut'           => __( 'Zoom out', 'viswiz' ),
-                    'resetZoom'         => __( 'Reset zoom', 'viswiz' ),
-                    'nodes'             => __( 'nodes', 'viswiz' ),
-                    'relations'         => __( 'relations', 'viswiz' ),
-                    'noMatchingNodes'   => __( 'No matching nodes', 'viswiz' ),
-                    'previousImage'     => __( 'Previous image', 'viswiz' ),
-                    'nextImage'         => __( 'Next image', 'viswiz' ),
-                    'nodeGraph'         => __( 'Node graph', 'viswiz' ),
-                    'viewNode'          => __( 'View node', 'viswiz' ),
-                    'close'         => __( 'Close', 'viswiz' ),
-                    'node'          => __( 'Node', 'viswiz' ),
-                    'relatedNodes'  => __( 'Related nodes', 'viswiz' ),
-                    'relation'      => __( 'Relation', 'viswiz' ),
-                    'noData'        => __( 'No data available.', 'viswiz' ),
-                    'fullScreen'    => __( 'Full screen', 'viswiz' ),
-                    'exitFullScreen'=> __( 'Exit full screen', 'viswiz' ),
-                    'loadError'     => __( 'Could not load visualization.', 'viswiz' ),
-                ),
-            )
-        );
+        wp_register_script( 'viswiz-frontend', VISWIZ_URL . 'assets/viswiz.js', array( 'wp-i18n' ), VISWIZ_VERSION, true );
+        wp_set_script_translations( 'viswiz-frontend', 'viswiz', VISWIZ_DIR . 'languages' );
         self::$assets_registered = true;
     }
 

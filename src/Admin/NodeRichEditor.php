@@ -25,10 +25,11 @@ final class NodeRichEditor {
         wp_enqueue_script(
             'viswiz-node-rich-editor',
             VISWIZ_URL . 'assets/viswiz-node-rich-editor.js',
-            array( 'editor', 'viswiz-dataset-editor-v2' ),
+            array('editor', 'viswiz-dataset-editor-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-node-rich-editor', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_add_inline_style(
             'viswiz-admin-v2',
             '.viswiz-rich-editor-field{display:block;margin:0 0 14px}.viswiz-rich-editor-label{display:block;margin:0 0 6px;font-weight:600}.viswiz-rich-editor-field .wp-editor-wrap{width:100%}.viswiz-rich-editor-field .wp-editor-container{border-color:#8c8f94}.viswiz-rich-editor-field .wp-editor-area{width:100%;box-sizing:border-box}.viswiz-rich-editor-field.is-fallback textarea{min-height:150px}'
