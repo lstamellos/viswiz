@@ -95,6 +95,19 @@ jobs:
           text = text.replace("(\"['interaction', 'Interaction']\", \"['interaction', __('Interaction', 'viswiz')]\"),", "(\"section('interaction', 'Interaction')\", \"section('interaction', __('Interaction', 'viswiz'))\"),")
           text = text.replace("(\"['advanced', 'Advanced']\", \"['advanced', __('Advanced', 'viswiz')]\"),", "(\"section('advanced', 'Advanced')\", \"section('advanced', __('Advanced', 'viswiz'))\"),")
           text = '\n'.join(line for line in text.splitlines() if not ('field.parentNode' in line and 'Description' in line)) + '\n'
+          fixed = []
+          for line in text.splitlines():
+              if "heading.textContent = 'Public fields';" in line:
+                  continue
+              if "copy.textContent = 'Structured details shown in the public node information view." in line:
+                  fixed.extend([
+                      "    (\"copy.innerHTML = '<h3>Public fields</h3><p class=\\\"description\\\">Structured details shown in the public node information view. Order here is the public display order.</p>';\", \"copy.innerHTML = `<h3>${__('Public fields', 'viswiz')}</h3><p class=\\\"description\\\">${__('Structured details shown in the public node information view. Order here is the public display order.', 'viswiz')}</p>`;\"),",
+                      "    (\"add.textContent = 'Add public field';\", \"add.textContent = __('Add public field', 'viswiz');\"),",
+                      "    (\"remove.textContent = 'Remove';\", \"remove.textContent = __('Remove', 'viswiz');\"),",
+                  ])
+                  continue
+              fixed.append(line)
+          text = '\n'.join(fixed) + '\n'
           p.write_text(text)
           PY
       - name: Apply deterministic localization codemod
