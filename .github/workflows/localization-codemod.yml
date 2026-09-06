@@ -117,7 +117,6 @@ jobs:
                   continue
               fixed.append(line)
           text = '\n'.join(fixed) + '\n'
-          # Literal-level substitutions are advisory; architecture assertions remain strict below.
           text = text.replace("def regex(path, pattern, repl, required=True, flags=0):", "def regex(path, pattern, repl, required=False, flags=0):")
           js_start = text.index('def js_replace(path, mapping):')
           js_end = text.index('\n\n# ---------------------------------------------------------------------------\n# Replace adapter-local translation maps', js_start)
@@ -135,8 +134,10 @@ jobs:
                   raise RuntimeError(f'no tr() calls converted in {path}')
               write(path, text)
           ''' + text[tr_end:]
-          # Match the actual Woo dynamic fallback instead of separate tr() wrappers.
           text = text.replace("    (\"`${tr('product', 'Product')} #${id}`\", \"sprintf(__('Product #%d', 'viswiz'), id)\"),\n    (\"`${tr('category', 'Category')} #${id}`\", \"sprintf(__('Category #%d', 'viswiz'), id)\"),", "    (\"labels[String(id)] || `${kind === 'product' ? 'Product' : 'Category'} #${id}`\", \"labels[String(id)] || (kind === 'product' ? sprintf(__('Product #%d', 'viswiz'), id) : sprintf(__('Category #%d', 'viswiz'), id))\"),")
+          # Only reject the translation-helper signature, not normal DOM <tr> variables.
+          text = text.replace("'const tr ='", "'const tr = (key, fallback)'")
+          text = text.replace("self::assertStringNotContainsString( 'const tr =', $javascript, $file );", "self::assertStringNotContainsString( 'const tr = (key, fallback)', $javascript, $file );")
           p.write_text(text)
           PY
       - name: Apply deterministic localization codemod
