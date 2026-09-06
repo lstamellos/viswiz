@@ -29,6 +29,8 @@ jobs:
           start = text.index('def add_wp_i18n_dependency(path, handle):')
           end = text.index('\ndef convert_tr(path, pre_remove_patterns=()):', start)
           replacement = r'''def script_call_range(lines, handle):
+              source = ''.join(lines)
+              constant_handle = bool(re.search(rf"const\s+SCRIPT_HANDLE\s*=\s*'{re.escape(handle)}'", source))
               for start, line in enumerate(lines):
                   if 'wp_enqueue_script(' not in line and 'wp_register_script(' not in line:
                       continue
@@ -41,7 +43,7 @@ jobs:
                       if depth <= 0 and ';' in lines[end]:
                           break
                   block = ''.join(call)
-                  if f"'{handle}'" in block:
+                  if f"'{handle}'" in block or (constant_handle and 'self::SCRIPT_HANDLE' in block):
                       return start, end
               raise RuntimeError(f'script call for {handle} missing')
 
