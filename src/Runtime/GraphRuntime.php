@@ -267,13 +267,13 @@ CSS;
     if (facet) {
       const container = facet.closest('.viswiz-visualization');
       const label = facet.textContent.trim();
-      queueMicrotask(() => {
+      window.setTimeout(() => {
         if (!facet.isConnected) {
           const fallback = container?.querySelector('.viswiz-clear-all-filters,input[type="search"]');
           try { fallback?.focus({ preventScroll: true }); } catch (_) { fallback?.focus(); }
           announce(container, 'viswiz-graph-action-status', label);
         }
-      });
+      }, 0);
       return;
     }
 
@@ -282,11 +282,11 @@ CSS;
       const container = clearFocus.closest('.viswiz-visualization');
       const root = container?.querySelector('.is-viswiz-connection-root');
       const label = clearFocus.getAttribute('aria-label') || clearFocus.title || clearFocus.textContent.trim();
-      queueMicrotask(() => {
+      window.setTimeout(() => {
         const fallback = root?.isConnected ? root : container?.querySelector('input[type="search"],.viswiz-clear-all-filters');
         try { fallback?.focus({ preventScroll: true }); } catch (_) { fallback?.focus(); }
         announce(container, 'viswiz-graph-action-status', label);
-      });
+      }, 0);
       return;
     }
 
