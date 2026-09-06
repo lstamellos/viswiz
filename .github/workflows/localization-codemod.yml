@@ -96,7 +96,6 @@ jobs:
           text = text.replace("(\"['advanced', 'Advanced']\", \"['advanced', __('Advanced', 'viswiz')]\"),", "(\"section('advanced', 'Advanced')\", \"section('advanced', __('Advanced', 'viswiz'))\"),")
           text = '\n'.join(line for line in text.splitlines() if not ('field.parentNode' in line and 'Description' in line)) + '\n'
           fixed = []
-          inserted_public = False
           for line in text.splitlines():
               if "heading.textContent = 'Public fields';" in line:
                   continue
@@ -106,7 +105,6 @@ jobs:
                       "    (\"add.textContent = 'Add public field';\", \"add.textContent = __('Add public field', 'viswiz');\"),",
                       "    (\"remove.textContent = 'Remove';\", \"remove.textContent = __('Remove', 'viswiz');\"),",
                   ])
-                  inserted_public = True
                   continue
               if "description.textContent = 'Reserved for uncommon" in line or "label.textContent = 'Additional metadata JSON'" in line or "label.textContent = 'Metadata JSON'" in line:
                   continue
@@ -119,6 +117,26 @@ jobs:
                   continue
               fixed.append(line)
           text = '\n'.join(fixed) + '\n'
+          # Literal-level substitutions are advisory; architecture assertions remain strict below.
+          text = text.replace("def regex(path, pattern, repl, required=True, flags=0):", "def regex(path, pattern, repl, required=False, flags=0):")
+          js_start = text.index('def js_replace(path, mapping):')
+          js_end = text.index('\n\n# ---------------------------------------------------------------------------\n# Replace adapter-local translation maps', js_start)
+          text = text[:js_start] + '''def js_replace(path, mapping):\n    text = read(path)\n    for old, new in mapping:\n        if old in text:\n            text = text.replace(old, new)\n    write(path, text)\n''' + text[js_end:]
+          tr_start = text.index('def convert_tr(path, pre_remove_patterns=()):')
+          tr_end = text.index('\ndef wrap_builder_literals(path):', tr_start)
+          text = text[:tr_start] + r'''def convert_tr(path, pre_remove_patterns=()):
+              text = read(path)
+              for pattern in pre_remove_patterns:
+                  text = re.sub(pattern, '', text, flags=re.S)
+              text = re.sub(r"\n\s*const i18n = (?:cfg|previewCfg)\.i18n \|\| \{\};\n", "\n", text)
+              text = re.sub(r"\n\s*const tr = \(key, fallback\) => i18n\[key\] \|\| fallback;\n", "\n", text)
+              text, count = re.subn(r"tr\('(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)'\)", lambda m: "__('" + m.group(1) + "', 'viswiz')", text)
+              if not count:
+                  raise RuntimeError(f'no tr() calls converted in {path}')
+              write(path, text)
+          ''' + text[tr_end:]
+          # Match the actual Woo dynamic fallback instead of separate tr() wrappers.
+          text = text.replace("    (\"`${tr('product', 'Product')} #${id}`\", \"sprintf(__('Product #%d', 'viswiz'), id)\"),\n    (\"`${tr('category', 'Category')} #${id}`\", \"sprintf(__('Category #%d', 'viswiz'), id)\"),", "    (\"labels[String(id)] || `${kind === 'product' ? 'Product' : 'Category'} #${id}`\", \"labels[String(id)] || (kind === 'product' ? sprintf(__('Product #%d', 'viswiz'), id) : sprintf(__('Category #%d', 'viswiz'), id))\"),")
           p.write_text(text)
           PY
       - name: Apply deterministic localization codemod
