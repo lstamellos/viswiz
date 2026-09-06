@@ -89,6 +89,11 @@ jobs:
           '''
           text = text[:start] + replacement + text[end:]
           text = text.replace("'src/Admin/SpreadsheetEditor.php': ['viswiz-spreadsheet-editor'],", "'src/Admin/SpreadsheetEditor.php': ['viswiz-spreadsheet-editor-v2'],")
+          text = text.replace("(\"['source', 'Data / source']\", \"['source', __('Data / source', 'viswiz')]\"),", "(\"section('data', 'Data / source')\", \"section('data', __('Data / source', 'viswiz'))\"),")
+          text = text.replace("(\"['appearance', 'Appearance']\", \"['appearance', __('Appearance', 'viswiz')]\"),", "(\"section('appearance', 'Appearance')\", \"section('appearance', __('Appearance', 'viswiz'))\"),")
+          text = text.replace("(\"['labels', 'Labels / content']\", \"['labels', __('Labels / content', 'viswiz')]\"),", "(\"section('labels', 'Labels / content')\", \"section('labels', __('Labels / content', 'viswiz'))\"),")
+          text = text.replace("(\"['interaction', 'Interaction']\", \"['interaction', __('Interaction', 'viswiz')]\"),", "(\"section('interaction', 'Interaction')\", \"section('interaction', __('Interaction', 'viswiz'))\"),")
+          text = text.replace("(\"['advanced', 'Advanced']\", \"['advanced', __('Advanced', 'viswiz')]\"),", "(\"section('advanced', 'Advanced')\", \"section('advanced', __('Advanced', 'viswiz'))\"),")
           p.write_text(text)
           PY
       - name: Apply deterministic localization codemod
