@@ -40,10 +40,11 @@ final class VisualizationPresets {
         wp_enqueue_script(
             'viswiz-visualization-presets',
             VISWIZ_URL . 'assets/viswiz-visualization-presets.js',
-            array( 'viswiz-visualization-preview' ),
+            array('viswiz-visualization-preview', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-visualization-presets', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_localize_script(
             'viswiz-visualization-presets',
             'VisWizVisualizationPresets',
@@ -51,8 +52,6 @@ final class VisualizationPresets {
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'nonce'   => wp_create_nonce( 'viswiz_visualization_presets' ),
                 'presets' => self::presets(),
-                'i18n'    => array(
-                    'selectPreset'   => __( 'Select preset', 'viswiz' ),
                     'saved'          => __( 'Display preset saved.', 'viswiz' ),
                     'applied'        => __( 'Preset applied to unsaved display settings.', 'viswiz' ),
                     'nothingApplied' => __( 'This preset has no settings supported by the current renderer.', 'viswiz' ),

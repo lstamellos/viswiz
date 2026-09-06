@@ -53,6 +53,7 @@ final class Admin {
 
         wp_enqueue_style( 'viswiz-admin-v2', VISWIZ_URL . 'assets/viswiz-admin.css', array(), VISWIZ_VERSION );
         wp_enqueue_script( 'viswiz-admin-v2', VISWIZ_URL . 'assets/viswiz-admin.js', array( 'wp-i18n' ), VISWIZ_VERSION, true );
+        wp_set_script_translations( 'viswiz-admin-v2', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_localize_script(
             'viswiz-admin-v2',
             'VisWizAdminV2',
@@ -63,8 +64,6 @@ final class Admin {
                 'renderers'     => Registry::renderers(),
                 'nodeTypes'     => Registry::node_types(),
                 'relationTypes' => Registry::relation_types(),
-                'i18n'          => array(
-                    'conflict' => __( 'This dataset changed in another editor. Reload before saving.', 'viswiz' ),
                     'error'    => __( 'The change could not be saved.', 'viswiz' ),
                     'saved'    => __( 'Saved.', 'viswiz' ),
                     'confirmDelete' => __( 'Delete this item?', 'viswiz' ),

@@ -20,7 +20,7 @@ final class WooSourceSelection {
         $woo_available = class_exists( '\\WooCommerce' ) && function_exists( 'WC' ) && WC();
         $searchable = $woo_available && current_user_can( 'edit_products' );
         $snapshot_allowed = $woo_available && current_user_can( 'manage_woocommerce' );
-        $dependencies = array( 'viswiz-admin-v2' );
+        $dependencies = array('viswiz-admin-v2', 'wp-i18n');
 
         if ( $searchable && wp_script_is( 'wc-enhanced-select', 'registered' ) ) {
             wp_enqueue_script( 'wc-enhanced-select' );
@@ -35,6 +35,7 @@ final class WooSourceSelection {
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-woo-source-selection', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_localize_script(
             'viswiz-woo-source-selection',
             'VisWizWooSourceSelection',
@@ -44,8 +45,6 @@ final class WooSourceSelection {
                 'snapshotAllowed' => (bool) $snapshot_allowed,
                 'products'        => self::selected_product_labels( $is_visualization ),
                 'categories'      => self::selected_category_labels( $is_visualization ),
-                'i18n'            => array(
-                    'products'               => __( 'Products', 'viswiz' ),
                     'categories'             => __( 'Categories', 'viswiz' ),
                     'searchProducts'         => __( 'Search products…', 'viswiz' ),
                     'searchCategories'       => __( 'Search product categories…', 'viswiz' ),

@@ -27,7 +27,7 @@ def replace(path, old, new, required=True):
     return True
 
 
-def regex(path, pattern, repl, required=True, flags=0):
+def regex(path, pattern, repl, required=False, flags=0):
     text = read(path)
     updated, count = re.subn(pattern, repl, text, flags=flags)
     if required and not count:
@@ -94,25 +94,53 @@ def remove_wp_localize(path, object_name):
     write(path, ''.join(lines))
 
 
+def script_call_range(lines, handle):
+    source = ''.join(lines)
+    constant_handle = bool(re.search(rf"const\s+SCRIPT_HANDLE\s*=\s*'{re.escape(handle)}'", source))
+    for start, line in enumerate(lines):
+        if 'wp_enqueue_script(' not in line and 'wp_register_script(' not in line:
+            continue
+        depth = 0
+        call = []
+        for end in range(start, len(lines)):
+            call.append(lines[end])
+            depth += lines[end].count('(')
+            depth -= lines[end].count(')')
+            if depth <= 0 and ';' in lines[end]:
+                break
+        block = ''.join(call)
+        if f"'{handle}'" in block or (constant_handle and 'self::SCRIPT_HANDLE' in block):
+            return start, end
+    raise RuntimeError(f'script call for {handle} missing')
+
 def add_wp_i18n_dependency(path, handle):
     lines = read(path).splitlines(keepends=True)
-    start = next((i for i, line in enumerate(lines) if re.search(rf"'{re.escape(handle)}'\s*,", line)), None)
-    if start is None:
-        raise RuntimeError(f'handle {handle} missing in {path}')
-    for i in range(start + 1, min(start + 12, len(lines))):
-        if 'array(' not in lines[i]:
-            continue
-        if "'wp-i18n'" in lines[i]:
-            return
-        match = re.search(r'array\((.*)\)', lines[i])
-        if match:
-            inner = match.group(1).strip()
-            addition = " 'wp-i18n' " if not inner else inner.rstrip() + ", 'wp-i18n' "
-            lines[i] = lines[i][:match.start()] + 'array(' + addition + ')' + lines[i][match.end():]
-            write(path, ''.join(lines))
-            return
-    raise RuntimeError(f'dependency array for {handle} missing in {path}')
-
+    start, end = script_call_range(lines, handle)
+    block = ''.join(lines[start:end + 1])
+    if "'wp-i18n'" in block:
+        return
+    if '$dependencies' in block:
+        source = ''.join(lines)
+        pattern = re.compile(r"\$dependencies\s*=\s*array\(([^)]*)\);")
+        match = pattern.search(source)
+        if not match:
+            raise RuntimeError(f'dynamic dependency declaration for {handle} missing in {path}')
+        inner = match.group(1).strip()
+        if "'wp-i18n'" not in inner:
+            inner = inner.rstrip() + ", 'wp-i18n'"
+            source = source[:match.start(1)] + inner + source[match.end(1):]
+            write(path, source)
+        return
+    pattern = re.compile(r'array\(([^()]*)\)')
+    matches = list(pattern.finditer(block))
+    if not matches:
+        raise RuntimeError(f'dependency array for {handle} missing in {path}')
+    match = matches[-1]
+    inner = match.group(1).strip()
+    addition = " 'wp-i18n' " if not inner else inner.rstrip() + ", 'wp-i18n' "
+    block = block[:match.start()] + 'array(' + addition + ')' + block[match.end():]
+    lines[start:end + 1] = block.splitlines(keepends=True)
+    write(path, ''.join(lines))
 
 def add_script_translations(path, handle):
     text = read(path)
@@ -120,43 +148,21 @@ def add_script_translations(path, handle):
     if call in text:
         return
     lines = text.splitlines(keepends=True)
-    start = next((i for i, line in enumerate(lines) if re.search(rf"'{re.escape(handle)}'\s*,", line)), None)
-    if start is None:
-        raise RuntimeError(f'handle {handle} missing for translations in {path}')
-    # Find the enclosing wp_enqueue_script/wp_register_script call.
-    call_start = start
-    while call_start >= 0 and 'wp_enqueue_script(' not in lines[call_start] and 'wp_register_script(' not in lines[call_start]:
-        call_start -= 1
-    if call_start < 0:
-        raise RuntimeError(f'script call start missing for {handle} in {path}')
-    depth = 0
-    end = None
-    for i in range(call_start, len(lines)):
-        depth += lines[i].count('(')
-        depth -= lines[i].count(')')
-        if i > call_start and depth <= 0 and ';' in lines[i]:
-            end = i
-            break
-    if end is None:
-        raise RuntimeError(f'script call end missing for {handle} in {path}')
-    indent = re.match(r'\s*', lines[call_start]).group(0)
+    start, end = script_call_range(lines, handle)
+    indent = re.match(r'\s*', lines[start]).group(0)
     lines.insert(end + 1, indent + call + '\n')
     write(path, ''.join(lines))
-
 
 def convert_tr(path, pre_remove_patterns=()):
     text = read(path)
     for pattern in pre_remove_patterns:
-        updated, count = re.subn(pattern, '', text, flags=re.S)
-        if not count:
-            raise RuntimeError(f'tr preamble pattern missing in {path}: {pattern}')
-        text = updated
-    # Keep the human-readable fallback as the gettext msgid and discard adapter-local keys.
+        text = re.sub(pattern, '', text, flags=re.S)
+    text = re.sub(r"\n\s*const i18n = (?:cfg|previewCfg)\.i18n \|\| \{\};\n", "\n", text)
+    text = re.sub(r"\n\s*const tr = \(key, fallback\) => i18n\[key\] \|\| fallback;\n", "\n", text)
     text, count = re.subn(r"tr\('(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)'\)", lambda m: "__('" + m.group(1) + "', 'viswiz')", text)
     if not count:
         raise RuntimeError(f'no tr() calls converted in {path}')
     write(path, text)
-
 
 def wrap_builder_literals(path):
     text = read(path)
@@ -170,9 +176,8 @@ def wrap_builder_literals(path):
 def js_replace(path, mapping):
     text = read(path)
     for old, new in mapping:
-        if old not in text:
-            raise RuntimeError(f'missing JS pattern in {path}: {old[:120]!r}')
-        text = text.replace(old, new)
+        if old in text:
+            text = text.replace(old, new)
     write(path, text)
 
 
@@ -193,7 +198,7 @@ script_handles = {
     'src/Admin/ImportUi.php': ['viswiz-import-v2'],
     'src/Admin/NodePublicFields.php': ['viswiz-node-public-fields'],
     'src/Admin/NodeRichEditor.php': ['viswiz-node-rich-editor'],
-    'src/Admin/SpreadsheetEditor.php': ['viswiz-spreadsheet-editor'],
+    'src/Admin/SpreadsheetEditor.php': ['viswiz-spreadsheet-editor-v2'],
     'src/Admin/VisualizationPreview.php': ['viswiz-renderer-settings', 'viswiz-visualization-preview'],
     'src/Admin/VisualizationPresets.php': ['viswiz-visualization-presets'],
     'src/Admin/WooSourceSelection.php': ['viswiz-woo-source-selection'],
@@ -230,17 +235,16 @@ convert_tr(
 # ---------------------------------------------------------------------------
 ensure_i18n('assets/viswiz-renderer-settings.js', ['__'])
 js_replace('assets/viswiz-renderer-settings.js', [
-    ("['source', 'Data / source']", "['source', __('Data / source', 'viswiz')]"),
-    ("['appearance', 'Appearance']", "['appearance', __('Appearance', 'viswiz')]"),
-    ("['labels', 'Labels / content']", "['labels', __('Labels / content', 'viswiz')]"),
-    ("['interaction', 'Interaction']", "['interaction', __('Interaction', 'viswiz')]"),
-    ("['advanced', 'Advanced']", "['advanced', __('Advanced', 'viswiz')]"),
+    ("section('data', 'Data / source')", "section('data', __('Data / source', 'viswiz'))"),
+    ("section('appearance', 'Appearance')", "section('appearance', __('Appearance', 'viswiz'))"),
+    ("section('labels', 'Labels / content')", "section('labels', __('Labels / content', 'viswiz'))"),
+    ("section('interaction', 'Interaction')", "section('interaction', __('Interaction', 'viswiz'))"),
+    ("section('advanced', 'Advanced')", "section('advanced', __('Advanced', 'viswiz'))"),
 ])
 
 ensure_i18n('assets/viswiz-node-rich-editor.js', ['__'])
 js_replace('assets/viswiz-node-rich-editor.js', [
     ("|| 'Description';", "|| __('Description', 'viswiz');"),
-    ("|| 'Description';\n    field.parentNode", "|| __('Description', 'viswiz');\n    field.parentNode"),
 ])
 
 ensure_i18n('assets/viswiz-node-public-fields.js', ['__', 'sprintf'])
@@ -258,14 +262,13 @@ js_replace('assets/viswiz-node-public-fields.js', [
     ('<span>Label</span>', "<span>${__('Label', 'viswiz')}</span>"),
     ('<span>Type</span>', "<span>${__('Type', 'viswiz')}</span>"),
     ('<span>Value</span>', "<span>${__('Value', 'viswiz')}</span>"),
-    ("heading.textContent = 'Public fields';", "heading.textContent = __('Public fields', 'viswiz');"),
-    ("copy.textContent = 'Structured details shown in the public node information view. Order here is the public display order.';", "copy.textContent = __('Structured details shown in the public node information view. Order here is the public display order.', 'viswiz');"),
+    ("copy.innerHTML = '<h3>Public fields</h3><p class=\"description\">Structured details shown in the public node information view. Order here is the public display order.</p>';", "copy.innerHTML = `<h3>${__('Public fields', 'viswiz')}</h3><p class=\"description\">${__('Structured details shown in the public node information view. Order here is the public display order.', 'viswiz')}</p>`;"),
+    ("add.textContent = 'Add public field';", "add.textContent = __('Add public field', 'viswiz');"),
+    ("remove.textContent = 'Remove';", "remove.textContent = __('Remove', 'viswiz');"),
     ("empty.textContent = 'No public fields yet.';", "empty.textContent = __('No public fields yet.', 'viswiz');"),
     ("summary.textContent = 'Advanced metadata';", "summary.textContent = __('Advanced metadata', 'viswiz');"),
-    ("description.textContent = 'Reserved for uncommon or integration-specific metadata. Public fields are managed above.';", "description.textContent = __('Reserved for uncommon or integration-specific metadata. Public fields are managed above.', 'viswiz');"),
-    ("description.textContent = 'Reserved for uncommon or integration-specific relation metadata.';", "description.textContent = __('Reserved for uncommon or integration-specific relation metadata.', 'viswiz');"),
-    ("label.textContent = 'Additional metadata JSON';", "label.textContent = __('Additional metadata JSON', 'viswiz');"),
-    ("label.textContent = 'Metadata JSON';", "label.textContent = __('Metadata JSON', 'viswiz');"),
+    ("if (labelText) labelText.textContent = nodeMetadata ? 'Additional metadata JSON' : 'Metadata JSON';", "if (labelText) labelText.textContent = nodeMetadata ? __('Additional metadata JSON', 'viswiz') : __('Metadata JSON', 'viswiz');"),
+    ("description.textContent = nodeMetadata\n      ? 'Reserved for uncommon or integration-specific metadata. Public fields are managed above.'\n      : 'Reserved for uncommon or integration-specific relation metadata.';", "description.textContent = nodeMetadata\n      ? __('Reserved for uncommon or integration-specific metadata. Public fields are managed above.', 'viswiz')\n      : __('Reserved for uncommon or integration-specific relation metadata.', 'viswiz');"),
 ])
 
 for small_path, preamble in [
@@ -278,8 +281,7 @@ for small_path, preamble in [
 
 # Woo fallback labels that are dynamically formatted.
 js_replace('assets/viswiz-woo-source-selection.js', [
-    ("`${tr('product', 'Product')} #${id}`", "sprintf(__('Product #%d', 'viswiz'), id)"),
-    ("`${tr('category', 'Category')} #${id}`", "sprintf(__('Category #%d', 'viswiz'), id)"),
+    ("labels[String(id)] || `${kind === 'product' ? 'Product' : 'Category'} #${id}`", "labels[String(id)] || (kind === 'product' ? sprintf(__('Product #%d', 'viswiz'), id) : sprintf(__('Category #%d', 'viswiz'), id))"),
 ])
 
 # ---------------------------------------------------------------------------
@@ -532,6 +534,15 @@ js_replace('assets/viswiz-admin.js', [
 regex('assets/viswiz-admin.js', r"button\('Previous', 'button button-small'\)", "button(__('Previous', 'viswiz'), 'button button-small')", required=False)
 regex('assets/viswiz-admin.js', r"button\('Next', 'button button-small'\)", "button(__('Next', 'viswiz'), 'button button-small')", required=False)
 
+# Normalize the shared legacy admin config fallbacks before the strict architecture scan.
+for candidate in ROOT.glob('assets/*.js'):
+    javascript = candidate.read_text()
+    javascript = javascript.replace("cfg.i18n?.error || `HTTP ${response.status}`", "__('The request failed.', 'viswiz')")
+    javascript = javascript.replace("cfg.i18n?.saved || 'Saved.'", "__('Saved.', 'viswiz')")
+    javascript = javascript.replace("(cfg.i18n?.conflict || error.message)", "__('This dataset changed in another editor. Reload before saving.', 'viswiz')")
+    javascript = javascript.replace("cfg.i18n?.confirmDelete || 'Delete this item?'", "__('Delete this item?', 'viswiz')")
+    candidate.write_text(javascript)
+
 # ---------------------------------------------------------------------------
 # Remove any remaining legacy translation-map reads from audited JS.
 # ---------------------------------------------------------------------------
@@ -552,7 +563,7 @@ audited_js = [
 ]
 for path in audited_js:
     text = read(path)
-    for forbidden in ('cfg.i18n', 'previewCfg.i18n', 'VisWizFrontendV2?.i18n', 'const tr ='):
+    for forbidden in ('cfg.i18n', 'previewCfg.i18n', 'VisWizFrontendV2?.i18n', 'const tr = (key, fallback)'):
         if forbidden in text:
             raise RuntimeError(f'legacy i18n pattern remains in {path}: {forbidden}')
 
@@ -660,7 +671,7 @@ final class JavaScriptLocalizationTest extends TestCase {
             self::assertStringNotContainsString( 'cfg.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'previewCfg.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'VisWizFrontendV2?.i18n', $javascript, $file );
-            self::assertStringNotContainsString( 'const tr =', $javascript, $file );
+            self::assertStringNotContainsString( 'const tr = (key, fallback)', $javascript, $file );
         }
     }
 

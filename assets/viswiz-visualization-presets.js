@@ -1,11 +1,9 @@
 (() => {
   'use strict';
+  const { __, sprintf } = window.wp.i18n;
 
   const cfg = window.VisWizVisualizationPresets || {};
-  const adminCfg = window.VisWizAdminV2 || {};
-  const i18n = cfg.i18n || {};
-  const tr = (key, fallback) => i18n[key] || fallback;
-  const $ = (selector, root = document) => root.querySelector(selector);
+  const adminCfg = window.VisWizAdminV2 || {};  const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   let presets = Array.isArray(cfg.presets) ? cfg.presets : [];
 
@@ -22,7 +20,7 @@
     select.replaceChildren();
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = tr('selectPreset', 'Select preset');
+    placeholder.textContent = __('Select preset', 'viswiz');
     select.appendChild(placeholder);
 
     presets.forEach((preset) => {
@@ -68,7 +66,7 @@
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok || json?.success !== true) {
-      throw new Error(json?.data?.message || tr('requestError', 'The display preset change could not be saved.'));
+      throw new Error(json?.data?.message || __('The display preset change could not be saved.', 'viswiz'));
     }
     return json.data || {};
   }
@@ -134,8 +132,8 @@
       setStatus(
         status,
         result.matched > 0
-          ? tr('applied', 'Preset applied to unsaved display settings.')
-          : tr('nothingApplied', 'This preset has no settings supported by the current renderer.'),
+          ? __('Preset applied to unsaved display settings.', 'viswiz')
+          : __('This preset has no settings supported by the current renderer.', 'viswiz'),
         result.matched === 0
       );
     });
@@ -143,14 +141,14 @@
     saveButton.addEventListener('click', async () => {
       const name = nameInput.value.trim();
       if (!name) {
-        setStatus(status, tr('nameRequired', 'Enter a preset name.'), true);
+        setStatus(status, __('Enter a preset name.', 'viswiz'), true);
         nameInput.focus();
         return;
       }
 
       const renderer = $('[data-viswiz-renderer]', configRoot)?.value || '';
       saveButton.disabled = true;
-      setStatus(status, tr('saving', 'Saving preset…'));
+      setStatus(status, __('Saving preset…', 'viswiz'));
       try {
         const data = await request('viswiz_visualization_preset_save', {
           name,
@@ -161,9 +159,9 @@
         renderOptions(select, data.preset_id || '');
         updateActionState(select, applyButton, deleteButton);
         nameInput.value = '';
-        setStatus(status, tr('saved', 'Display preset saved.'));
+        setStatus(status, __('Display preset saved.', 'viswiz'));
       } catch (error) {
-        setStatus(status, error?.message || tr('requestError', 'The display preset change could not be saved.'), true);
+        setStatus(status, error?.message || __('The display preset change could not be saved.', 'viswiz'), true);
       } finally {
         saveButton.disabled = false;
       }
@@ -171,19 +169,19 @@
 
     deleteButton.addEventListener('click', async () => {
       const preset = selectedPreset(select);
-      if (!preset || !window.confirm(tr('confirmDelete', 'Delete this display preset?'))) return;
+      if (!preset || !window.confirm(__('Delete this display preset?', 'viswiz'))) return;
 
       deleteButton.disabled = true;
       applyButton.disabled = true;
-      setStatus(status, tr('deleting', 'Deleting preset…'));
+      setStatus(status, __('Deleting preset…', 'viswiz'));
       try {
         const data = await request('viswiz_visualization_preset_delete', { preset_id: preset.id });
         presets = Array.isArray(data.presets) ? data.presets : [];
         renderOptions(select);
         updateActionState(select, applyButton, deleteButton);
-        setStatus(status, tr('deleted', 'Display preset deleted.'));
+        setStatus(status, __('Display preset deleted.', 'viswiz'));
       } catch (error) {
-        setStatus(status, error?.message || tr('requestError', 'The display preset change could not be saved.'), true);
+        setStatus(status, error?.message || __('The display preset change could not be saved.', 'viswiz'), true);
         updateActionState(select, applyButton, deleteButton);
       }
     });

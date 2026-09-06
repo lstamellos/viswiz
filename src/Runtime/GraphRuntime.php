@@ -30,10 +30,11 @@ final class GraphRuntime {
         wp_register_script(
             self::SCRIPT_HANDLE,
             VISWIZ_URL . 'assets/viswiz-graph-runtime.js',
-            array( 'viswiz-frontend' ),
+            array('viswiz-frontend', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-graph-runtime', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_add_inline_script( self::SCRIPT_HANDLE, self::modal_presentation_script(), 'after' );
     }
 

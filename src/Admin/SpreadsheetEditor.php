@@ -29,9 +29,10 @@ final class SpreadsheetEditor {
         wp_enqueue_script(
             'viswiz-spreadsheet-editor-v2',
             VISWIZ_URL . 'assets/viswiz-spreadsheet-editor.js',
-            array( 'viswiz-dataset-editor-v2' ),
+            array('viswiz-dataset-editor-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-spreadsheet-editor-v2', 'viswiz', VISWIZ_DIR . 'languages' );
     }
 }

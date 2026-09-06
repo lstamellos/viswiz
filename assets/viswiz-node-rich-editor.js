@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const { __ } = window.wp.i18n;
 
   let sequence = 0;
   const instances = new Map();
@@ -23,8 +24,8 @@
     const label = document.createElement('label');
     label.className = 'viswiz-rich-editor-label';
     label.htmlFor = textarea.id;
-    const sourceLabel = field.querySelector(':scope > span')?.textContent || 'Description';
-    label.textContent = sourceLabel.replace(/\s*\(safe HTML\)\s*/i, '') || 'Description';
+    const sourceLabel = field.querySelector(':scope > span')?.textContent || __('Description', 'viswiz');
+    label.textContent = sourceLabel.replace(/\s*\(safe HTML\)\s*/i, '') || __('Description', 'viswiz');
     field.parentNode.insertBefore(wrapper, field);
     wrapper.append(label, textarea);
     field.remove();

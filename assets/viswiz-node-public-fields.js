@@ -1,14 +1,15 @@
 (() => {
   'use strict';
+  const { __, sprintf } = window.wp.i18n;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const TYPES = ['short', 'long', 'url', 'formatted'];
   const TYPE_LABELS = {
-    short: 'Short text',
-    long: 'Long text',
-    url: 'URL',
-    formatted: 'Formatted HTML',
+    short: __('Short text', 'viswiz'),
+    long: __('Long text', 'viswiz'),
+    url: __('URL', 'viswiz'),
+    formatted: __('Formatted HTML', 'viswiz'),
   };
   const enhanced = new WeakSet();
 
@@ -36,7 +37,7 @@
     else control.type = type === 'url' ? 'url' : 'text';
     control.value = value;
     control.dataset.viswizPublicFieldValue = '1';
-    control.setAttribute('aria-label', 'Public field value');
+    control.setAttribute('aria-label', __('Public field value', 'viswiz'));
     return control;
   }
 
@@ -48,19 +49,19 @@
   function updateRowControls(list) {
     const rows = [...list.children];
     rows.forEach((row, index) => {
-      const label = $('[data-viswiz-public-field-label]', row)?.value.trim() || `field ${index + 1}`;
+      const label = $('[data-viswiz-public-field-label]', row)?.value.trim() || sprintf(__('field %d', 'viswiz'), index + 1);
       const up = $('[data-viswiz-public-field-up]', row);
       const down = $('[data-viswiz-public-field-down]', row);
       const remove = $('[data-viswiz-public-field-remove]', row);
       if (up) {
         up.disabled = index === 0;
-        up.setAttribute('aria-label', `Move ${label} up`);
+        up.setAttribute('aria-label', sprintf(__('Move %s up', 'viswiz'), label));
       }
       if (down) {
         down.disabled = index === rows.length - 1;
-        down.setAttribute('aria-label', `Move ${label} down`);
+        down.setAttribute('aria-label', sprintf(__('Move %s down', 'viswiz'), label));
       }
-      if (remove) remove.setAttribute('aria-label', `Remove ${label}`);
+      if (remove) remove.setAttribute('aria-label', sprintf(__('Remove %s', 'viswiz'), label));
     });
     updateEmptyState(list);
   }
@@ -72,7 +73,7 @@
     row.dataset.viswizPublicFieldRow = '1';
 
     const labelWrap = document.createElement('label');
-    labelWrap.innerHTML = '<span>Label</span>';
+    labelWrap.innerHTML = '<span>${__('Label', 'viswiz')}</span>';
     const labelInput = document.createElement('input');
     labelInput.type = 'text';
     labelInput.value = current.label;
@@ -80,7 +81,7 @@
     labelWrap.appendChild(labelInput);
 
     const typeWrap = document.createElement('label');
-    typeWrap.innerHTML = '<span>Type</span>';
+    typeWrap.innerHTML = '<span>${__('Type', 'viswiz')}</span>';
     const select = document.createElement('select');
     select.dataset.viswizPublicFieldType = '1';
     TYPES.forEach((type) => {
@@ -94,7 +95,7 @@
 
     const valueWrap = document.createElement('label');
     valueWrap.className = 'viswiz-public-field-value';
-    valueWrap.innerHTML = '<span>Value</span>';
+    valueWrap.innerHTML = '<span>${__('Value', 'viswiz')}</span>';
     let valueControl = fieldValueControl(current.type, current.value);
     valueWrap.appendChild(valueControl);
 
@@ -113,7 +114,7 @@
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'button button-small';
-    remove.textContent = 'Remove';
+    remove.textContent = __('Remove', 'viswiz');
     remove.dataset.viswizPublicFieldRemove = '1';
     actions.append(up, down, remove);
 
@@ -176,18 +177,18 @@
     const heading = document.createElement('div');
     heading.className = 'viswiz-section-heading';
     const copy = document.createElement('div');
-    copy.innerHTML = '<h3>Public fields</h3><p class="description">Structured details shown in the public node information view. Order here is the public display order.</p>';
+    copy.innerHTML = `<h3>${__('Public fields', 'viswiz')}</h3><p class="description">${__('Structured details shown in the public node information view. Order here is the public display order.', 'viswiz')}</p>`;
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'button button-small';
-    add.textContent = 'Add public field';
+    add.textContent = __('Add public field', 'viswiz');
     add.dataset.viswizAddPublicField = '1';
     heading.append(copy, add);
 
     const empty = document.createElement('p');
     empty.className = 'viswiz-public-fields-empty';
     empty.dataset.viswizPublicFieldsEmpty = '1';
-    empty.textContent = 'No public fields yet.';
+    empty.textContent = __('No public fields yet.', 'viswiz');
 
     const list = document.createElement('div');
     list.className = 'viswiz-public-fields-list';
@@ -207,7 +208,7 @@
     const label = textarea.closest('label');
     if (!label || label.closest('[data-viswiz-meta-advanced]')) return label;
     const labelText = $('span', label);
-    if (labelText) labelText.textContent = nodeMetadata ? 'Additional metadata JSON' : 'Metadata JSON';
+    if (labelText) labelText.textContent = nodeMetadata ? __('Additional metadata JSON', 'viswiz') : __('Metadata JSON', 'viswiz');
 
     const details = document.createElement('details');
     details.className = 'viswiz-editor-advanced viswiz-node-meta-advanced';
@@ -215,12 +216,12 @@
     if (nodeMetadata) details.dataset.viswizNodeMetaAdvanced = '1';
     else details.dataset.viswizRelationMetaAdvanced = '1';
     const summary = document.createElement('summary');
-    summary.textContent = 'Advanced metadata';
+    summary.textContent = __('Advanced metadata', 'viswiz');
     const description = document.createElement('p');
     description.className = 'description';
     description.textContent = nodeMetadata
-      ? 'Reserved for uncommon or integration-specific metadata. Public fields are managed above.'
-      : 'Reserved for uncommon or integration-specific relation metadata.';
+      ? __('Reserved for uncommon or integration-specific metadata. Public fields are managed above.', 'viswiz')
+      : __('Reserved for uncommon or integration-specific relation metadata.', 'viswiz');
     label.parentNode.insertBefore(details, label);
     details.append(summary, description, label);
     return details;
