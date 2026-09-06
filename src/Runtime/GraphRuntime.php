@@ -291,16 +291,18 @@ CSS;
   }, true);
 
   document.addEventListener('fullscreenchange', () => {
-    document.querySelectorAll('.viswiz-visualization').forEach((container) => {
-      const button = container.querySelector('.viswiz-fullscreen');
-      if (!button) return;
-      const active = document.fullscreenElement === container;
-      button.setAttribute('aria-pressed', active ? 'true' : 'false');
-      button.setAttribute('aria-label', button.textContent.trim());
-      if (active || container.dataset.viswizWasFullscreen === '1') {
-        announce(container, 'viswiz-fullscreen-status', button.textContent.trim());
-      }
-      container.dataset.viswizWasFullscreen = active ? '1' : '0';
+    queueMicrotask(() => {
+      document.querySelectorAll('.viswiz-visualization').forEach((container) => {
+        const button = container.querySelector('.viswiz-fullscreen');
+        if (!button) return;
+        const active = document.fullscreenElement === container;
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        button.setAttribute('aria-label', button.textContent.trim());
+        if (active || container.dataset.viswizWasFullscreen === '1') {
+          announce(container, 'viswiz-fullscreen-status', button.textContent.trim());
+        }
+        container.dataset.viswizWasFullscreen = active ? '1' : '0';
+      });
     });
   });
 
