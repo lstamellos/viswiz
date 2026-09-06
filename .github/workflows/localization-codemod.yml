@@ -96,6 +96,7 @@ jobs:
           text = text.replace("(\"['advanced', 'Advanced']\", \"['advanced', __('Advanced', 'viswiz')]\"),", "(\"section('advanced', 'Advanced')\", \"section('advanced', __('Advanced', 'viswiz'))\"),")
           text = '\n'.join(line for line in text.splitlines() if not ('field.parentNode' in line and 'Description' in line)) + '\n'
           fixed = []
+          inserted_public = False
           for line in text.splitlines():
               if "heading.textContent = 'Public fields';" in line:
                   continue
@@ -104,6 +105,16 @@ jobs:
                       "    (\"copy.innerHTML = '<h3>Public fields</h3><p class=\\\"description\\\">Structured details shown in the public node information view. Order here is the public display order.</p>';\", \"copy.innerHTML = `<h3>${__('Public fields', 'viswiz')}</h3><p class=\\\"description\\\">${__('Structured details shown in the public node information view. Order here is the public display order.', 'viswiz')}</p>`;\"),",
                       "    (\"add.textContent = 'Add public field';\", \"add.textContent = __('Add public field', 'viswiz');\"),",
                       "    (\"remove.textContent = 'Remove';\", \"remove.textContent = __('Remove', 'viswiz');\"),",
+                  ])
+                  inserted_public = True
+                  continue
+              if "description.textContent = 'Reserved for uncommon" in line or "label.textContent = 'Additional metadata JSON'" in line or "label.textContent = 'Metadata JSON'" in line:
+                  continue
+              if "summary.textContent = 'Advanced metadata';" in line:
+                  fixed.append(line)
+                  fixed.extend([
+                      "    (\"if (labelText) labelText.textContent = nodeMetadata ? 'Additional metadata JSON' : 'Metadata JSON';\", \"if (labelText) labelText.textContent = nodeMetadata ? __('Additional metadata JSON', 'viswiz') : __('Metadata JSON', 'viswiz');\"),",
+                      "    (\"description.textContent = nodeMetadata\\n      ? 'Reserved for uncommon or integration-specific metadata. Public fields are managed above.'\\n      : 'Reserved for uncommon or integration-specific relation metadata.';\", \"description.textContent = nodeMetadata\\n      ? __('Reserved for uncommon or integration-specific metadata. Public fields are managed above.', 'viswiz')\\n      : __('Reserved for uncommon or integration-specific relation metadata.', 'viswiz');\"),",
                   ])
                   continue
               fixed.append(line)
