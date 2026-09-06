@@ -1,6 +1,6 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.38, 2026-09-06.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.39, 2026-09-06.
 
 This backlog tracks the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, while preserving the dataset-first storage model introduced in VisWiz 2.
 
@@ -14,15 +14,14 @@ Pre-production datasets are disposable test fixtures rather than a backwards-com
 
 ## Current project status
 
-The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow milestones are also complete through VisWiz 2.0.38. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers.
+The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow and public graph accessibility milestones are also complete through VisWiz 2.0.39. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers.
 
 The remaining stabilization work is now concentrated in:
 
-1. public graph accessibility audit;
-2. JavaScript localization consolidation;
-3. explicit verification/closure of single payload/state ownership after the recent editor/runtime additions;
-4. representative performance budgets;
-5. administrator-facing diagnostics.
+1. JavaScript localization consolidation;
+2. explicit verification/closure of single payload/state ownership after the recent editor/runtime additions;
+3. representative performance budgets;
+4. administrator-facing diagnostics.
 
 P2 extensibility work should remain behind those remaining P1 quality milestones.
 
@@ -175,23 +174,23 @@ The admin dialog contract now includes:
 - stable fallback focus when the invoking row disappears under an active filter;
 - explicit confirmation for destructive dataset editor actions.
 
-### 18. Accessibility audit for public graph UI — OPEN / NEXT
+### 18. Accessibility audit for public graph UI — COMPLETED
 
-Perform a focused public-runtime accessibility audit covering at minimum:
+Completed in PR #128 and released as VisWiz 2.0.39 / PR #129.
 
-- accessible names/roles for SVG and graph interaction targets;
-- keyboard activation of node cards and tags;
-- visible focus states;
-- modal semantics, initial focus, focus containment and focus return;
-- screen-reader status updates for search/filter/focus state;
-- color contrast;
-- reduced-motion behavior;
-- fullscreen state announcement;
-- multiple visualization instances without ambiguous labels/IDs.
+The public graph runtime now has explicit accessibility regression coverage for:
 
-Where browser coverage already exists, convert it into explicit accessibility assertions rather than duplicating the interaction path.
+- accessible names, button roles and Enter/Space activation for SVG graph nodes and type/subtype tags;
+- visible focus treatment and theme-resilient contrast for plugin-owned controls;
+- node/property modal semantics, initial focus, Tab/Shift+Tab containment, topmost Escape handling and focus return;
+- replacement rather than stacking of node dialogs during property-to-node navigation;
+- stable focus recovery when selected facet or connection-focus controls disappear;
+- polite/atomic status semantics for graph results, facet/focus changes and fullscreen state;
+- fullscreen `aria-pressed` state plus translated enter/exit announcements;
+- `prefers-reduced-motion` handling for VisWiz-owned graph, tag and progress transitions;
+- multiple visualization instances without ambiguous/global accessibility IDs.
 
-### 19. Centralize JavaScript localization — OPEN
+### 19. Centralize JavaScript localization — OPEN / NEXT
 
 Audit all current frontend/admin JavaScript user-visible strings. Move remaining hard-coded/fallback strings into the WordPress translation pipeline and keep one authoritative i18n source per runtime/adapter.
 
@@ -230,7 +229,7 @@ The major architecture is already in place:
 - #116 kept renderer applicability in Registry rather than a second JavaScript capability map;
 - #126 kept the keyboard layer lifecycle/event-only rather than a second editor state owner.
 
-Before marking this item fully complete, perform one explicit source/architecture audit of the current 2.0.38 tree to verify that no newer adapter independently refetches visualization payloads or derives persistent competing state.
+Before marking this item fully complete, perform one explicit source/architecture audit of the current 2.0.39 tree to verify that no newer adapter independently refetches visualization payloads or derives persistent competing state.
 
 ### 23. Add useful diagnostics — OPEN / PARTIALLY IMPLEMENTED
 
@@ -260,12 +259,11 @@ Legacy tables are not retained for a backwards-compatibility promise. If cleanup
 
 ## Recommended next sequence
 
-1. **#18 Public graph accessibility audit**.
-2. **#19 JavaScript localization consolidation**.
-3. **#22 Explicit single-state/payload ownership verification and closure**.
-4. **#21 Performance budgets and representative scale benchmarks**.
-5. **#23 Administrator diagnostics**.
-6. Reassess P2 #24–#27 only after the above are closed.
+1. **#19 JavaScript localization consolidation**.
+2. **#22 Explicit single-state/payload ownership verification and closure**.
+3. **#21 Performance budgets and representative scale benchmarks**.
+4. **#23 Administrator diagnostics**.
+5. Reassess P2 #24–#27 only after the above are closed.
 
 ## Permanent regression requirements
 
@@ -284,6 +282,7 @@ The following are implemented behavior and must remain covered while the runtime
 - property views and related-node navigation through filtered graphs;
 - graph zoom/reset/panning and 1-hop/2-hop connection focus;
 - fullscreen across graph and non-graph renderers;
+- public graph accessibility semantics, modal/focus lifecycle, live status, reduced-motion behavior and fullscreen state announcements;
 - constrained-mobile and Gutenberg embedding behavior;
 - multiple visualization instances with independent state;
 - dataset → visualization one-action creation;
