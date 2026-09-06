@@ -294,7 +294,7 @@ CSS;
   }, true);
 
   document.addEventListener('fullscreenchange', () => {
-    queueMicrotask(() => {
+    window.setTimeout(() => {
       document.querySelectorAll('.viswiz-visualization').forEach((container) => {
         const button = container.querySelector('.viswiz-fullscreen');
         if (!button) return;
@@ -306,7 +306,7 @@ CSS;
         }
         container.dataset.viswizWasFullscreen = active ? '1' : '0';
       });
-    });
+    }, 0);
   });
 
   if ('MutationObserver' in window) {
