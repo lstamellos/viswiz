@@ -19,6 +19,62 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: Fix script-call locator
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/localization_codemod.py')
+          text = p.read_text()
+          start = text.index('def add_wp_i18n_dependency(path, handle):')
+          end = text.index('\ndef convert_tr(path, pre_remove_patterns=()):', start)
+          replacement = r'''def script_call_range(lines, handle):
+              for start, line in enumerate(lines):
+                  if 'wp_enqueue_script(' not in line and 'wp_register_script(' not in line:
+                      continue
+                  depth = 0
+                  call = []
+                  for end in range(start, len(lines)):
+                      call.append(lines[end])
+                      depth += lines[end].count('(')
+                      depth -= lines[end].count(')')
+                      if depth <= 0 and ';' in lines[end]:
+                          break
+                  block = ''.join(call)
+                  if f"'{handle}'" in block:
+                      return start, end
+              raise RuntimeError(f'script call for {handle} missing')
+
+          def add_wp_i18n_dependency(path, handle):
+              lines = read(path).splitlines(keepends=True)
+              start, end = script_call_range(lines, handle)
+              block = ''.join(lines[start:end + 1])
+              if "'wp-i18n'" in block:
+                  return
+              pattern = re.compile(r'array\(([^()]*)\)')
+              matches = list(pattern.finditer(block))
+              if not matches:
+                  raise RuntimeError(f'dependency array for {handle} missing in {path}')
+              match = matches[-1]
+              inner = match.group(1).strip()
+              addition = " 'wp-i18n' " if not inner else inner.rstrip() + ", 'wp-i18n' "
+              block = block[:match.start()] + 'array(' + addition + ')' + block[match.end():]
+              lines[start:end + 1] = block.splitlines(keepends=True)
+              write(path, ''.join(lines))
+
+          def add_script_translations(path, handle):
+              text = read(path)
+              call = f"wp_set_script_translations( '{handle}', 'viswiz', VISWIZ_DIR . 'languages' );"
+              if call in text:
+                  return
+              lines = text.splitlines(keepends=True)
+              start, end = script_call_range(lines, handle)
+              indent = re.match(r'\s*', lines[start]).group(0)
+              lines.insert(end + 1, indent + call + '\n')
+              write(path, ''.join(lines))
+          '''
+          p.write_text(text[:start] + replacement + text[end:])
+          PY
       - name: Apply deterministic localization codemod
         run: python tools/localization_codemod.py
       - name: Commit codemod result
@@ -26,7 +82,7 @@ jobs:
         run: |
           git config user.name 'viswiz-localization-codemod'
           git config user.email 'actions@users.noreply.github.com'
-          git add assets src tests docs languages
+          git add assets src tests docs languages tools/localization_codemod.py
           git diff --cached --check
           git commit -m 'Centralize JavaScript localization'
           git push origin HEAD:feature/javascript-localization
