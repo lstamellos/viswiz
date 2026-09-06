@@ -135,9 +135,20 @@ jobs:
               write(path, text)
           ''' + text[tr_end:]
           text = text.replace("    (\"`${tr('product', 'Product')} #${id}`\", \"sprintf(__('Product #%d', 'viswiz'), id)\"),\n    (\"`${tr('category', 'Category')} #${id}`\", \"sprintf(__('Category #%d', 'viswiz'), id)\"),", "    (\"labels[String(id)] || `${kind === 'product' ? 'Product' : 'Category'} #${id}`\", \"labels[String(id)] || (kind === 'product' ? sprintf(__('Product #%d', 'viswiz'), id) : sprintf(__('Category #%d', 'viswiz'), id))\"),")
-          # Only reject the translation-helper signature, not normal DOM <tr> variables.
           text = text.replace("'const tr ='", "'const tr = (key, fallback)'")
           text = text.replace("self::assertStringNotContainsString( 'const tr =', $javascript, $file );", "self::assertStringNotContainsString( 'const tr = (key, fallback)', $javascript, $file );")
+          scanner = "# ---------------------------------------------------------------------------\n# Remove any remaining legacy translation-map reads from audited JS.\n# ---------------------------------------------------------------------------"
+          shared = r'''# Normalize the shared legacy admin config fallbacks before the strict architecture scan.
+          for candidate in ROOT.glob('assets/*.js'):
+              javascript = candidate.read_text()
+              javascript = javascript.replace("cfg.i18n?.error || `HTTP ${response.status}`", "__('The request failed.', 'viswiz')")
+              javascript = javascript.replace("cfg.i18n?.saved || 'Saved.'", "__('Saved.', 'viswiz')")
+              javascript = javascript.replace("(cfg.i18n?.conflict || error.message)", "__('This dataset changed in another editor. Reload before saving.', 'viswiz')")
+              javascript = javascript.replace("cfg.i18n?.confirmDelete || 'Delete this item?'", "__('Delete this item?', 'viswiz')")
+              candidate.write_text(javascript)
+
+          '''
+          text = text.replace(scanner, shared + scanner)
           p.write_text(text)
           PY
       - name: Apply deterministic localization codemod
