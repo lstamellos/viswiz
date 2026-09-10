@@ -2,53 +2,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-replacements = {
-    'tests/AdminDialogKeyboardTest.php': [
-        ("self::assertStringContainsString( \"cfg.i18n?.confirmDelete || 'Delete this item?'\", $editor );", "self::assertStringContainsString( \"__('Delete this item?', 'viswiz')\", $editor );"),
-    ],
-    'tests/GraphEditorWorkflowTest.php': [
-        ("self::assertStringContainsString( \"button('Create node…'\", $javascript );", "self::assertStringContainsString( \"button(__('Create node…', 'viswiz')\", $javascript );"),
-    ],
-    'tests/GraphRuntimeTest.php': [
-        ("self::assertStringContainsString( \"array( 'viswiz-frontend' )\", $runtime );", "self::assertStringContainsString( \"array( 'viswiz-frontend', 'wp-i18n' )\", $runtime );"),
-    ],
-    'tests/ImportWorkflowTest.php': [
-        ("self::assertStringContainsString( \"['external_key', 'External key'\", $source );", "self::assertStringContainsString( \"['external_key', __('External key', 'viswiz')\", $source );"),
-        ("self::assertStringContainsString( \"['from_key', 'From node key'\", $source );", "self::assertStringContainsString( \"['from_key', __('From node key', 'viswiz')\", $source );"),
-        ("self::assertStringContainsString( \"['to_key', 'To node key'\", $source );", "self::assertStringContainsString( \"['to_key', __('To node key', 'viswiz')\", $source );"),
-        ("self::assertStringContainsString( \"<option value=\\\"nodes\\\">Nodes</option><option value=\\\"relations\\\">Relations</option>\", $source );", "self::assertStringContainsString( \"<option value=\\\"nodes\\\">${__('Nodes', 'viswiz')}</option><option value=\\\"relations\\\">${__('Relations', 'viswiz')}</option>\", $source );"),
-    ],
-    'tests/NodePublicFieldsTest.php': [
-        ("array( 'viswiz-dataset-editor-v2' )", "array( 'viswiz-dataset-editor-v2', 'wp-i18n' )"),
-    ],
-    'tests/NodeRichEditorTest.php': [
-        ("array( 'editor', 'viswiz-dataset-editor-v2' )", "array( 'editor', 'viswiz-dataset-editor-v2', 'wp-i18n' )"),
-    ],
-    'tests/PublicGraphAccessibilityTest.php': [
-        ("self::assertStringContainsString( \"'aria-label': `\\${tr('viewNode'\", $frontend );", "self::assertStringContainsString( \"'aria-label': `\\${__('View node', 'viswiz')\", $frontend );"),
-    ],
-    'tests/RendererSpecificSettingsTest.php': [
-        ("array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' )", "array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime', 'wp-i18n' )"),
-    ],
-    'tests/SpreadsheetEditorTest.php': [
-        ("array( 'viswiz-dataset-editor-v2' )", "array( 'viswiz-dataset-editor-v2', 'wp-i18n' )"),
-    ],
-    'tests/VisualizationPresetsTest.php': [
-        ("array( 'viswiz-visualization-preview' )", "array( 'viswiz-visualization-preview', 'wp-i18n' )"),
-    ],
-    'tests/WooSourceSelectionTest.php': [
-        ("self::assertStringContainsString( 'Live query: recalculates from current WooCommerce orders', $admin );", "self::assertStringContainsString( \"__('Live query: recalculates from current WooCommerce orders when requested and uses the configured cache/refresh interval. No rows are copied into a dataset.', 'viswiz')\", $javascript );"),
-        ("self::assertStringContainsString( 'No rows are copied into a dataset.', $admin );", "self::assertStringContainsString( 'No rows are copied into a dataset.', $javascript );"),
-        ("self::assertStringContainsString( 'Snapshot: runs the WooCommerce query once', $admin );", "self::assertStringContainsString( 'Snapshot: runs the WooCommerce query once', $javascript );"),
-        ("self::assertStringContainsString( 'do not stay synchronized with WooCommerce', $admin );", "self::assertStringContainsString( 'do not stay synchronized with WooCommerce', $javascript );"),
-        ("self::assertStringContainsString( 'WooCommerce is not active.', $admin );", "self::assertStringContainsString( \"__('WooCommerce is not active. Existing WooCommerce filter values are preserved, but new live queries or snapshots cannot be run.', 'viswiz')\", $javascript );"),
-        ("self::assertStringContainsString( 'does not have permission to run WooCommerce snapshots', $admin );", "self::assertStringContainsString( \"__('Your account does not have permission to run WooCommerce snapshots.', 'viswiz')\", $javascript );"),
-        ("self::assertStringContainsString( \"liveOption.textContent = tr('liveOption'\", $javascript );", "self::assertStringContainsString( \"liveOption.textContent = __('WooCommerce live query', 'viswiz')\", $javascript );"),
-        ("self::assertStringContainsString( \"snapshotButton.textContent = tr('snapshotButton'\", $javascript );", "self::assertStringContainsString( \"snapshotButton.textContent = __('Replace dataset with current snapshot', 'viswiz')\", $javascript );"),
-    ],
-}
 
-for rel, pairs in replacements.items():
+def apply(rel, pairs):
     path = ROOT / rel
     text = path.read_text()
     for old, new in pairs:
@@ -56,6 +11,64 @@ for rel, pairs in replacements.items():
             raise SystemExit(f'missing expected pattern in {rel}: {old}')
         text = text.replace(old, new)
     path.write_text(text)
+
+
+apply('tests/AdminDialogKeyboardTest.php', [
+    ("cfg.i18n?.confirmDelete || 'Delete this item?'", "__('Delete this item?', 'viswiz')"),
+])
+apply('tests/GraphEditorWorkflowTest.php', [
+    ("button('Create node…'", "button(__('Create node…', 'viswiz')"),
+])
+apply('tests/GraphRuntimeTest.php', [
+    ("array( 'viswiz-frontend' )", "array( 'viswiz-frontend', 'wp-i18n' )"),
+])
+apply('tests/ImportWorkflowTest.php', [
+    ("['external_key', 'External key'", "['external_key', __('External key', 'viswiz')"),
+    ("['from_key', 'From node key'", "['from_key', __('From node key', 'viswiz')"),
+    ("['to_key', 'To node key'", "['to_key', __('To node key', 'viswiz')"),
+    ('<option value=\\"nodes\\">Nodes</option><option value=\\"relations\\">Relations</option>', '<option value=\\"nodes\\">${__(\'Nodes\', \'viswiz\')}</option><option value=\\"relations\\">${__(\'Relations\', \'viswiz\')}</option>'),
+])
+apply('tests/NodePublicFieldsTest.php', [
+    ("array( 'viswiz-dataset-editor-v2' )", "array( 'viswiz-dataset-editor-v2', 'wp-i18n' )"),
+])
+apply('tests/NodeRichEditorTest.php', [
+    ("array( 'editor', 'viswiz-dataset-editor-v2' )", "array( 'editor', 'viswiz-dataset-editor-v2', 'wp-i18n' )"),
+])
+apply('tests/PublicGraphAccessibilityTest.php', [
+    ("${tr('viewNode'", "${__('View node', 'viswiz')"),
+])
+apply('tests/RendererSpecificSettingsTest.php', [
+    ("array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' )", "array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime', 'wp-i18n' )"),
+])
+apply('tests/SpreadsheetEditorTest.php', [
+    ("array( 'viswiz-dataset-editor-v2' )", "array( 'viswiz-dataset-editor-v2', 'wp-i18n' )"),
+])
+apply('tests/VisualizationPresetsTest.php', [
+    ("array( 'viswiz-visualization-preview' )", "array( 'viswiz-visualization-preview', 'wp-i18n' )"),
+])
+
+woo = ROOT / 'tests/WooSourceSelectionTest.php'
+text = woo.read_text()
+for phrase in [
+    'Live query: recalculates from current WooCommerce orders',
+    'No rows are copied into a dataset.',
+    'Snapshot: runs the WooCommerce query once',
+    'do not stay synchronized with WooCommerce',
+    'WooCommerce is not active.',
+    'does not have permission to run WooCommerce snapshots',
+]:
+    old = f"self::assertStringContainsString( '{phrase}', $admin );"
+    if old not in text:
+        raise SystemExit(f'missing Woo ownership assertion: {phrase}')
+    text = text.replace(old, f"self::assertStringContainsString( '{phrase}', $javascript );")
+for old, new in [
+    ("liveOption.textContent = tr('liveOption'", "liveOption.textContent = __('WooCommerce live query', 'viswiz')"),
+    ("snapshotButton.textContent = tr('snapshotButton'", "snapshotButton.textContent = __('Replace dataset with current snapshot', 'viswiz')"),
+]:
+    if old not in text:
+        raise SystemExit(f'missing Woo JS assertion: {old}')
+    text = text.replace(old, new)
+woo.write_text(text)
 
 loc = ROOT / 'tests/JavaScriptLocalizationTest.php'
 lines = loc.read_text().splitlines()
