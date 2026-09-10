@@ -40,7 +40,8 @@ final class VisualizationPresetsTest extends TestCase {
         $admin = file_get_contents( $this->root . '/src/Admin/VisualizationPresets.php' );
         $javascript = file_get_contents( $this->root . '/assets/viswiz-visualization-presets.js' );
 
-        self::assertStringContainsString( "array( 'viswiz-visualization-preview' )", $admin );
+        self::assertStringContainsString( "'viswiz-visualization-preview'", $admin );
+        self::assertStringContainsString( "'wp-i18n'", $admin );
         self::assertStringContainsString( 'adminCfg.renderers?.[renderer]?.settings', $javascript );
         self::assertStringContainsString( 'if (!active.has(key)) return;', $javascript );
         self::assertStringContainsString( '[name^="viswiz_settings["]', $javascript );
