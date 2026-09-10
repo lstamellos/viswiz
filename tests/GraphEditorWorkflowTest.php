@@ -31,7 +31,7 @@ final class GraphEditorWorkflowTest extends TestCase {
         self::assertStringContainsString( 'renderNodeRelationsPanel', $javascript );
         self::assertStringContainsString( 'duplicateNodeSeed', $javascript );
         self::assertStringContainsString( 'duplicateRelationSeed', $javascript );
-        self::assertStringContainsString( "button('Create node…'", $javascript );
+        self::assertStringContainsString( "button(__('Create node…', 'viswiz')", $javascript );
         self::assertStringContainsString( 'data-viswiz-relation-constraint', $javascript );
         self::assertStringContainsString( 'relationConstraintMessages', $javascript );
         self::assertStringContainsString( 'node_uuid', $javascript );
