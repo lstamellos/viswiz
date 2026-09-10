@@ -32,7 +32,7 @@ final class JavaScriptLocalizationTest extends TestCase {
             self::assertStringNotContainsString( 'previewCfg.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'VisWizFrontendV2?.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'const tr = (key, fallback)', $javascript, $file );
-            self::assertDoesNotMatchRegularExpression( '/(?:=|:|\?)[ \t]*[\'"][^\r\n]*\$\{__\(/', $javascript, $file . ' must not embed gettext interpolation inside a quoted literal.' );
+            self::assertDoesNotMatchRegularExpression( '/__\(\s*[\'"`][^\r\n]*\$\{/', $javascript, $file . ' must keep gettext message ids static.' );
         }
     }
 
