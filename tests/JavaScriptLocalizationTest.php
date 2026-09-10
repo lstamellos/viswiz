@@ -32,7 +32,13 @@ final class JavaScriptLocalizationTest extends TestCase {
             self::assertStringNotContainsString( 'previewCfg.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'VisWizFrontendV2?.i18n', $javascript, $file );
             self::assertStringNotContainsString( 'const tr = (key, fallback)', $javascript, $file );
-            self::assertDoesNotMatchRegularExpression( '/__\(\s*[\'"`][^\r\n]*\$\{/', $javascript, $file . ' must keep gettext message ids static.' );
+            foreach ( array(
+                "/__\\(\\s*'[^'\\r\\n]*\\$\\{/",
+                '/__\\(\\s*"[^"\\r\\n]*\\$\\{/',
+                '/__\\(\\s*`[^`\\r\\n]*\\$\\{/',
+            ) as $pattern ) {
+                self::assertDoesNotMatchRegularExpression( $pattern, $javascript, $file . ' must keep gettext message ids static.' );
+            }
         }
     }
 
