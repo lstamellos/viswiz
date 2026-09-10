@@ -14,7 +14,8 @@ final class GraphRuntimeTest extends TestCase {
 
         self::assertStringContainsString( 'viswiz-graph-runtime.js', $runtime );
         self::assertStringContainsString( 'viswiz-graph-runtime.css', $runtime );
-        self::assertStringContainsString( "array( 'viswiz-frontend' )", $runtime );
+        self::assertStringContainsString( "'viswiz-frontend'", $runtime );
+        self::assertStringContainsString( "'wp-i18n'", $runtime );
         self::assertStringContainsString( 'VisWiz\\Runtime\\GraphRuntime::register();', $bootstrap );
 
         foreach ( array(
