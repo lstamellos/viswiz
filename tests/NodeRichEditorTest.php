@@ -17,7 +17,9 @@ final class NodeRichEditorTest extends TestCase {
         self::assertStringContainsString( "'graph' !== (string) \$dataset['schema_type']", $admin );
         self::assertStringContainsString( 'wp_enqueue_editor();', $admin );
         self::assertStringContainsString( 'viswiz-node-rich-editor.js', $admin );
-        self::assertStringContainsString( "array( 'editor', 'viswiz-dataset-editor-v2' )", $admin );
+        self::assertStringContainsString( "'editor'", $admin );
+        self::assertStringContainsString( "'viswiz-dataset-editor-v2'", $admin );
+        self::assertStringContainsString( "'wp-i18n'", $admin );
     }
 
     public function test_dynamic_editor_has_explicit_initialize_sync_and_teardown_lifecycle(): void {
