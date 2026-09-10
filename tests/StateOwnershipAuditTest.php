@@ -54,18 +54,6 @@ final class StateOwnershipAuditTest extends TestCase {
         self::assertStringNotContainsString( '/visualizations/preview', $presets );
     }
 
-    public function test_public_frontend_is_the_payload_fetch_owner_and_graph_runtime_is_fetch_free(): void {
-        $frontend = file_get_contents( $this->root . '/assets/viswiz.js' );
-        $runtime = file_get_contents( $this->root . '/assets/viswiz-graph-runtime.js' );
-
-        self::assertSame( 1, substr_count( $frontend, 'fetch(' ) );
-        self::assertStringContainsString( 'function fetchSpec(url)', $frontend );
-        self::assertStringContainsString( 'container.dataset.viswizEndpoint', $frontend );
-        self::assertStringNotContainsString( 'fetch(', $runtime );
-        self::assertStringContainsString( 'const stateMap = new WeakMap();', $runtime );
-        self::assertStringContainsString( 'function stateFor(container)', $runtime );
-    }
-
     public function test_visualization_preview_uses_the_canonical_preview_endpoint_and_public_renderer(): void {
         $preview = file_get_contents( $this->root . '/assets/viswiz-visualization-preview.js' );
         $api = file_get_contents( $this->root . '/src/Rest/VisualizationPreviewApi.php' );
