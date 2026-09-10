@@ -38,7 +38,7 @@ final class RendererSpecificSettingsTest extends TestCase {
         $preview = file_get_contents( $this->root . '/src/Admin/VisualizationPreview.php' );
 
         foreach ( array( 'Data / source', 'Appearance', 'Labels / content', 'Interaction', 'Advanced' ) as $heading ) {
-            self::assertStringContainsString( $heading, $javascript );
+            self::assertStringContainsString( "__( '" . $heading, str_replace( "__('", "__( '", $javascript ) );
         }
         self::assertStringContainsString( 'cfg.renderers?.[renderer.value]', $javascript );
         self::assertStringContainsString( 'meta.settings', $javascript );
@@ -49,7 +49,10 @@ final class RendererSpecificSettingsTest extends TestCase {
         self::assertStringContainsString( 'viswiz-renderer-settings.js', $preview );
         self::assertStringContainsString( "'VisWizRendererSettings'", $preview );
         self::assertStringContainsString( "'wooAvailable' => class_exists( '\\WooCommerce' )", $preview );
-        self::assertStringContainsString( "array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' )", $preview );
+        self::assertStringContainsString( "'viswiz-renderer-settings'", $preview );
+        self::assertStringContainsString( "'viswiz-frontend'", $preview );
+        self::assertStringContainsString( "'viswiz-graph-runtime'", $preview );
+        self::assertStringContainsString( "'wp-i18n'", $preview );
     }
 
     public function test_settings_release_does_not_require_a_database_schema_change(): void {

@@ -23,6 +23,7 @@ final class WooSourceSelectionTest extends TestCase {
         self::assertStringContainsString( "'snapshotAllowed'", $admin );
         self::assertStringContainsString( 'selected_product_labels', $admin );
         self::assertStringContainsString( 'selected_category_labels', $admin );
+        self::assertStringContainsString( "'wp-i18n'", $admin );
     }
 
     public function test_adapter_progressively_enhances_ids_only_when_native_woo_search_is_usable(): void {
@@ -37,23 +38,22 @@ final class WooSourceSelectionTest extends TestCase {
         self::assertStringContainsString( "cfg.searchable === true && (product || category)", $javascript );
         self::assertStringContainsString( "window.jQuery(document.body).trigger('wc-enhanced-select-init')", $javascript );
         self::assertStringContainsString( "input.value = [...select.selectedOptions]", $javascript );
-        self::assertStringContainsString( "Product and category IDs remain editable manually.", $javascript );
+        self::assertStringContainsString( "__('WooCommerce search pickers are not available for this account. Product and category IDs remain editable manually.', 'viswiz')", $javascript );
         self::assertStringNotContainsString( 'fetch(', $javascript );
         self::assertStringNotContainsString( 'restUrl', $javascript );
     }
 
     public function test_live_query_and_snapshot_are_explained_as_different_data_ownership_modes(): void {
-        $admin = file_get_contents( $this->root . '/src/Admin/WooSourceSelection.php' );
         $javascript = file_get_contents( $this->root . '/assets/viswiz-woo-source-selection.js' );
 
-        self::assertStringContainsString( 'Live query: recalculates from current WooCommerce orders', $admin );
-        self::assertStringContainsString( 'No rows are copied into a dataset.', $admin );
-        self::assertStringContainsString( 'Snapshot: runs the WooCommerce query once', $admin );
-        self::assertStringContainsString( 'do not stay synchronized with WooCommerce', $admin );
-        self::assertStringContainsString( 'WooCommerce is not active.', $admin );
-        self::assertStringContainsString( 'does not have permission to run WooCommerce snapshots', $admin );
-        self::assertStringContainsString( "liveOption.textContent = tr('liveOption'", $javascript );
-        self::assertStringContainsString( "snapshotButton.textContent = tr('snapshotButton'", $javascript );
+        self::assertStringContainsString( 'Live query: recalculates from current WooCommerce orders', $javascript );
+        self::assertStringContainsString( 'No rows are copied into a dataset.', $javascript );
+        self::assertStringContainsString( 'Snapshot: runs the WooCommerce query once', $javascript );
+        self::assertStringContainsString( 'do not stay synchronized with WooCommerce', $javascript );
+        self::assertStringContainsString( 'WooCommerce is not active.', $javascript );
+        self::assertStringContainsString( 'does not have permission to run WooCommerce snapshots', $javascript );
+        self::assertStringContainsString( "liveOption.textContent = __('WooCommerce live query', 'viswiz')", $javascript );
+        self::assertStringContainsString( "snapshotButton.textContent = __('Replace dataset with current snapshot', 'viswiz')", $javascript );
         self::assertStringContainsString( "cfg.snapshotAllowed !== true", $javascript );
     }
 

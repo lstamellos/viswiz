@@ -17,7 +17,8 @@ final class SpreadsheetEditorTest extends TestCase {
         self::assertStringNotContainsString( 'viswiz-spreadsheet-hardening.js', $admin );
         self::assertFileDoesNotExist( $this->root . '/assets/viswiz-spreadsheet-hardening.js' );
         self::assertStringContainsString( "'graph' === \$dataset['schema_type']", $admin );
-        self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
+        self::assertStringContainsString( "'viswiz-dataset-editor-v2'", $admin );
+        self::assertStringContainsString( "'wp-i18n'", $admin );
     }
 
     public function test_batch_endpoint_validates_schema_before_one_transactional_write(): void {
@@ -39,7 +40,7 @@ final class SpreadsheetEditorTest extends TestCase {
     public function test_grid_supports_explicit_save_paste_and_keyboard_navigation_without_autosave(): void {
         $javascript = file_get_contents( $this->root . '/assets/viswiz-spreadsheet-editor.js' );
 
-        self::assertStringContainsString( 'Save changes', $javascript );
+        self::assertStringContainsString( "__('Save changes', 'viswiz')", $javascript );
         self::assertStringContainsString( 'delete_uuids', $javascript );
         self::assertStringContainsString( "clipboardData?.getData('text/plain')", $javascript );
         self::assertStringContainsString( "line.split('\\t')", $javascript );

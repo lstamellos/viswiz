@@ -46,10 +46,11 @@ final class VisualizationPreview {
         wp_enqueue_script(
             'viswiz-renderer-settings',
             VISWIZ_URL . 'assets/viswiz-renderer-settings.js',
-            array( 'viswiz-admin-v2' ),
+            array( 'viswiz-admin-v2', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
+        wp_set_script_translations( 'viswiz-renderer-settings', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_localize_script(
             'viswiz-renderer-settings',
             'VisWizRendererSettings',
@@ -60,22 +61,11 @@ final class VisualizationPreview {
         wp_enqueue_script(
             'viswiz-visualization-preview',
             VISWIZ_URL . 'assets/viswiz-visualization-preview.js',
-            array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime' ),
+            array( 'viswiz-renderer-settings', 'viswiz-frontend', 'viswiz-graph-runtime', 'wp-i18n' ),
             VISWIZ_VERSION,
             true
         );
-        wp_localize_script(
-            'viswiz-visualization-preview',
-            'VisWizVisualizationPreview',
-            array(
-                'i18n' => array(
-                    'updating'            => __( 'Updating unsaved preview…', 'viswiz' ),
-                    'updated'             => __( 'Preview updated. These changes are still unsaved.', 'viswiz' ),
-                    'rendererUnavailable' => __( 'The public visualization renderer is unavailable.', 'viswiz' ),
-                    'updateError'         => __( 'Could not update the preview.', 'viswiz' ),
-                ),
-            )
-        );
+        wp_set_script_translations( 'viswiz-visualization-preview', 'viswiz', VISWIZ_DIR . 'languages' );
         wp_add_inline_style(
             'viswiz-admin-v2',
             '.viswiz-live-preview-note{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.viswiz-live-preview-badge{display:inline-block;padding:2px 7px;border:1px solid #dba617;border-radius:999px;background:#fcf9e8;font-weight:600}.viswiz-admin-live-preview{min-height:180px;max-width:100%;overflow:hidden;border:1px solid #dcdcde;border-radius:4px;padding:12px;background:#fff;box-sizing:border-box}.viswiz-live-preview-status{margin:8px 0 0}.viswiz-live-preview-status.is-error{color:#b32d2e}'

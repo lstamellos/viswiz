@@ -16,20 +16,21 @@ final class NodePublicFieldsTest extends TestCase {
         self::assertStringContainsString( 'NodePublicFields::register();', $plugin );
         self::assertStringContainsString( "'graph' !== (string) \$dataset['schema_type']", $admin );
         self::assertStringContainsString( 'viswiz-node-public-fields.js', $admin );
-        self::assertStringContainsString( "array( 'viswiz-dataset-editor-v2' )", $admin );
+        self::assertStringContainsString( "'viswiz-dataset-editor-v2'", $admin );
+        self::assertStringContainsString( "'wp-i18n'", $admin );
     }
 
     public function test_normal_graph_workflow_uses_structured_fields_and_advanced_raw_metadata(): void {
         $javascript = file_get_contents( $this->root . '/assets/viswiz-node-public-fields.js' );
 
-        self::assertStringContainsString( 'Public fields', $javascript );
-        self::assertStringContainsString( 'Add public field', $javascript );
+        self::assertStringContainsString( "__('Public fields', 'viswiz')", $javascript );
+        self::assertStringContainsString( "__('Add public field', 'viswiz')", $javascript );
         self::assertStringContainsString( "const TYPES = ['short', 'long', 'url', 'formatted'];", $javascript );
         self::assertStringContainsString( 'data-viswiz-public-field-row', $javascript );
         self::assertStringContainsString( 'data-viswiz-public-field-up', $javascript );
         self::assertStringContainsString( 'data-viswiz-public-field-down', $javascript );
-        self::assertStringContainsString( 'Additional metadata JSON', $javascript );
-        self::assertStringContainsString( 'Advanced metadata', $javascript );
+        self::assertStringContainsString( "__('Additional metadata JSON', 'viswiz')", $javascript );
+        self::assertStringContainsString( "__('Advanced metadata', 'viswiz')", $javascript );
         self::assertStringContainsString( 'viswizNodeMetaAdvanced', $javascript );
         self::assertStringContainsString( 'viswizRelationMetaAdvanced', $javascript );
         self::assertStringContainsString( 'delete meta.public_fields;', $javascript );

@@ -1,12 +1,10 @@
 (() => {
   'use strict';
+  const { __, sprintf } = window.wp.i18n;
 
   const inflight = new Map();
   const DEFAULT_COLORS = ['#2563eb', '#7c3aed', '#059669', '#ea580c', '#0891b2', '#be123c', '#4f46e5', '#a16207'];
   const svgNS = 'http://www.w3.org/2000/svg';
-  const i18n = window.VisWizFrontendV2?.i18n || {};
-  const tr = (key, fallback) => i18n[key] || fallback;
-
   function fetchSpec(url) {
     if (inflight.has(url)) return inflight.get(url);
     const request = fetch(url, { credentials: 'same-origin' })
@@ -68,7 +66,7 @@
   }
 
   function svgFrame(container, width = 800, height = 440) {
-    const svg = svgEl('svg', { class: 'viswiz-svg', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': tr('visualization', 'Visualization') });
+    const svg = svgEl('svg', { class: 'viswiz-svg', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': __('Visualization', 'viswiz') });
     container.appendChild(svg);
     return svg;
   }
@@ -247,7 +245,7 @@
     rows(spec).forEach((row, i) => {
       const card = el('article', { class: 'viswiz-diagram-card' });
       card.style.borderColor = row.color || color(spec.settings, i);
-      card.append(el('h4', {}, row.label || `Section ${i + 1}`));
+      card.append(el('h4', {}, row.label || sprintf(__('Section %d', 'viswiz'), i + 1)));
       const body = el('div'); body.textContent = row.meta?.text || row.meta?.description || formatNumber(row.value, spec); card.appendChild(body); grid.appendChild(card);
     });
     container.appendChild(grid);
@@ -334,16 +332,16 @@
 
     if (spec.settings?.show_graph_toolbar !== false) {
       const toolbar = el('div', { class: 'viswiz-graph-toolbar' });
-      const search = el('input', { type: 'search', placeholder: tr('searchNodes', 'Search nodes'), 'aria-label': tr('searchNodes', 'Search nodes') });
-      const typeSelect = el('select', { 'aria-label': tr('filterNodeType', 'Filter node type') });
-      typeSelect.appendChild(el('option', { value: '' }, tr('allNodeTypes', 'All node types')));
+      const search = el('input', { type: 'search', placeholder: __('Search nodes', 'viswiz'), 'aria-label': __('Search nodes', 'viswiz') });
+      const typeSelect = el('select', { 'aria-label': __('Filter node type', 'viswiz') });
+      typeSelect.appendChild(el('option', { value: '' }, __('All node types', 'viswiz')));
       [...new Set(allNodes.map((n) => n.node_type).filter(Boolean))].sort().forEach((type) => typeSelect.appendChild(el('option', { value: type }, type)));
-      const relationSelect = el('select', { 'aria-label': tr('filterRelationType', 'Filter relation type') });
-      relationSelect.appendChild(el('option', { value: '' }, tr('allRelationTypes', 'All relation types')));
+      const relationSelect = el('select', { 'aria-label': __('Filter relation type', 'viswiz') });
+      relationSelect.appendChild(el('option', { value: '' }, __('All relation types', 'viswiz')));
       [...new Set(allRelations.map((r) => r.relation_type).filter(Boolean))].sort().forEach((type) => relationSelect.appendChild(el('option', { value: type }, type)));
-      const zoomOut = el('button', { type: 'button', class: 'viswiz-graph-tool', title: tr('zoomOut', 'Zoom out'), 'aria-label': tr('zoomOut', 'Zoom out') }, '−');
-      const zoomReset = el('button', { type: 'button', class: 'viswiz-graph-tool', title: tr('resetZoom', 'Reset zoom'), 'aria-label': tr('resetZoom', 'Reset zoom') }, '100%');
-      const zoomIn = el('button', { type: 'button', class: 'viswiz-graph-tool', title: tr('zoomIn', 'Zoom in'), 'aria-label': tr('zoomIn', 'Zoom in') }, '+');
+      const zoomOut = el('button', { type: 'button', class: 'viswiz-graph-tool', title: __('Zoom out', 'viswiz'), 'aria-label': __('Zoom out', 'viswiz') }, '−');
+      const zoomReset = el('button', { type: 'button', class: 'viswiz-graph-tool', title: __('Reset zoom', 'viswiz'), 'aria-label': __('Reset zoom', 'viswiz') }, '100%');
+      const zoomIn = el('button', { type: 'button', class: 'viswiz-graph-tool', title: __('Zoom in', 'viswiz'), 'aria-label': __('Zoom in', 'viswiz') }, '+');
       status = el('span', { class: 'viswiz-graph-status', 'aria-live': 'polite' });
       if (spec.settings?.show_graph_search !== false) toolbar.appendChild(search);
       if (spec.settings?.show_graph_filters !== false) toolbar.append(typeSelect, relationSelect);
@@ -369,18 +367,18 @@
         return `${node.title || ''} ${node.label || ''} ${node.slug || ''} ${node.node_type || ''} ${node.node_subtype || ''}`.toLowerCase().includes(query);
       });
       if (!nodes.length) {
-        if (status) status.textContent = tr('noMatchingNodes', 'No matching nodes');
-        stage.appendChild(el('p', { class: 'viswiz-empty' }, tr('noMatchingNodes', 'No matching nodes')));
+        if (status) status.textContent = __('No matching nodes', 'viswiz');
+        stage.appendChild(el('p', { class: 'viswiz-empty' }, __('No matching nodes', 'viswiz')));
         activeSvg = null;
         return;
       }
       const ids = new Set(nodes.map((n) => n.uuid));
       const relations = allRelations.filter((r) => ids.has(r.from_node_uuid) && ids.has(r.to_node_uuid) && (!relationType || r.relation_type === relationType));
-      if (status) status.textContent = `${nodes.length}/${allNodes.length} ${tr('nodes', 'nodes')} · ${relations.length}/${allRelations.length} ${tr('relations', 'relations')}`;
+      if (status) status.textContent = `${nodes.length}/${allNodes.length} ${__('nodes', 'viswiz')} · ${relations.length}/${allRelations.length} ${__('relations', 'viswiz')}`;
 
       const width = 1000;
       const height = Math.max(560, Math.min(1100, 440 + nodes.length * 4));
-      const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'viswiz-graph-svg', role: 'img', 'aria-label': tr('nodeGraph', 'Node graph') });
+      const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'viswiz-graph-svg', role: 'img', 'aria-label': __('Node graph', 'viswiz') });
       activeSvg = svg;
       baseView = { x: 0, y: 0, w: width, h: height };
       if (!view) view = { ...baseView };
@@ -409,7 +407,7 @@
       });
       nodes.forEach((node, i) => {
         const pos = layout.get(node.uuid); if (!pos) return;
-        const g = svgEl('g', { class: 'viswiz-graph-node', transform: `translate(${pos.x},${pos.y})`, tabindex: 0, role: 'button', 'aria-label': `${tr('viewNode', 'View node')}: ${node.title || node.label || tr('node', 'Node')}` });
+        const g = svgEl('g', { class: 'viswiz-graph-node', transform: `translate(${pos.x},${pos.y})`, tabindex: 0, role: 'button', 'aria-label': `${__('View node', 'viswiz')}: ${node.title || node.label || __('Node', 'viswiz')}` });
         const rect = svgEl('rect', { x: -76, y: -35, width: 152, height: 70, rx: 14, fill: node.meta?.color || color(spec.settings, i), opacity: 0.96 });
         g.appendChild(rect);
         g.appendChild(svgEl('text', { x: 0, y: -3, 'text-anchor': 'middle', class: 'viswiz-graph-node-title' }, truncate(node.title || node.label || node.slug || '', 24)));
@@ -453,10 +451,10 @@
 
   function showNodeModal(container, node, relations, nodeMap, opener = null) {
     const settings = container.__viswizSpecSettings || {};
-    const titleFallback = settings.node_modal_title_fallback || tr('node', 'Node');
+    const titleFallback = settings.node_modal_title_fallback || __('Node', 'viswiz');
     const overlay = el('div', { class: 'viswiz-modal-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': node.title || node.label || titleFallback });
     const modal = el('div', { class: 'viswiz-node-modal' });
-    const close = el('button', { type: 'button', class: 'viswiz-modal-close', 'aria-label': settings.node_modal_close_label || tr('close', 'Close') }, '×');
+    const close = el('button', { type: 'button', class: 'viswiz-modal-close', 'aria-label': settings.node_modal_close_label || __('Close', 'viswiz') }, '×');
     modal.append(close, el('h3', {}, node.title || node.label || node.slug || titleFallback));
 
     const images = container.__viswizSpecSettings?.show_node_images === false ? [] : (Array.isArray(node.image_gallery) ? node.image_gallery.filter((image) => image?.url) : []);
@@ -477,8 +475,8 @@
       gallery.appendChild(image);
       if (images.length > 1) {
         const controls = el('div', { class: 'viswiz-node-gallery-controls' });
-        const previous = el('button', { type: 'button', 'aria-label': settings.node_modal_previous_image_label || tr('previousImage', 'Previous image') }, '‹');
-        const next = el('button', { type: 'button', 'aria-label': settings.node_modal_next_image_label || tr('nextImage', 'Next image') }, '›');
+        const previous = el('button', { type: 'button', 'aria-label': settings.node_modal_previous_image_label || __('Previous image', 'viswiz') }, '‹');
+        const next = el('button', { type: 'button', 'aria-label': settings.node_modal_next_image_label || __('Next image', 'viswiz') }, '›');
         previous.addEventListener('click', () => { index = (index - 1 + images.length) % images.length; updateImage(); });
         next.addEventListener('click', () => { index = (index + 1) % images.length; updateImage(); });
         controls.append(previous, count, next);
@@ -513,15 +511,15 @@
     }
     const related = relations.filter((relation) => relation.from_node_uuid === node.uuid || relation.to_node_uuid === node.uuid);
     if (related.length) {
-      modal.appendChild(el('h4', {}, settings.node_modal_related_heading || tr('relatedNodes', 'Related nodes')));
+      modal.appendChild(el('h4', {}, settings.node_modal_related_heading || __('Related nodes', 'viswiz')));
       const list = el('ul', { class: 'viswiz-related-list' });
       related.forEach((relation) => {
         const outgoing = relation.from_node_uuid === node.uuid;
         const other = nodeMap.get(outgoing ? relation.to_node_uuid : relation.from_node_uuid);
         if (!other) return;
         const relationLabel = outgoing
-          ? (relation.label || relation.relation_type || settings.node_modal_relation_fallback || tr('relation', 'Relation'))
-          : (relation.inverse_label || relation.label || relation.relation_type || settings.node_modal_relation_fallback || tr('relation', 'Relation'));
+          ? (relation.label || relation.relation_type || settings.node_modal_relation_fallback || __('Relation', 'viswiz'))
+          : (relation.inverse_label || relation.label || relation.relation_type || settings.node_modal_relation_fallback || __('Relation', 'viswiz'));
         list.appendChild(el('li', {}, `${relationLabel}: ${other.title || other.label || other.slug}`));
       });
       modal.appendChild(list);
@@ -554,7 +552,7 @@
   }
 
   function truncate(value, length) { const s = String(value || ''); return s.length > length ? `${s.slice(0, length - 1)}…` : s; }
-  function empty(container) { container.appendChild(el('p', { class: 'viswiz-empty' }, tr('noData', 'No data available.'))); }
+  function empty(container) { container.appendChild(el('p', { class: 'viswiz-empty' }, __('No data available.', 'viswiz'))); }
 
   function addFullscreen(container, spec) {
     if (container.__viswizFullscreenHandler) {
@@ -562,11 +560,11 @@
       container.__viswizFullscreenHandler = null;
     }
     if (!spec.settings?.full_screen || !document.fullscreenEnabled) return;
-    const button = el('button', { type: 'button', class: 'viswiz-fullscreen' }, tr('fullScreen', 'Full screen'));
+    const button = el('button', { type: 'button', class: 'viswiz-fullscreen' }, __('Full screen', 'viswiz'));
     button.addEventListener('click', async () => {
       if (document.fullscreenElement === container) await document.exitFullscreen(); else await container.requestFullscreen();
     });
-    const onFullscreen = () => { button.textContent = document.fullscreenElement === container ? tr('exitFullScreen', 'Exit full screen') : tr('fullScreen', 'Full screen'); };
+    const onFullscreen = () => { button.textContent = document.fullscreenElement === container ? __('Exit full screen', 'viswiz') : __('Full screen', 'viswiz'); };
     container.__viswizFullscreenHandler = onFullscreen;
     document.addEventListener('fullscreenchange', onFullscreen);
     container.prepend(button);
@@ -589,7 +587,7 @@
   function load(container) {
     const endpoint = container.dataset.viswizEndpoint;
     if (!endpoint) return;
-    const run = () => fetchSpec(endpoint).then((spec) => { render(container, spec); schedule(container, spec); }).catch((error) => { container.replaceChildren(el('p', { class: 'viswiz-error' }, error.message || tr('loadError', 'Could not load visualization.'))); });
+    const run = () => fetchSpec(endpoint).then((spec) => { render(container, spec); schedule(container, spec); }).catch((error) => { container.replaceChildren(el('p', { class: 'viswiz-error' }, error.message || __('Could not load visualization.', 'viswiz'))); });
     if ('IntersectionObserver' in window) {
       const observer = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) { observer.disconnect(); run(); } }, { rootMargin: '300px' }); observer.observe(container);
     } else run();

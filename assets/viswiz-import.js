@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const { __, _n, sprintf } = window.wp.i18n;
 
   const cfg = window.VisWizAdminV2 || {};
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -9,39 +10,39 @@
 
   const FIELD_SETS = {
     rows: [
-      ['row_key', 'Row key', ['row_key', 'row key', 'key', 'id', 'external_key', 'external key']],
-      ['label', 'Label', ['label', 'name', 'title']],
-      ['value', 'Value', ['value', 'amount', 'count']],
-      ['x_value', 'X / date', ['x_value', 'x value', 'date', 'time', 'x']],
-      ['x_numeric', 'X numeric', ['x_numeric', 'x numeric']],
-      ['y_value', 'Y', ['y_value', 'y value', 'y']],
-      ['latitude', 'Latitude', ['latitude', 'lat']],
-      ['longitude', 'Longitude', ['longitude', 'lng', 'lon', 'long']],
-      ['color', 'Color', ['color', 'colour']],
-      ['meta', 'Metadata JSON', ['meta', 'metadata', 'metadata_json', 'metadata json']],
+      ['row_key', __('Row key', 'viswiz'), ['row_key', 'row key', 'key', 'id', 'external_key', 'external key']],
+      ['label', __('Label', 'viswiz'), ['label', 'name', 'title']],
+      ['value', __('Value', 'viswiz'), ['value', 'amount', 'count']],
+      ['x_value', __('X / date', 'viswiz'), ['x_value', 'x value', 'date', 'time', 'x']],
+      ['x_numeric', __('X numeric', 'viswiz'), ['x_numeric', 'x numeric']],
+      ['y_value', __('Y', 'viswiz'), ['y_value', 'y value', 'y']],
+      ['latitude', __('Latitude', 'viswiz'), ['latitude', 'lat']],
+      ['longitude', __('Longitude', 'viswiz'), ['longitude', 'lng', 'lon', 'long']],
+      ['color', __('Color', 'viswiz'), ['color', 'colour']],
+      ['meta', __('Metadata JSON', 'viswiz'), ['meta', 'metadata', 'metadata_json', 'metadata json']],
     ],
     nodes: [
-      ['external_key', 'External key', ['external_key', 'external key', 'node_key', 'node key', 'key', 'id']],
-      ['slug', 'Slug', ['slug']],
-      ['title', 'Title', ['title', 'name']],
-      ['label', 'Label', ['label']],
-      ['node_type', 'Node type', ['node_type', 'node type', 'type']],
-      ['node_subtype', 'Node subtype', ['node_subtype', 'node subtype', 'subtype']],
-      ['description', 'Description', ['description', 'description_html', 'description html']],
-      ['main_image_id', 'Main image ID', ['main_image_id', 'main image id', 'featured_image_id']],
-      ['other_image_ids', 'Other image IDs', ['other_image_ids', 'other image ids', 'gallery_ids']],
-      ['meta', 'Metadata JSON', ['meta', 'metadata', 'metadata_json', 'metadata json']],
+      ['external_key', __('External key', 'viswiz'), ['external_key', 'external key', 'node_key', 'node key', 'key', 'id']],
+      ['slug', __('Slug', 'viswiz'), ['slug']],
+      ['title', __('Title', 'viswiz'), ['title', 'name']],
+      ['label', __('Label', 'viswiz'), ['label']],
+      ['node_type', __('Node type', 'viswiz'), ['node_type', 'node type', 'type']],
+      ['node_subtype', __('Node subtype', 'viswiz'), ['node_subtype', 'node subtype', 'subtype']],
+      ['description', __('Description', 'viswiz'), ['description', 'description_html', 'description html']],
+      ['main_image_id', __('Main image ID', 'viswiz'), ['main_image_id', 'main image id', 'featured_image_id']],
+      ['other_image_ids', __('Other image IDs', 'viswiz'), ['other_image_ids', 'other image ids', 'gallery_ids']],
+      ['meta', __('Metadata JSON', 'viswiz'), ['meta', 'metadata', 'metadata_json', 'metadata json']],
     ],
     relations: [
-      ['external_key', 'External key', ['external_key', 'external key', 'relation_key', 'relation key', 'key', 'id']],
-      ['from_key', 'From node key', ['from_key', 'from key', 'from', 'source', 'source_key', 'source key']],
-      ['to_key', 'To node key', ['to_key', 'to key', 'to', 'target', 'target_key', 'target key']],
-      ['relation_type', 'Relation type', ['relation_type', 'relation type', 'type']],
-      ['label', 'Label', ['label']],
-      ['inverse_label', 'Inverse label', ['inverse_label', 'inverse label']],
-      ['direction', 'Direction', ['direction']],
-      ['intensity', 'Intensity', ['intensity', 'weight']],
-      ['meta', 'Metadata JSON', ['meta', 'metadata', 'metadata_json', 'metadata json']],
+      ['external_key', __('External key', 'viswiz'), ['external_key', 'external key', 'relation_key', 'relation key', 'key', 'id']],
+      ['from_key', __('From node key', 'viswiz'), ['from_key', 'from key', 'from', 'source', 'source_key', 'source key']],
+      ['to_key', __('To node key', 'viswiz'), ['to_key', 'to key', 'to', 'target', 'target_key', 'target key']],
+      ['relation_type', __('Relation type', 'viswiz'), ['relation_type', 'relation type', 'type']],
+      ['label', __('Label', 'viswiz'), ['label']],
+      ['inverse_label', __('Inverse label', 'viswiz'), ['inverse_label', 'inverse label']],
+      ['direction', __('Direction', 'viswiz'), ['direction']],
+      ['intensity', __('Intensity', 'viswiz'), ['intensity', 'weight']],
+      ['meta', __('Metadata JSON', 'viswiz'), ['meta', 'metadata', 'metadata_json', 'metadata json']],
     ],
   };
 
@@ -54,7 +55,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.code) {
-      const error = new Error(data?.message || cfg.i18n?.error || `HTTP ${response.status}`);
+      const error = new Error(data?.message || sprintf(__('The import request failed with HTTP status %d.', 'viswiz'), response.status));
       error.code = data?.code || '';
       error.data = data?.data || {};
       throw error;
@@ -102,7 +103,7 @@
         cell += char;
       }
     }
-    if (quoted) throw new Error('A quoted field is not closed.');
+    if (quoted) throw new Error(__('A quoted field is not closed.', 'viswiz'));
     if (cell !== '' || row.length) {
       row.push(cell);
       rows.push(row);
@@ -128,13 +129,13 @@
   }
 
   function rowsToRecords(rows) {
-    if (rows.length < 2) throw new Error('The source needs a header row and at least one data row.');
+    if (rows.length < 2) throw new Error(__('The source needs a header row and at least one data row.', 'viswiz'));
     const headers = rows[0].map((header) => String(header).trim());
-    if (headers.some((header) => !header)) throw new Error('Every source column needs a header.');
+    if (headers.some((header) => !header)) throw new Error(__('Every source column needs a header.', 'viswiz'));
     const normalized = headers.map(normalizeHeader);
-    if (new Set(normalized).size !== normalized.length) throw new Error('Source headers must be unique.');
+    if (new Set(normalized).size !== normalized.length) throw new Error(__('Source headers must be unique.', 'viswiz'));
     const records = rows.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])));
-    if (records.length > MAX_RECORDS) throw new Error(`A single import is limited to ${MAX_RECORDS} records.`);
+    if (records.length > MAX_RECORDS) throw new Error(sprintf(__('A single import is limited to %d records.', 'viswiz'), MAX_RECORDS));
     return { headers, records };
   }
 
@@ -207,7 +208,7 @@
     const auto = autoMapping(parsed.headers, kind);
     const table = document.createElement('table');
     table.className = 'widefat striped viswiz-import-mapping-table';
-    table.innerHTML = '<thead><tr><th>VisWiz field</th><th>Source column</th></tr></thead><tbody></tbody>';
+    table.innerHTML = `<thead><tr><th>${__('VisWiz field', 'viswiz')}</th><th>${__('Source column', 'viswiz')}</th></tr></thead><tbody></tbody>`;
     const tbody = $('tbody', table);
     mappingFields(kind).forEach(([target, label]) => {
       const tr = document.createElement('tr');
@@ -216,7 +217,7 @@
       const tdSelect = document.createElement('td');
       const select = document.createElement('select');
       select.dataset.viswizImportMap = target;
-      select.innerHTML = `<option value="">— Ignore —</option>${parsed.headers.map((header) => `<option value="${esc(header)}">${esc(header)}</option>`).join('')}`;
+      select.innerHTML = `<option value="">${__('— Ignore —', 'viswiz')}</option>${parsed.headers.map((header) => `<option value="${esc(header)}">${esc(header)}</option>`).join('')}`;
       select.value = auto[target] || '';
       tdSelect.appendChild(select);
       tr.append(tdLabel, tdSelect);
@@ -226,7 +227,7 @@
 
     const sample = document.createElement('div');
     sample.className = 'viswiz-import-source-preview';
-    sample.innerHTML = `<h4>Source preview</h4><div class="viswiz-import-table-scroll"><table class="widefat striped"><thead><tr>${parsed.headers.map((header) => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${parsed.records.slice(0, 5).map((record) => `<tr>${parsed.headers.map((header) => `<td>${esc(record[header])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    sample.innerHTML = `<h4>${__('Source preview', 'viswiz')}</h4><div class="viswiz-import-table-scroll"><table class="widefat striped"><thead><tr>${parsed.headers.map((header) => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${parsed.records.slice(0, 5).map((record) => `<tr>${parsed.headers.map((header) => `<td>${esc(record[header])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     host.appendChild(sample);
     host.hidden = false;
   }
@@ -256,11 +257,11 @@
     const chips = document.createElement('div');
     chips.className = 'viswiz-import-summary';
     [
-      ['Source', summary.source_records],
-      ['Create', summary.created],
-      ['Update', summary.updated],
-      ['Remove', summary.removed],
-      ...(summary.relations_removed ? [['Relations removed', summary.relations_removed]] : []),
+      [__('Source', 'viswiz'), summary.source_records],
+      [__('Create', 'viswiz'), summary.created],
+      [__('Update', 'viswiz'), summary.updated],
+      [__('Remove', 'viswiz'), summary.removed],
+      ...(summary.relations_removed ? [[__('Relations removed', 'viswiz'), summary.relations_removed]] : []),
     ].forEach(([label, value]) => {
       const chip = document.createElement('span');
       chip.innerHTML = `<strong>${esc(value ?? 0)}</strong> ${esc(label)}`;
@@ -271,19 +272,19 @@
     if (result.errors?.length) {
       const errors = document.createElement('div');
       errors.className = 'notice notice-error inline viswiz-import-issues';
-      errors.innerHTML = `<p><strong>${result.errors.length} validation error${result.errors.length === 1 ? '' : 's'}</strong></p><ul>${result.errors.slice(0, 100).map((item) => `<li>${item.row ? `Row ${esc(item.row)} · ` : ''}${item.field ? `${esc(item.field)}: ` : ''}${esc(item.message)}</li>`).join('')}</ul>`;
+      errors.innerHTML = `<p><strong>${sprintf(_n('%d validation error', '%d validation errors', result.errors.length, 'viswiz'), result.errors.length)}</strong></p><ul>${result.errors.slice(0, 100).map((item) => `<li>${item.row ? sprintf(__('Row %s · ', 'viswiz'), esc(item.row)) : ''}${item.field ? `${esc(item.field)}: ` : ''}${esc(item.message)}</li>`).join('')}</ul>`;
       host.appendChild(errors);
     }
     if (result.warnings?.length) {
       const warnings = document.createElement('div');
       warnings.className = 'notice notice-warning inline viswiz-import-issues';
-      warnings.innerHTML = `<p><strong>Review before commit</strong></p><ul>${result.warnings.map((message) => `<li>${esc(message)}</li>`).join('')}</ul>`;
+      warnings.innerHTML = `<p><strong>${__('Review before commit', 'viswiz')}</strong></p><ul>${result.warnings.map((message) => `<li>${esc(message)}</li>`).join('')}</ul>`;
       host.appendChild(warnings);
     }
     if (result.preview?.length) {
       const table = document.createElement('table');
       table.className = 'widefat striped viswiz-import-result-table';
-      table.innerHTML = `<thead><tr><th>Source row</th><th>Action</th><th>Key</th><th>Item</th></tr></thead><tbody>${result.preview.map((item) => `<tr><td>${esc(item.source_row)}</td><td><span class="viswiz-import-action is-${esc(item.action)}">${esc(item.action)}</span></td><td><code>${esc(item.key)}</code></td><td>${esc(item.label)}</td></tr>`).join('')}</tbody>`;
+      table.innerHTML = `<thead><tr><th>${__('Source row', 'viswiz')}</th><th>${__('Action', 'viswiz')}</th><th>${__('Key', 'viswiz')}</th><th>${__('Item', 'viswiz')}</th></tr></thead><tbody>${result.preview.map((item) => `<tr><td>${esc(item.source_row)}</td><td><span class="viswiz-import-action is-${esc(item.action)}">${esc(item.action)}</span></td><td><code>${esc(item.key)}</code></td><td>${esc(item.label)}</td></tr>`).join('')}</tbody>`;
       host.appendChild(table);
     }
   }
@@ -293,24 +294,24 @@
     root.className = 'viswiz-guided-import';
     root.dataset.viswizGuidedImport = '1';
     root.innerHTML = `
-      <h3>Import CSV / TSV / spreadsheet data</h3>
-      <p class="description">Paste cells directly from a spreadsheet or choose a delimited text file. Nothing is written until the validated preview is committed.</p>
+      <h3>${__('Import CSV / TSV / spreadsheet data', 'viswiz')}</h3>
+      <p class="description">${__('Paste cells directly from a spreadsheet or choose a delimited text file. Nothing is written until the validated preview is committed.', 'viswiz')}</p>
       <div class="viswiz-import-source-grid">
-        <label class="viswiz-field"><span>File</span><input type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" data-viswiz-import-file></label>
-        <label class="viswiz-field"><span>Encoding</span><select data-viswiz-import-encoding><option value="auto">Auto</option><option value="utf-8">UTF-8</option><option value="windows-1253">Windows-1253 (Greek)</option><option value="windows-1252">Windows-1252</option><option value="utf-16le">UTF-16 LE</option></select></label>
-        <label class="viswiz-field"><span>Delimiter</span><select data-viswiz-import-delimiter><option value="auto">Auto</option><option value="tab">Tab</option><option value="comma">Comma</option><option value="semicolon">Semicolon</option><option value="pipe">Pipe</option></select></label>
+        <label class="viswiz-field"><span>${__('File', 'viswiz')}</span><input type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" data-viswiz-import-file></label>
+        <label class="viswiz-field"><span>${__('Encoding', 'viswiz')}</span><select data-viswiz-import-encoding><option value="auto">${__('Auto', 'viswiz')}</option><option value="utf-8">UTF-8</option><option value="windows-1253">${__('Windows-1253 (Greek)', 'viswiz')}</option><option value="windows-1252">Windows-1252</option><option value="utf-16le">UTF-16 LE</option></select></label>
+        <label class="viswiz-field"><span>${__('Delimiter', 'viswiz')}</span><select data-viswiz-import-delimiter><option value="auto">${__('Auto', 'viswiz')}</option><option value="tab">${__('Tab', 'viswiz')}</option><option value="comma">${__('Comma', 'viswiz')}</option><option value="semicolon">${__('Semicolon', 'viswiz')}</option><option value="pipe">${__('Pipe', 'viswiz')}</option></select></label>
       </div>
-      <label class="viswiz-field"><span>Paste CSV / TSV / spreadsheet cells</span><textarea rows="8" data-viswiz-import-source placeholder="row_key&#9;label&#9;value&#10;alpha&#9;Alpha&#9;10"></textarea></label>
+      <label class="viswiz-field"><span>${__('Paste CSV / TSV / spreadsheet cells', 'viswiz')}</span><textarea rows="8" data-viswiz-import-source placeholder="row_key&#9;label&#9;value&#10;alpha&#9;Alpha&#9;10"></textarea></label>
       <div class="viswiz-import-options">
-        ${schema === 'graph' ? '<label class="viswiz-field"><span>Graph data</span><select data-viswiz-import-kind><option value="nodes">Nodes</option><option value="relations">Relations</option></select></label>' : ''}
-        <label class="viswiz-field"><span>Import mode</span><select data-viswiz-import-mode><option value="append">Append — add new items</option><option value="upsert">Upsert — update matching keys, add missing</option><option value="replace">Replace — replace this item set</option></select></label>
+        ${schema === 'graph' ? `<label class="viswiz-field"><span>${__('Graph data', 'viswiz')}</span><select data-viswiz-import-kind><option value="nodes">${__('Nodes', 'viswiz')}</option><option value="relations">${__('Relations', 'viswiz')}</option></select></label>` : ''}
+        <label class="viswiz-field"><span>${__('Import mode', 'viswiz')}</span><select data-viswiz-import-mode><option value="append">${__('Append — add new items', 'viswiz')}</option><option value="upsert">${__('Upsert — update matching keys, add missing', 'viswiz')}</option><option value="replace">${__('Replace — replace this item set', 'viswiz')}</option></select></label>
       </div>
-      <p class="description" data-viswiz-import-mode-help>Append adds records without changing existing ones.</p>
-      <div class="viswiz-import-actions"><button type="button" class="button" data-viswiz-import-prepare>Prepare mapping</button><button type="button" class="button button-primary" data-viswiz-import-preview-button disabled>Validate preview</button></div>
+      <p class="description" data-viswiz-import-mode-help>${__('Append adds records without changing existing ones.', 'viswiz')}</p>
+      <div class="viswiz-import-actions"><button type="button" class="button" data-viswiz-import-prepare>${__('Prepare mapping', 'viswiz')}</button><button type="button" class="button button-primary" data-viswiz-import-preview-button disabled>${__('Validate preview', 'viswiz')}</button></div>
       <div class="viswiz-import-message" data-viswiz-import-message hidden></div>
       <div data-viswiz-import-mapping hidden></div>
       <div data-viswiz-import-preview hidden></div>
-      <div class="viswiz-import-commit" hidden data-viswiz-import-commit-row><button type="button" class="button button-primary" data-viswiz-import-commit>Commit import</button></div>`;
+      <div class="viswiz-import-commit" hidden data-viswiz-import-commit-row><button type="button" class="button button-primary" data-viswiz-import-commit>${__('Commit import', 'viswiz')}</button></div>`;
     return root;
   }
 
@@ -319,7 +320,7 @@
     if (!label || !rawButton) return;
     const details = document.createElement('details');
     details.className = 'viswiz-import-json-advanced';
-    details.innerHTML = '<summary>Advanced JSON replacement</summary><p class="description">Use JSON for interchange, backup or recovery. CSV/TSV import is the normal data-entry workflow.</p>';
+    details.innerHTML = `<summary>${__('Advanced JSON replacement', 'viswiz')}</summary><p class="description">${__('Use JSON for interchange, backup or recovery. CSV/TSV import is the normal data-entry workflow.', 'viswiz')}</p>`;
     label.parentNode.insertBefore(details, label);
     details.append(label, rawButton);
   }
@@ -371,9 +372,9 @@
     kind?.addEventListener('change', resetPrepared);
     mode.addEventListener('change', () => {
       const help = {
-        append: 'Append adds records without changing existing ones.',
-        upsert: state.schema === 'graph' ? 'Upsert preserves internal UUIDs for matching external keys and adds missing items.' : 'Upsert matches the mapped row key, updates existing rows and adds missing rows.',
-        replace: state.schema === 'graph' ? 'Replace swaps the selected node/relation set. The preview lists any dependent relations that would be removed.' : 'Replace removes the current rows and replaces them with the imported rows.',
+        append: __('Append adds records without changing existing ones.', 'viswiz'),
+        upsert: state.schema === 'graph' ? __('Upsert preserves internal UUIDs for matching external keys and adds missing items.', 'viswiz') : __('Upsert matches the mapped row key, updates existing rows and adds missing rows.', 'viswiz'),
+        replace: state.schema === 'graph' ? __('Replace swaps the selected node/relation set. The preview lists any dependent relations that would be removed.', 'viswiz') : __('Replace removes the current rows and replaces them with the imported rows.', 'viswiz'),
       };
       modeHelp.textContent = help[mode.value];
       state.preview = null;
@@ -386,16 +387,16 @@
       try {
         source.value = await decodeFile(file.files[0], encoding.value);
         resetPrepared();
-        setMessage(root, `Loaded ${file.files[0].name}. Review the text, then prepare mapping.`, 'success');
+        setMessage(root, sprintf(__('Loaded %s. Review the text, then prepare mapping.', 'viswiz'), file.files[0].name), 'success');
       } catch (error) {
-        setMessage(root, error.message || 'Could not read this file.', 'error');
+        setMessage(root, error.message || __('Could not read this file.', 'viswiz'), 'error');
       }
     });
 
     prepare.addEventListener('click', () => {
       clearMessage(root);
       try {
-        if (!source.value.trim()) throw new Error('Paste data or choose a file first.');
+        if (!source.value.trim()) throw new Error(__('Paste data or choose a file first.', 'viswiz'));
         const chosen = delimiterValue(delimiter) || detectDelimiter(source.value);
         const rows = parseDelimited(source.value, chosen);
         state.parsed = rowsToRecords(rows);
@@ -404,12 +405,12 @@
         previewButton.disabled = false;
         commitRow.hidden = true;
         $('[data-viswiz-import-preview]', root).hidden = true;
-        const name = chosen === '\t' ? 'tab' : chosen === ',' ? 'comma' : chosen === ';' ? 'semicolon' : 'pipe';
-        setMessage(root, `${state.parsed.records.length} records parsed using ${name} delimiter. Map columns, then validate preview.`, 'success');
+        const name = chosen === '\t' ? __('tab', 'viswiz') : chosen === ',' ? __('comma', 'viswiz') : chosen === ';' ? __('semicolon', 'viswiz') : __('pipe', 'viswiz');
+        setMessage(root, sprintf(__('%1$d records parsed using %2$s delimiter. Map columns, then validate preview.', 'viswiz'), state.parsed.records.length, name), 'success');
       } catch (error) {
         state.parsed = null;
         previewButton.disabled = true;
-        setMessage(root, error.message || 'Could not parse the source data.', 'error');
+        setMessage(root, error.message || __('Could not parse the source data.', 'viswiz'), 'error');
       }
     });
 
@@ -417,7 +418,7 @@
       if (!state.parsed) return;
       previewButton.disabled = true;
       commitRow.hidden = true;
-      setMessage(root, 'Validating import preview…', 'info');
+      setMessage(root, __('Validating import preview…', 'viswiz'), 'info');
       try {
         const request = importRequest(root, state);
         const result = await api(`/datasets/${state.id}/import/preview`, { body: request });
@@ -425,9 +426,9 @@
         renderPreview(root, result);
         const valid = !result.errors?.length;
         commitRow.hidden = !valid;
-        setMessage(root, valid ? 'Preview is valid. Review the summary before committing.' : 'Fix the mapping or source data, then validate again.', valid ? 'success' : 'error');
+        setMessage(root, valid ? __('Preview is valid. Review the summary before committing.', 'viswiz') : __('Fix the mapping or source data, then validate again.', 'viswiz'), valid ? 'success' : 'error');
       } catch (error) {
-        setMessage(root, error.message || 'Could not validate the import.', 'error');
+        setMessage(root, error.message || __('Could not validate the import.', 'viswiz'), 'error');
       } finally {
         previewButton.disabled = false;
       }
@@ -437,18 +438,18 @@
       if (!state.parsed || !state.preview || state.preview.errors?.length) return;
       const summary = state.preview.summary || {};
       const destructive = mode.value === 'replace' || Number(summary.removed || 0) > 0 || Number(summary.relations_removed || 0) > 0;
-      if (destructive && !window.confirm('Commit this import? The current dataset state will remain available in revisions.')) return;
+      if (destructive && !window.confirm(__('Commit this import? The current dataset state will remain available in revisions.', 'viswiz'))) return;
       commit.disabled = true;
-      setMessage(root, 'Committing import…', 'info');
+      setMessage(root, __('Committing import…', 'viswiz'), 'info');
       try {
         const request = importRequest(root, state);
         request.expected_revision = Number(editor.dataset.revision || 0);
         await api(`/datasets/${state.id}/import`, { body: request });
-        setMessage(root, 'Import committed. Reloading the dataset editor…', 'success');
+        setMessage(root, __('Import committed. Reloading the dataset editor…', 'viswiz'), 'success');
         window.location.reload();
       } catch (error) {
-        const message = error.code === 'viswiz_revision_conflict' ? (cfg.i18n?.conflict || error.message) : error.message;
-        setMessage(root, message || 'Could not commit the import.', 'error');
+        const message = error.code === 'viswiz_revision_conflict' ? (__('This dataset changed in another editor. Reload before saving.', 'viswiz')) : error.message;
+        setMessage(root, message || __('Could not commit the import.', 'viswiz'), 'error');
         commit.disabled = false;
       }
     });

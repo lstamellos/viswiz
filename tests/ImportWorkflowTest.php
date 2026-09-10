@@ -61,15 +61,18 @@ final class ImportWorkflowTest extends TestCase {
         $this->assertStringContainsString( 'data-viswiz-import-map', $source );
         $this->assertStringContainsString( '/import/preview', $source );
         $this->assertStringContainsString( 'expected_revision', $source );
-        $this->assertStringContainsString( 'Advanced JSON replacement', $source );
+        $this->assertStringContainsString( "__('Advanced JSON replacement', 'viswiz')", $source );
         $this->assertStringNotContainsString( 'Papa.parse', $source );
     }
 
     public function test_graph_import_exposes_stable_external_key_mapping(): void {
         $source = file_get_contents( $this->root . '/assets/viswiz-import.js' );
-        $this->assertStringContainsString( "['external_key', 'External key'", $source );
-        $this->assertStringContainsString( "['from_key', 'From node key'", $source );
-        $this->assertStringContainsString( "['to_key', 'To node key'", $source );
-        $this->assertStringContainsString( "<option value=\"nodes\">Nodes</option><option value=\"relations\">Relations</option>", $source );
+        $this->assertStringContainsString( "['external_key', __('External key', 'viswiz')", $source );
+        $this->assertStringContainsString( "['from_key', __('From node key', 'viswiz')", $source );
+        $this->assertStringContainsString( "['to_key', __('To node key', 'viswiz')", $source );
+        $this->assertStringContainsString( '<option value="nodes">', $source );
+        $this->assertStringContainsString( "__('Nodes', 'viswiz')", $source );
+        $this->assertStringContainsString( '<option value="relations">', $source );
+        $this->assertStringContainsString( "__('Relations', 'viswiz')", $source );
     }
 }

@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const { __, _n, sprintf } = window.wp.i18n;
 
   const cfg = window.VisWizAdminV2 || {};
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -19,7 +20,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.code) {
-      const error = new Error(data?.message || cfg.i18n?.error || `HTTP ${response.status}`);
+      const error = new Error(data?.message || sprintf(__('The request failed with HTTP status %d.', 'viswiz'), response.status));
       error.code = data?.code || '';
       error.data = data?.data || {};
       throw error;
@@ -105,7 +106,7 @@
   }
 
   function sentenceCase(value) {
-    const text = String(value || 'row');
+    const text = String(value || __('row', 'viswiz'));
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
@@ -113,11 +114,11 @@
     const editor = cfg.schemas?.[state.schema]?.editor;
     if (editor && Array.isArray(editor.fields) && editor.fields.length) return editor;
     return {
-      noun: 'row',
-      plural: 'rows',
+      noun: __('row', 'viswiz'),
+      plural: __('rows', 'viswiz'),
       fields: [
-        { path: 'label', label: 'Label', type: 'text', table: true },
-        { path: 'value', label: 'Value', type: 'number', table: true, step: 'any' },
+        { path: 'label', label: __('Label', 'viswiz'), type: 'text', table: true },
+        { path: 'value', label: __('Value', 'viswiz'), type: 'number', table: true, step: 'any' },
       ],
     };
   }
@@ -216,7 +217,7 @@
     head.className = 'viswiz-dialog-heading';
     head.innerHTML = `<h2>${esc(title)}</h2>`;
     const close = button('×', 'viswiz-dialog-close');
-    close.setAttribute('aria-label', 'Close');
+    close.setAttribute('aria-label', __('Close', 'viswiz'));
     close.addEventListener('click', () => dialog.close());
     head.appendChild(close);
     body.appendChild(head);
@@ -285,11 +286,11 @@
     try {
       const { data } = await request(path, { method, body: { ...body, expected_revision: state.revision } });
       updateRevision(state, data);
-      notice(state.root, cfg.i18n?.saved || 'Saved.');
+      notice(state.root, __('Saved.', 'viswiz'));
       await refresh(state, refreshKinds);
       return true;
     } catch (error) {
-      const message = error.code === 'viswiz_revision_conflict' ? (cfg.i18n?.conflict || error.message) : error.message;
+      const message = error.code === 'viswiz_revision_conflict' ? (__('This dataset changed in another editor. Reload before saving.', 'viswiz')) : error.message;
       notice(options.errorRoot || state.root, message, 'error');
       if (typeof options.onError === 'function') options.onError(error);
       if (error.code === 'viswiz_revision_conflict') state.root.classList.add('has-conflict');
@@ -304,11 +305,11 @@
     if (collection.totalPages <= 1) return;
     const pager = document.createElement('div');
     pager.className = 'viswiz-editor-pager';
-    const previous = button('Previous', 'button button-small');
-    const next = button('Next', 'button button-small');
+    const previous = button(__('Previous', 'viswiz'), 'button button-small');
+    const next = button(__('Next', 'viswiz'), 'button button-small');
     previous.disabled = collection.page <= 1;
     next.disabled = collection.page >= collection.totalPages;
-    pager.append(previous, statusText(`Page ${collection.page} / ${collection.totalPages} · ${collection.total} ${noun}`), next);
+    pager.append(previous, statusText(sprintf(__('Page %1$d / %2$d · %3$d %4$s', 'viswiz'), collection.page, collection.totalPages, collection.total, noun)), next);
     previous.addEventListener('click', () => onChange(collection.page - 1));
     next.addEventListener('click', () => onChange(collection.page + 1));
     host.appendChild(pager);
@@ -325,12 +326,12 @@
     const tableFields = editor.fields.filter((definition) => definition.table !== false);
     const bar = document.createElement('div');
     bar.className = 'viswiz-editor-toolbar viswiz-server-status';
-    const add = button(`Add ${editor.noun || 'row'}`, 'button button-primary');
+    const add = button(sprintf(__('Add %s', 'viswiz'), editor.noun || __('row', 'viswiz')), 'button button-primary');
     bar.append(
       add,
-      statusText(`${collection.total} ${editor.plural || 'rows'} · revision ${state.revision}`),
+      statusText(sprintf(__('%1$d %2$s · revision %3$d', 'viswiz'), collection.total, editor.plural || __('rows', 'viswiz'), state.revision)),
       statusText(cfg.schemas?.[state.schema]?.label || state.schema),
-      statusText('Server paged')
+      statusText(__('Server paged', 'viswiz'))
     );
     state.root.appendChild(bar);
 
@@ -346,12 +347,12 @@
       const tr = document.createElement('tr');
       tr.dataset.viswizItemUuid = row.uuid;
       tr.innerHTML = `${tableFields.map((definition) => `<td data-viswiz-field-path="${esc(definition.path)}">${schemaTableValue(definition, row)}</td>`).join('')}<td class="viswiz-row-actions"></td>`;
-      const edit = button('Edit', 'button button-small');
-      const del = button('Delete', 'button-link-delete');
+      const edit = button(__('Edit', 'viswiz'), 'button button-small');
+      const del = button(__('Delete', 'viswiz'), 'button-link-delete');
       $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), del);
       edit.addEventListener('click', () => openRowDialog(state, row));
       del.addEventListener('click', async () => {
-        if (!window.confirm(cfg.i18n?.confirmDelete || 'Delete this item?')) return;
+        if (!window.confirm(__('Delete this item?', 'viswiz'))) return;
         await mutate(state, `/datasets/${state.id}/editor/rows/${row.uuid}`, 'DELETE', {}, ['rows']);
       });
       tbody.appendChild(tr);
@@ -366,18 +367,18 @@
     const current = row || { uuid: uuid(), label: '', row_key: '', value: null, x_value: '', x_numeric: null, y_value: null, latitude: null, longitude: null, color: '', meta: {} };
     if (!row && !current.row_key) current.row_key = `manual-${current.uuid.replace(/-/g, '').slice(0, 12)}`;
     const noun = editor.noun || 'row';
-    const modal = makeDialog(`${row ? 'Edit' : 'Add'} ${noun}`);
+    const modal = makeDialog(row ? sprintf(__('Edit %s', 'viswiz'), noun) : sprintf(__('Add %s', 'viswiz'), noun));
     const form = document.createElement('form');
     form.className = 'viswiz-dialog-form viswiz-schema-dialog-form';
     form.dataset.viswizSchemaForm = state.schema;
     form.innerHTML = `
       <div class="viswiz-form-grid viswiz-schema-fields">${editor.fields.map((definition) => schemaFieldMarkup(definition, current)).join('')}</div>
       <details class="viswiz-editor-advanced">
-        <summary>Advanced</summary>
-        <div class="viswiz-form-grid">${field('Stable key', 'row_key', current.row_key)}</div>
-        ${textareaField('Additional metadata JSON', 'meta_advanced', JSON.stringify(additionalMeta(current, editor), null, 2), 5)}
+        <summary>${__('Advanced', 'viswiz')}</summary>
+        <div class="viswiz-form-grid">${field(__('Stable key', 'viswiz'), 'row_key', current.row_key)}</div>
+        ${textareaField(__('Additional metadata JSON', 'viswiz'), 'meta_advanced', JSON.stringify(additionalMeta(current, editor), null, 2), 5)}
       </details>
-      <div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save ${esc(noun)}</button></div>`;
+      <div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>${__('Cancel', 'viswiz')}</button><button type="submit" class="button button-primary">${sprintf(__('Save %s', 'viswiz'), esc(noun))}</button></div>`;
     modal.body.appendChild(form);
     document.body.appendChild(modal.dialog);
     modal.dialog.showModal();
@@ -387,9 +388,9 @@
       event.preventDefault();
       const fd = new FormData(form);
       let meta = {};
-      try { meta = JSON.parse(fd.get('meta_advanced') || '{}'); } catch (_) { notice(modal.body, 'Additional metadata JSON is invalid.', 'error'); return; }
+      try { meta = JSON.parse(fd.get('meta_advanced') || '{}'); } catch (_) { notice(modal.body, __('Additional metadata JSON is invalid.', 'viswiz'), 'error'); return; }
       if (!meta || Array.isArray(meta) || typeof meta !== 'object') {
-        notice(modal.body, 'Additional metadata must be a JSON object.', 'error');
+        notice(modal.body, __('Additional metadata must be a JSON object.', 'viswiz'), 'error');
         return;
       }
       const data = {
@@ -417,7 +418,7 @@
   }
 
   function nodeTitle(node) {
-    return node?.title || node?.label || node?.slug || node?.uuid || 'Node';
+    return node?.title || node?.label || node?.slug || node?.uuid || __('Node', 'viswiz');
   }
 
   function duplicateNodeSeed(node) {
@@ -427,7 +428,7 @@
       ...clone(node),
       uuid: id,
       slug: `${baseSlug}-copy-${id.replace(/-/g, '').slice(0, 8)}`,
-      title: `${nodeTitle(node)} copy`,
+      title: sprintf(__('%s copy', 'viswiz'), nodeTitle(node)),
       label: node.label || nodeTitle(node),
     };
   }
@@ -441,33 +442,33 @@
     const relations = state.relations;
     const bar = document.createElement('div');
     bar.className = 'viswiz-editor-toolbar viswiz-server-status';
-    const addNode = button('Add node', 'button button-primary');
-    const addRelation = button('Add relation', 'button');
-    bar.append(addNode, addRelation, statusText(`${nodes.total} nodes · ${relations.total} relations · revision ${state.revision}`), statusText('Server paged'));
+    const addNode = button(__('Add node', 'viswiz'), 'button button-primary');
+    const addRelation = button(__('Add relation', 'viswiz'), 'button');
+    bar.append(addNode, addRelation, statusText(sprintf(__('%1$d nodes · %2$d relations · revision %3$d', 'viswiz'), nodes.total, relations.total, state.revision)), statusText(__('Server paged', 'viswiz')));
     state.root.appendChild(bar);
 
     const nodeSection = document.createElement('section');
     nodeSection.className = 'viswiz-server-editor-section';
-    nodeSection.innerHTML = '<h3>Nodes</h3>';
+    nodeSection.innerHTML = `<h3>${__('Nodes', 'viswiz')}</h3>`;
     const table = document.createElement('table');
     table.className = 'widefat striped viswiz-table';
-    table.innerHTML = '<thead><tr><th>Node</th><th>Type</th><th>Slug</th><th>Degree</th><th></th></tr></thead><tbody></tbody>';
+    table.innerHTML = `<thead><tr><th>${__('Node', 'viswiz')}</th><th>${__('Type', 'viswiz')}</th><th>${__('Slug', 'viswiz')}</th><th>${__('Degree', 'viswiz')}</th><th></th></tr></thead><tbody></tbody>`;
     const tbody = $('tbody', table);
-    if (!nodes.items.length) tbody.innerHTML = '<tr><td colspan="5">No nodes found.</td></tr>';
+    if (!nodes.items.length) tbody.innerHTML = `<tr><td colspan="5">${__('No nodes found.', 'viswiz')}</td></tr>`;
     nodes.items.forEach((node) => {
       const tr = document.createElement('tr');
       tr.dataset.viswizItemUuid = node.uuid;
       tr.innerHTML = `<td><strong>${esc(nodeTitle(node))}</strong></td><td>${esc(node.node_type || '')}${node.node_subtype ? ` / ${esc(node.node_subtype)}` : ''}</td><td><code>${esc(node.slug || '')}</code></td><td>${esc(node.degree || 0)}</td><td class="viswiz-row-actions"></td>`;
-      const edit = button('Edit', 'button button-small');
-      const addFromNode = button('Add relation', 'button button-small');
-      const duplicate = button('Duplicate', 'button button-small');
-      const del = button('Delete', 'button-link-delete');
+      const edit = button(__('Edit', 'viswiz'), 'button button-small');
+      const addFromNode = button(__('Add relation', 'viswiz'), 'button button-small');
+      const duplicate = button(__('Duplicate', 'viswiz'), 'button button-small');
+      const del = button(__('Delete', 'viswiz'), 'button-link-delete');
       $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), addFromNode, document.createTextNode(' '), duplicate, document.createTextNode(' '), del);
       edit.addEventListener('click', () => openNodeDialog(state, node));
       addFromNode.addEventListener('click', () => openRelationDialog(state, null, { fromNode: node }));
-      duplicate.addEventListener('click', () => openNodeDialog(state, null, { title: 'Duplicate node', seed: duplicateNodeSeed(node) }));
+      duplicate.addEventListener('click', () => openNodeDialog(state, null, { title: __('Duplicate node', 'viswiz'), seed: duplicateNodeSeed(node) }));
       del.addEventListener('click', async () => {
-        if (!window.confirm(cfg.i18n?.confirmDelete || 'Delete this item?')) return;
+        if (!window.confirm(__('Delete this item?', 'viswiz'))) return;
         await mutate(state, `/datasets/${state.id}/editor/nodes/${node.uuid}`, 'DELETE', {}, ['nodes', 'relations']);
       });
       tbody.appendChild(tr);
@@ -478,24 +479,24 @@
 
     const relationSection = document.createElement('section');
     relationSection.className = 'viswiz-server-editor-section';
-    relationSection.innerHTML = '<h3>Relations</h3>';
+    relationSection.innerHTML = `<h3>${__('Relations', 'viswiz')}</h3>`;
     const rtable = document.createElement('table');
     rtable.className = 'widefat striped viswiz-table';
-    rtable.innerHTML = '<thead><tr><th>From</th><th>Relation</th><th>To</th><th>Direction</th><th></th></tr></thead><tbody></tbody>';
+    rtable.innerHTML = `<thead><tr><th>${__('From', 'viswiz')}</th><th>${__('Relation', 'viswiz')}</th><th>${__('To', 'viswiz')}</th><th>${__('Direction', 'viswiz')}</th><th></th></tr></thead><tbody></tbody>`;
     const rbody = $('tbody', rtable);
-    if (!relations.items.length) rbody.innerHTML = '<tr><td colspan="5">No relations found.</td></tr>';
+    if (!relations.items.length) rbody.innerHTML = `<tr><td colspan="5">${__('No relations found.', 'viswiz')}</td></tr>`;
     relations.items.forEach((rel) => {
       const tr = document.createElement('tr');
       tr.dataset.viswizItemUuid = rel.uuid;
-      tr.innerHTML = `<td>${esc(rel.from_title || rel.from_slug || 'Missing')}</td><td>${esc(rel.label || rel.relation_type || '')}</td><td>${esc(rel.to_title || rel.to_slug || 'Missing')}</td><td>${esc(rel.direction || 'directed')}</td><td class="viswiz-row-actions"></td>`;
-      const edit = button('Edit', 'button button-small');
-      const duplicate = button('Duplicate', 'button button-small');
-      const del = button('Delete', 'button-link-delete');
+      tr.innerHTML = `<td>${esc(rel.from_title || rel.from_slug || __('Missing', 'viswiz'))}</td><td>${esc(rel.label || rel.relation_type || '')}</td><td>${esc(rel.to_title || rel.to_slug || __('Missing', 'viswiz'))}</td><td>${esc(rel.direction || 'directed')}</td><td class="viswiz-row-actions"></td>`;
+      const edit = button(__('Edit', 'viswiz'), 'button button-small');
+      const duplicate = button(__('Duplicate', 'viswiz'), 'button button-small');
+      const del = button(__('Delete', 'viswiz'), 'button-link-delete');
       $('.viswiz-row-actions', tr).append(edit, document.createTextNode(' '), duplicate, document.createTextNode(' '), del);
       edit.addEventListener('click', () => openRelationDialog(state, rel));
-      duplicate.addEventListener('click', () => openRelationDialog(state, null, { title: 'Duplicate relation', seed: duplicateRelationSeed(rel) }));
+      duplicate.addEventListener('click', () => openRelationDialog(state, null, { title: __('Duplicate relation', 'viswiz'), seed: duplicateRelationSeed(rel) }));
       del.addEventListener('click', async () => {
-        if (!window.confirm(cfg.i18n?.confirmDelete || 'Delete this item?')) return;
+        if (!window.confirm(__('Delete this item?', 'viswiz'))) return;
         await mutate(state, `/datasets/${state.id}/editor/relations/${rel.uuid}`, 'DELETE', {}, ['nodes', 'relations']);
       });
       rbody.appendChild(tr);
@@ -510,7 +511,7 @@
 
   async function renderNodeRelationsPanel(state, node, panel, page = 1) {
     panel.dataset.loading = '1';
-    panel.innerHTML = '<p class="description">Loading connected relations…</p>';
+    panel.innerHTML = `<p class="description">${__('Loading connected relations…', 'viswiz')}</p>`;
     try {
       const qs = queryString({ node_uuid: node.uuid, page, per_page: NODE_RELATION_PAGE_SIZE });
       const { data, response } = await request(`/datasets/${state.id}/relations?${qs}`);
@@ -521,17 +522,17 @@
       const heading = document.createElement('div');
       heading.className = 'viswiz-section-heading';
       const headingText = document.createElement('div');
-      headingText.innerHTML = `<h3>Connected relations</h3><p class="description">${meta.total} relation${meta.total === 1 ? '' : 's'} for ${esc(nodeTitle(node))}.</p>`;
-      const add = button('Add relation from this node', 'button button-small');
+      headingText.innerHTML = `<h3>${__('Connected relations', 'viswiz')}</h3><p class="description">${sprintf(_n('%1$d relation for %2$s.', '%1$d relations for %2$s.', meta.total, 'viswiz'), meta.total, esc(nodeTitle(node)))}</p>`;
+      const add = button(__('Add relation from this node', 'viswiz'), 'button button-small');
       heading.append(headingText, add);
       panel.appendChild(heading);
       add.addEventListener('click', () => openRelationDialog(state, null, { fromNode: node, onSaved: () => renderNodeRelationsPanel(state, node, panel, meta.page) }));
 
       const table = document.createElement('table');
       table.className = 'widefat striped viswiz-table viswiz-node-relations-table';
-      table.innerHTML = '<thead><tr><th>Role</th><th>Relation</th><th>Other node</th><th></th></tr></thead><tbody></tbody>';
+      table.innerHTML = `<thead><tr><th>${__('Role', 'viswiz')}</th><th>${__('Relation', 'viswiz')}</th><th>${__('Other node', 'viswiz')}</th><th></th></tr></thead><tbody></tbody>`;
       const body = $('tbody', table);
-      if (!items.length) body.innerHTML = '<tr><td colspan="4">No connected relations.</td></tr>';
+      if (!items.length) body.innerHTML = `<tr><td colspan="4">${__('No connected relations.', 'viswiz')}</td></tr>`;
       items.forEach((relation) => {
         const outgoing = relation.from_node_uuid === node.uuid;
         const other = outgoing
@@ -539,8 +540,8 @@
           : (relation.from_title || relation.from_slug || relation.from_node_uuid);
         const tr = document.createElement('tr');
         tr.dataset.relationUuid = relation.uuid;
-        tr.innerHTML = `<td>${outgoing ? 'Outgoing' : 'Incoming'}</td><td>${esc(relation.label || relation.relation_type || 'Unspecified')}</td><td>${esc(other)}</td><td class="viswiz-row-actions"></td>`;
-        const edit = button('Edit', 'button button-small');
+        tr.innerHTML = `<td>${outgoing ? __('Outgoing', 'viswiz') : __('Incoming', 'viswiz')}</td><td>${esc(relation.label || relation.relation_type || __('Unspecified', 'viswiz'))}</td><td>${esc(other)}</td><td class="viswiz-row-actions"></td>`;
+        const edit = button(__('Edit', 'viswiz'), 'button button-small');
         $('.viswiz-row-actions', tr).appendChild(edit);
         edit.addEventListener('click', () => openRelationDialog(state, relation, { onSaved: () => renderNodeRelationsPanel(state, node, panel, meta.page) }));
         body.appendChild(tr);
@@ -562,11 +563,11 @@
   function openNodeDialog(state, node, options = {}) {
     const current = clone(node || options.seed || { uuid: uuid(), slug: '', title: '', label: '', node_type: '', node_subtype: '', description: '', main_image_id: 0, other_image_ids: [], meta: {} });
     if (!current.uuid) current.uuid = uuid();
-    const modal = makeDialog(options.title || (node ? 'Edit node' : 'Add node'));
+    const modal = makeDialog(options.title || (node ? __('Edit node', 'viswiz') : __('Add node', 'viswiz')));
     const form = document.createElement('form');
     form.className = 'viswiz-dialog-form';
     const typeOptions = Object.entries(cfg.nodeTypes || {}).map(([key, item]) => `<option value="${esc(key)}" ${current.node_type === key ? 'selected' : ''}>${esc(item.label || key)}</option>`).join('');
-    form.innerHTML = `${field('Title', 'title', current.title)}<div class="viswiz-form-grid">${field('Slug', 'slug', current.slug)}${field('Label', 'label', current.label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>Node type</span><select name="node_type"><option value="">Select type</option>${typeOptions}</select></label><label class="viswiz-field"><span>Subtype</span><select name="node_subtype"></select></label></div>${textareaField('Description (safe HTML)', 'description', current.description || current.description_html || '', 7)}<div class="viswiz-form-grid">${field('Featured image ID', 'main_image_id', current.main_image_id, 'number', 'min="0"')}${field('Other image IDs', 'other_image_ids', (current.other_image_ids || []).join(','))}</div>${textareaField('Metadata JSON', 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save node</button></div>`;
+    form.innerHTML = `${field(__('Title', 'viswiz'), 'title', current.title)}<div class="viswiz-form-grid">${field(__('Slug', 'viswiz'), 'slug', current.slug)}${field(__('Label', 'viswiz'), 'label', current.label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>${__('Node type', 'viswiz')}</span><select name="node_type"><option value="">${__('Select type', 'viswiz')}</option>${typeOptions}</select></label><label class="viswiz-field"><span>${__('Subtype', 'viswiz')}</span><select name="node_subtype"></select></label></div>${textareaField(__('Description (safe HTML)', 'viswiz'), 'description', current.description || current.description_html || '', 7)}<div class="viswiz-form-grid">${field(__('Featured image ID', 'viswiz'), 'main_image_id', current.main_image_id, 'number', 'min="0"')}${field(__('Other image IDs', 'viswiz'), 'other_image_ids', (current.other_image_ids || []).join(','))}</div>${textareaField(__('Metadata JSON', 'viswiz'), 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>${__('Cancel', 'viswiz')}</button><button type="submit" class="button button-primary">${__('Save node', 'viswiz')}</button></div>`;
 
     if (node) {
       const panel = document.createElement('section');
@@ -584,17 +585,17 @@
     const mainImage = $('[name="main_image_id"]', form);
     const otherImages = $('[name="other_image_ids"]', form);
     if (window.wp?.media && mainImage && otherImages) {
-      const mainButton = button('Choose featured image', 'button viswiz-media-button');
+      const mainButton = button(__('Choose featured image', 'viswiz'), 'button viswiz-media-button');
       mainImage.insertAdjacentElement('afterend', mainButton);
       mainButton.addEventListener('click', () => {
-        const frame = wp.media({ title: 'Choose featured image', multiple: false, library: { type: 'image' } });
+        const frame = wp.media({ title: __('Choose featured image', 'viswiz'), multiple: false, library: { type: 'image' } });
         frame.on('select', () => { const item = frame.state().get('selection').first()?.toJSON(); if (item) mainImage.value = String(item.id || 0); });
         frame.open();
       });
-      const otherButton = button('Choose other images', 'button viswiz-media-button');
+      const otherButton = button(__('Choose other images', 'viswiz'), 'button viswiz-media-button');
       otherImages.insertAdjacentElement('afterend', otherButton);
       otherButton.addEventListener('click', () => {
-        const frame = wp.media({ title: 'Choose node images', multiple: true, library: { type: 'image' } });
+        const frame = wp.media({ title: __('Choose node images', 'viswiz'), multiple: true, library: { type: 'image' } });
         frame.on('select', () => { otherImages.value = frame.state().get('selection').map((item) => item.toJSON().id).filter(Boolean).join(','); });
         frame.open();
       });
@@ -605,7 +606,7 @@
     const refreshSubtype = () => {
       const selected = current.node_subtype || subtype.value;
       const entries = cfg.nodeTypes?.[type.value]?.subtypes || {};
-      subtype.innerHTML = '<option value="">No subtype</option>' + Object.entries(entries).map(([key, value]) => `<option value="${esc(key)}" ${selected === key ? 'selected' : ''}>${esc(value)}</option>`).join('');
+      subtype.innerHTML = `<option value="">${__('No subtype', 'viswiz')}</option>` + Object.entries(entries).map(([key, value]) => `<option value="${esc(key)}" ${selected === key ? 'selected' : ''}>${esc(value)}</option>`).join('');
     };
     type.addEventListener('change', () => { current.node_subtype = ''; refreshSubtype(); });
     refreshSubtype();
@@ -631,7 +632,7 @@
       trackedNodeErrorFields.forEach((name) => clearFieldError(form, name));
       const fd = new FormData(form);
       let meta = {};
-      try { meta = JSON.parse(fd.get('meta') || '{}'); } catch (_) { notice(modal.body, 'Metadata JSON is invalid.', 'error'); return; }
+      try { meta = JSON.parse(fd.get('meta') || '{}'); } catch (_) { notice(modal.body, __('Metadata JSON is invalid.', 'viswiz'), 'error'); return; }
       const data = {
         uuid: current.uuid,
         title: fd.get('title'),
@@ -663,16 +664,16 @@
     title.textContent = label;
     const search = document.createElement('input');
     search.type = 'search';
-    search.placeholder = 'Search nodes…';
+    search.placeholder = __('Search nodes…', 'viswiz');
     search.autocomplete = 'off';
-    search.setAttribute('aria-label', `${label} node search`);
+    search.setAttribute('aria-label', sprintf(__('%s node search', 'viswiz'), label));
     const select = document.createElement('select');
     select.name = name;
     select.size = 7;
     select.required = true;
-    select.setAttribute('aria-label', `${label} node`);
-    const create = button('Create node…', 'button button-small viswiz-create-endpoint-node');
-    create.setAttribute('aria-label', `Create ${label.toLowerCase()} node`);
+    select.setAttribute('aria-label', sprintf(__('%s node', 'viswiz'), label));
+    const create = button(__('Create node…', 'viswiz'), 'button button-small viswiz-create-endpoint-node');
+    create.setAttribute('aria-label', sprintf(__('Create %s node', 'viswiz'), label.toLowerCase()));
     wrapper.append(title, search, select, create);
 
     let timer = 0;
@@ -748,18 +749,27 @@
     const nodeTypeLabel = (type) => cfg.nodeTypes?.[type]?.label || type;
     const subtypeLabel = (type, subtype) => cfg.nodeTypes?.[type]?.subtypes?.[subtype] || subtype;
     if (fromNode && schema.source_type && fromNode.node_type && schema.source_type !== fromNode.node_type) {
-      messages.push(`Source should be ${nodeTypeLabel(schema.source_type)}; selected ${nodeTypeLabel(fromNode.node_type)}.`);
+      messages.push(sprintf(__('Source should be %1$s; selected %2$s.', 'viswiz'), nodeTypeLabel(schema.source_type), nodeTypeLabel(fromNode.node_type)));
     }
     if (fromNode && schema.source_subtype && fromNode.node_subtype && schema.source_subtype !== fromNode.node_subtype) {
-      messages.push(`Source subtype should be ${subtypeLabel(schema.source_type, schema.source_subtype)}; selected ${subtypeLabel(fromNode.node_type, fromNode.node_subtype)}.`);
+      messages.push(sprintf(__('Source subtype should be %1$s; selected %2$s.', 'viswiz'), subtypeLabel(schema.source_type, schema.source_subtype), subtypeLabel(fromNode.node_type, fromNode.node_subtype)));
     }
     if (toNode && schema.target_type && toNode.node_type && schema.target_type !== toNode.node_type) {
-      messages.push(`Target should be ${nodeTypeLabel(schema.target_type)}; selected ${nodeTypeLabel(toNode.node_type)}.`);
+      messages.push(sprintf(__('Target should be %1$s; selected %2$s.', 'viswiz'), nodeTypeLabel(schema.target_type), nodeTypeLabel(toNode.node_type)));
     }
     if (toNode && schema.target_subtype && toNode.node_subtype && schema.target_subtype !== toNode.node_subtype) {
-      messages.push(`Target subtype should be ${subtypeLabel(schema.target_type, schema.target_subtype)}; selected ${subtypeLabel(toNode.node_type, toNode.node_subtype)}.`);
+      messages.push(sprintf(__('Target subtype should be %1$s; selected %2$s.', 'viswiz'), subtypeLabel(schema.target_type, schema.target_subtype), subtypeLabel(toNode.node_type, toNode.node_subtype)));
     }
     return messages;
+  }
+
+  function directionLabel(value) {
+    const labels = {
+      directed: __('Directed', 'viswiz'),
+      bidirectional: __('Bidirectional', 'viswiz'),
+      undirected: __('Undirected', 'viswiz'),
+    };
+    return labels[value] || value || labels.directed;
   }
 
   function openRelationDialog(state, relation, options = {}) {
@@ -773,25 +783,25 @@
       current.from_subtype = options.fromNode.node_subtype || '';
     }
 
-    const modal = makeDialog(options.title || (relation ? 'Edit relation' : 'Add relation'));
+    const modal = makeDialog(options.title || (relation ? __('Edit relation', 'viswiz') : __('Add relation', 'viswiz')));
     const form = document.createElement('form');
     form.className = 'viswiz-dialog-form';
     const pickerGrid = document.createElement('div');
     pickerGrid.className = 'viswiz-form-grid';
     const fromPicker = nodePicker(
       state,
-      'From',
+      __('From', 'viswiz'),
       'from_node_uuid',
       current.from_node_uuid,
-      current.from_title || current.from_slug || 'Current source',
+      current.from_title || current.from_slug || __('Current source', 'viswiz'),
       { title: current.from_title || current.from_slug || '', slug: current.from_slug || '', node_type: current.from_type || '', node_subtype: current.from_subtype || '' }
     );
     const toPicker = nodePicker(
       state,
-      'To',
+      __('To', 'viswiz'),
       'to_node_uuid',
       current.to_node_uuid,
-      current.to_title || current.to_slug || 'Current target',
+      current.to_title || current.to_slug || __('Current target', 'viswiz'),
       { title: current.to_title || current.to_slug || '', slug: current.to_slug || '', node_type: current.to_type || '', node_subtype: current.to_subtype || '' }
     );
     pickerGrid.append(fromPicker.wrapper, toPicker.wrapper);
@@ -799,7 +809,7 @@
 
     const relationOptions = Object.entries(cfg.relationTypes || {}).map(([key, item]) => `<option value="${esc(key)}" ${current.relation_type === key ? 'selected' : ''}>${esc(item.label || key)}</option>`).join('');
     const rest = document.createElement('div');
-    rest.innerHTML = `<label class="viswiz-field"><span>Relation type</span><select name="relation_type"><option value="">Unspecified</option>${relationOptions}</select></label><div class="notice notice-warning inline viswiz-relation-constraint-warning" data-viswiz-relation-constraint hidden><p></p></div><div class="viswiz-form-grid">${field('Label', 'label', current.label)}${field('Inverse label', 'inverse_label', current.inverse_label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>Direction</span><select name="direction">${['directed', 'bidirectional', 'undirected'].map((direction) => `<option ${current.direction === direction ? 'selected' : ''}>${direction}</option>`).join('')}</select></label>${field('Intensity', 'intensity', current.intensity, 'number', 'step="0.1" min="0.1" max="20"')}</div>${textareaField('Metadata JSON', 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>Cancel</button><button type="submit" class="button button-primary">Save relation</button></div>`;
+    rest.innerHTML = `<label class="viswiz-field"><span>${__('Relation type', 'viswiz')}</span><select name="relation_type"><option value="">${__('Unspecified', 'viswiz')}</option>${relationOptions}</select></label><div class="notice notice-warning inline viswiz-relation-constraint-warning" data-viswiz-relation-constraint hidden><p></p></div><div class="viswiz-form-grid">${field(__('Label', 'viswiz'), 'label', current.label)}${field(__('Inverse label', 'viswiz'), 'inverse_label', current.inverse_label)}</div><div class="viswiz-form-grid"><label class="viswiz-field"><span>${__('Direction', 'viswiz')}</span><select name="direction">${['directed', 'bidirectional', 'undirected'].map((direction) => `<option value="${direction}" ${current.direction === direction ? 'selected' : ''}>${directionLabel(direction)}</option>`).join('')}</select></label>${field(__('Intensity', 'viswiz'), 'intensity', current.intensity, 'number', 'step="0.1" min="0.1" max="20"')}</div>${textareaField(__('Metadata JSON', 'viswiz'), 'meta', JSON.stringify(current.meta || {}, null, 2), 5)}<div class="viswiz-dialog-actions"><button type="button" class="button" data-cancel>${__('Cancel', 'viswiz')}</button><button type="submit" class="button button-primary">${__('Save relation', 'viswiz')}</button></div>`;
     while (rest.firstChild) form.appendChild(rest.firstChild);
     modal.body.appendChild(form);
     document.body.appendChild(modal.dialog);
@@ -829,7 +839,7 @@
     const quickCreate = (picker, side) => {
       picker.create.addEventListener('click', () => {
         openNodeDialog(state, null, {
-          title: `Create ${side.toLowerCase()} node`,
+          title: sprintf(__('Create %s node', 'viswiz'), side.toLowerCase()),
           onSaved: async (created) => {
             await picker.load(created.title, created.uuid, created);
             picker.search.value = created.title || '';
@@ -846,11 +856,11 @@
       event.preventDefault();
       const fd = new FormData(form);
       if (!fd.get('from_node_uuid') || !fd.get('to_node_uuid')) {
-        notice(modal.body, 'Choose both relation endpoints.', 'error');
+        notice(modal.body, __('Choose both relation endpoints.', 'viswiz'), 'error');
         return;
       }
       let meta = {};
-      try { meta = JSON.parse(fd.get('meta') || '{}'); } catch (_) { notice(modal.body, 'Metadata JSON is invalid.', 'error'); return; }
+      try { meta = JSON.parse(fd.get('meta') || '{}'); } catch (_) { notice(modal.body, __('Metadata JSON is invalid.', 'viswiz'), 'error'); return; }
       const data = {
         uuid: current.uuid,
         from_node_uuid: fd.get('from_node_uuid'),
@@ -876,10 +886,10 @@
     if (importButton && importText) {
       importButton.addEventListener('click', async () => {
         let value;
-        try { value = JSON.parse(importText.value); } catch (_) { notice(state.root, 'Invalid JSON.', 'error'); return; }
+        try { value = JSON.parse(importText.value); } catch (_) { notice(state.root, __('Invalid JSON.', 'viswiz'), 'error'); return; }
         try {
           const payload = value.payload || value;
-          await request(`/datasets/${state.id}`, { method: 'POST', body: { payload, note: 'JSON import', expected_revision: state.revision } });
+          await request(`/datasets/${state.id}`, { method: 'POST', body: { payload, note: __('JSON import', 'viswiz'), expected_revision: state.revision } });
           window.location.reload();
         } catch (error) { notice(state.root, error.message, 'error'); }
       });
@@ -887,7 +897,7 @@
 
     $$('[data-viswiz-restore-revision]').forEach((restore) => restore.addEventListener('click', async () => {
       const revision = Number(restore.dataset.viswizRestoreRevision || 0);
-      if (!window.confirm(`Restore revision ${revision}? The current state will remain in history.`)) return;
+      if (!window.confirm(sprintf(__('Restore revision %d? The current state will remain in history.', 'viswiz'), revision))) return;
       try {
         await request(`/datasets/${state.id}/revisions/${revision}/restore`, { method: 'POST', body: { expected_revision: state.revision } });
         window.location.reload();
