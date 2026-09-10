@@ -44,6 +44,6 @@ final class AdminDialogKeyboardTest extends TestCase {
         $editor = file_get_contents( $this->root . '/assets/viswiz-dataset-editor.js' );
 
         self::assertGreaterThanOrEqual( 3, substr_count( $editor, 'window.confirm(' ) );
-        self::assertStringContainsString( "cfg.i18n?.confirmDelete || 'Delete this item?'", $editor );
+        self::assertStringContainsString( "window.confirm(__('Delete this item?', 'viswiz'))", $editor );
     }
 }
