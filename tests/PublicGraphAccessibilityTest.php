@@ -13,7 +13,7 @@ final class PublicGraphAccessibilityTest extends TestCase {
         $runtime  = file_get_contents( $this->root . '/assets/viswiz-graph-runtime.js' );
 
         self::assertStringContainsString( "class: 'viswiz-graph-node'", $frontend );
-        self::assertStringContainsString( "'aria-label': `\${tr('viewNode'", $frontend );
+        self::assertStringContainsString( "sprintf(__('View %s', 'viswiz')", $frontend );
         self::assertStringContainsString( "event.key === 'Enter' || event.key === ' '", $frontend );
         self::assertStringContainsString( "role: 'button',", $runtime );
         self::assertStringContainsString( "'aria-pressed': 'false'", $runtime );
