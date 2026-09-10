@@ -26,12 +26,11 @@ final class StateOwnershipAuditTest extends TestCase {
         self::assertStringNotContainsString( 'fetch(', $admin );
     }
 
-    public function test_ui_adapters_do_not_refetch_or_own_canonical_dataset_state(): void {
+    public function test_dataset_ui_adapters_do_not_refetch_or_own_canonical_dataset_state(): void {
         foreach ( array(
             'viswiz-node-public-fields.js',
             'viswiz-node-rich-editor.js',
             'viswiz-renderer-settings.js',
-            'viswiz-visualization-presets.js',
             'viswiz-woo-source-selection.js',
             'viswiz-dataset-editor-keyboard.js',
         ) as $file ) {
@@ -43,11 +42,25 @@ final class StateOwnershipAuditTest extends TestCase {
         }
     }
 
-    public function test_public_runtime_does_not_refetch_visualization_payloads(): void {
+    public function test_personal_preset_requests_do_not_touch_dataset_or_visualization_payload_endpoints(): void {
+        $presets = file_get_contents( $this->root . '/assets/viswiz-visualization-presets.js' );
+
+        self::assertSame( 1, substr_count( $presets, 'fetch(' ) );
+        self::assertStringContainsString( 'viswiz_visualization_preset_save', $presets );
+        self::assertStringContainsString( 'viswiz_visualization_preset_delete', $presets );
+        self::assertStringNotContainsString( '/editor/rows', $presets );
+        self::assertStringNotContainsString( '/editor/nodes', $presets );
+        self::assertStringNotContainsString( '/editor/relations', $presets );
+        self::assertStringNotContainsString( '/visualizations/preview', $presets );
+    }
+
+    public function test_public_frontend_is_the_payload_fetch_owner_and_graph_runtime_is_fetch_free(): void {
         $frontend = file_get_contents( $this->root . '/assets/viswiz.js' );
         $runtime = file_get_contents( $this->root . '/assets/viswiz-graph-runtime.js' );
 
-        self::assertStringNotContainsString( 'fetch(', $frontend );
+        self::assertSame( 1, substr_count( $frontend, 'fetch(' ) );
+        self::assertStringContainsString( 'function fetchSpec(url)', $frontend );
+        self::assertStringContainsString( 'container.dataset.viswizEndpoint', $frontend );
         self::assertStringNotContainsString( 'fetch(', $runtime );
         self::assertStringContainsString( 'const stateMap = new WeakMap();', $runtime );
         self::assertStringContainsString( 'function stateFor(container)', $runtime );
