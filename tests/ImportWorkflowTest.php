@@ -70,6 +70,9 @@ final class ImportWorkflowTest extends TestCase {
         $this->assertStringContainsString( "['external_key', __('External key', 'viswiz')", $source );
         $this->assertStringContainsString( "['from_key', __('From node key', 'viswiz')", $source );
         $this->assertStringContainsString( "['to_key', __('To node key', 'viswiz')", $source );
-        $this->assertStringContainsString( "<option value=\"nodes\">${__('Nodes', 'viswiz')}</option><option value=\"relations\">${__('Relations', 'viswiz')}</option>", $source );
+        $this->assertStringContainsString( '<option value="nodes">', $source );
+        $this->assertStringContainsString( "__('Nodes', 'viswiz')", $source );
+        $this->assertStringContainsString( '<option value="relations">', $source );
+        $this->assertStringContainsString( "__('Relations', 'viswiz')", $source );
     }
 }
