@@ -1,6 +1,6 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.39, 2026-09-06.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.40, 2026-09-10.
 
 This backlog tracks the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, while preserving the dataset-first storage model introduced in VisWiz 2.
 
@@ -14,14 +14,13 @@ Pre-production datasets are disposable test fixtures rather than a backwards-com
 
 ## Current project status
 
-The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow and public graph accessibility milestones are also complete through VisWiz 2.0.39. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers.
+The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow and public graph accessibility milestones are also complete through VisWiz 2.0.40. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers. JavaScript localization consolidation is also complete.
 
 The remaining stabilization work is now concentrated in:
 
-1. JavaScript localization consolidation;
-2. explicit verification/closure of single payload/state ownership after the recent editor/runtime additions;
-3. representative performance budgets;
-4. administrator-facing diagnostics.
+1. explicit verification/closure of single payload/state ownership after the recent editor/runtime additions;
+2. representative performance budgets;
+3. administrator-facing diagnostics.
 
 P2 extensibility work should remain behind those remaining P1 quality milestones.
 
@@ -190,11 +189,13 @@ The public graph runtime now has explicit accessibility regression coverage for:
 - `prefers-reduced-motion` handling for VisWiz-owned graph, tag and progress transitions;
 - multiple visualization instances without ambiguous/global accessibility IDs.
 
-### 19. Centralize JavaScript localization — OPEN / NEXT
+### 19. Centralize JavaScript localization — COMPLETED
 
-Audit all current frontend/admin JavaScript user-visible strings. Move remaining hard-coded/fallback strings into the WordPress translation pipeline and keep one authoritative i18n source per runtime/adapter.
+Completed in PR #130 and released as VisWiz 2.0.40 / PR #131.
 
-Do not introduce new compatibility-layer-local translation tables.
+User-visible JavaScript copy now uses the WordPress `wp.i18n` API and the `viswiz` text domain. Affected script handles declare `wp-i18n` and register translations through `wp_set_script_translations()`. Adapter-local static translation maps, fallback `tr()` tables and the graph runtime's handwritten Greek/English dictionary were removed. Greek Jed JSON catalogs cover the public frontend/runtime strings that previously lived in JavaScript.
+
+Regression coverage requires static gettext message IDs, preserves machine identifiers/enumerated values, and prevents reintroduction of compatibility-layer-local translation tables.
 
 ### 20. Responsive/theme compatibility matrix — COMPLETED
 
@@ -229,7 +230,7 @@ The major architecture is already in place:
 - #116 kept renderer applicability in Registry rather than a second JavaScript capability map;
 - #126 kept the keyboard layer lifecycle/event-only rather than a second editor state owner.
 
-Before marking this item fully complete, perform one explicit source/architecture audit of the current 2.0.39 tree to verify that no newer adapter independently refetches visualization payloads or derives persistent competing state.
+Before marking this item fully complete, perform one explicit source/architecture audit of the current 2.0.40 tree to verify that no newer adapter independently refetches visualization payloads or derives persistent competing state.
 
 ### 23. Add useful diagnostics — OPEN / PARTIALLY IMPLEMENTED
 
@@ -259,11 +260,10 @@ Legacy tables are not retained for a backwards-compatibility promise. If cleanup
 
 ## Recommended next sequence
 
-1. **#19 JavaScript localization consolidation**.
-2. **#22 Explicit single-state/payload ownership verification and closure**.
-3. **#21 Performance budgets and representative scale benchmarks**.
-4. **#23 Administrator diagnostics**.
-5. Reassess P2 #24–#27 only after the above are closed.
+1. **#22 Explicit single-state/payload ownership verification and closure**.
+2. **#21 Performance budgets and representative scale benchmarks**.
+3. **#23 Administrator diagnostics**.
+4. Reassess P2 #24–#27 only after the above are closed.
 
 ## Permanent regression requirements
 
@@ -291,5 +291,6 @@ The following are implemented behavior and must remain covered while the runtime
 - WooCommerce live-query/snapshot UX;
 - visualization duplication and personal display presets;
 - admin dialog keyboard/focus behavior;
+- WordPress-native JavaScript localization with one authoritative gettext source per runtime/adapter;
 - WordPress-native per-plugin auto-update preference with GitHub release package delivery;
 - automated release ZIP creation and WordPress/WooCommerce/minimum-platform/Chromium CI.
