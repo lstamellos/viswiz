@@ -60,6 +60,6 @@ final class StateOwnershipAuditTest extends TestCase {
         self::assertSame( 1, substr_count( $preview, 'fetch(' ) );
         self::assertStringContainsString( '/preview', $preview );
         self::assertStringContainsString( 'window.VisWiz.render', $preview );
-        self::assertStringContainsString( 'Frontend::build_visualization_payload', $api );
+        self::assertStringContainsString( 'Frontend::preview_payload', $api );
     }
 }
