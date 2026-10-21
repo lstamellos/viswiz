@@ -108,10 +108,10 @@ test('quick-create node image picker restores both nested editor dialogs', async
   await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.graphDatasetId}`);
   const editor = page.locator('#viswiz-dataset-editor');
   await editor.locator('.viswiz-editor-toolbar').getByRole('button', { name: 'Add relation', exact: true }).click();
-  const relation = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Add relation' }) });
+  const relation = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.locator('.viswiz-dialog-heading h2', { hasText: 'Add relation' }) });
   await expect(relation).toBeVisible();
   await relation.getByRole('button', { name: 'Create to node' }).click();
-  const node = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Create to node' }) });
+  const node = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.locator('.viswiz-dialog-heading h2', { hasText: 'Create to node' }) });
   await expect(node).toBeVisible();
   await expect(relation).toBeVisible();
 
