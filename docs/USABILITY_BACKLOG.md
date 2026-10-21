@@ -1,6 +1,6 @@
 # VisWiz stabilization and usability backlog
 
-Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.40, 2026-09-10.
+Baseline: repository state at VisWiz 2.0.14, 2026-08-26. Status refreshed through VisWiz 2.0.41, 2026-10-21.
 
 This backlog tracks the remaining work around the product goal: **easy visualization creation and easy dataset editing/import**, while preserving the dataset-first storage model introduced in VisWiz 2.
 
@@ -16,13 +16,7 @@ Pre-production datasets are disposable test fixtures rather than a backwards-com
 
 The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow and public graph accessibility milestones are also complete through VisWiz 2.0.40. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers. JavaScript localization consolidation is also complete.
 
-The remaining stabilization work is now concentrated in:
-
-1. explicit verification/closure of single payload/state ownership after the recent editor/runtime additions;
-2. representative performance budgets;
-3. administrator-facing diagnostics.
-
-P2 extensibility work should remain behind those remaining P1 quality milestones.
+The previously identified state-ownership defect was resolved in PR #133, and bounded administrator diagnostics were added in PR #134. Representative frontend performance tiers are measured in PR #135 and documented in `docs/STABILIZATION_ACCEPTANCE_2.0.41.md`. Backend/admin high-volume timing and reliable JS heap measurements remain unverified and are not claimed as passed; they are documented limitations of the release acceptance evidence. P2 work remains frozen.
 
 ## P0 — stabilize the current runtime
 
@@ -203,7 +197,7 @@ Closed by Phase C PRs #108, #110 and #111. Keep the established constrained-mobi
 
 ## P1 — performance and observability
 
-### 21. Establish performance budgets — OPEN
+### 21. Establish performance budgets — FRONTEND BASELINE COMPLETED / ADMIN SCALE NOT VERIFIED
 
 Create representative benchmarks for:
 
@@ -218,9 +212,9 @@ Measure:
 - memory use;
 - layout/interaction responsiveness.
 
-Use the measurements to decide whether SVG remains appropriate at every graph tier or whether larger tiers need Canvas/WebGL/layout workers or explicit supported-size limits.
+Chromium frontend tier measurements were completed in PR #135 and recorded in `docs/STABILIZATION_ACCEPTANCE_2.0.41.md`, with soft budgets and limitations. Existing bounded admin REST collections remain tested for pagination. This run did not establish high-volume admin latency, accurate heap usage, or a universal hard size limit. No renderer rewrite or additional feature is part of this stabilization release.
 
-### 22. Avoid duplicate data fetch/state derivation — IMPLEMENTED ARCHITECTURALLY / VERIFY AND CLOSE
+### 22. Avoid duplicate data fetch/state derivation — COMPLETED
 
 The major architecture is already in place:
 
@@ -230,13 +224,13 @@ The major architecture is already in place:
 - #116 kept renderer applicability in Registry rather than a second JavaScript capability map;
 - #126 kept the keyboard layer lifecycle/event-only rather than a second editor state owner.
 
-Before marking this item fully complete, perform one explicit source/architecture audit of the current 2.0.40 tree to verify that no newer adapter independently refetches visualization payloads or derives persistent competing state.
+PR #132 removed the dormant duplicate dataset editor, and PR #133 removed the graph runtime's independent public REST fetch. The base frontend loader now owns public payload fetching, with last-rendered spec handoff for late graph runtime attachment. Source-contract and Chromium regressions passed.
 
-### 23. Add useful diagnostics — OPEN / PARTIALLY IMPLEMENTED
+### 23. Add useful diagnostics — COMPLETED
 
 Current editors already surface validation, mutation, request and conflict failures in-context, including graph modal mutation errors from #94 and spreadsheet request/conflict states from #88/#89.
 
-Remaining work: define a concise administrator diagnostics surface for failed public visualization loads, import failures and migration/legacy maintenance tasks without exposing sensitive query/data details publicly.
+PR #134 adds an administrator-only diagnostics page with bounded, throttled failure categories for public visualization load errors, import preview/commit failures, and legacy migration state. No raw user queries, dataset records or import contents are retained.
 
 ## P2 — extensibility after stabilization
 
@@ -260,10 +254,10 @@ Legacy tables are not retained for a backwards-compatibility promise. If cleanup
 
 ## Recommended next sequence
 
-1. **#22 Explicit single-state/payload ownership verification and closure**.
-2. **#21 Performance budgets and representative scale benchmarks**.
-3. **#23 Administrator diagnostics**.
-4. Reassess P2 #24–#27 only after the above are closed.
+1. Release 2.0.41 with all five required CI jobs green and verify the release ZIP.
+2. Verify installation/update and critical editor/public workflows on the actual WordPress deployment (not demonstrated by GitHub CI).
+3. Preserve recorded frontend budget evidence and explicitly avoid asserting unmeasured admin/heap limits.
+4. Keep P2 #24–#27 out of scope.
 
 ## Permanent regression requirements
 
