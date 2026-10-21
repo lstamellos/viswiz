@@ -94,7 +94,11 @@
     form?.addEventListener('submit', () => sync(instance), true);
 
     // Capture before makeDialog() removes the dialog from the DOM.
-    dialog.addEventListener('close', () => cleanup(dialog), { capture: true, once: true });
+    // Switching to a non-modal dialog for the WordPress media picker queues a
+    // close event, but must not destroy the active TinyMCE instance or draft.
+    dialog.addEventListener('close', () => {
+      if (!dialog.open) cleanup(dialog);
+    }, { capture: true });
     dialog.addEventListener('cancel', () => cleanup(dialog), { capture: true, once: true });
     dialog.addEventListener('click', (event) => {
       if (event.target.closest('[data-cancel],.viswiz-dialog-close')) cleanup(dialog);
