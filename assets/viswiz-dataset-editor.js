@@ -225,7 +225,7 @@
     // A media picker temporarily switches this dialog to non-modal. Native
     // close events are queued, so only remove it when it remains closed.
     dialog.addEventListener('close', () => {
-      if (!dialog.open) dialog.remove();
+      if (!dialog.open && dialog.dataset.viswizMediaHandoff !== '1') dialog.remove();
     });
     return { dialog, body };
   }
@@ -570,6 +570,9 @@
     // Preserve every currently open VisWiz dialog (including a parent relation
     // editor in the quick-create flow) while the media library is active.
     const dialogs = [...document.querySelectorAll('dialog.viswiz-editor-dialog[open]')];
+    // Closing a dialog queues a native close event. Keep a handoff guard for
+    // parent dialogs as well as the active node dialog while WordPress owns focus.
+    dialogs.forEach((dialog) => { dialog.dataset.viswizMediaHandoff = '1'; });
     [...dialogs].reverse().forEach((dialog) => {
       dialog.close();
       dialog.show();
@@ -581,6 +584,11 @@
         dialog.close();
         dialog.showModal();
       });
+      window.setTimeout(() => {
+        dialogs.forEach((dialog) => {
+          if (dialog.isConnected && dialog.open) delete dialog.dataset.viswizMediaHandoff;
+        });
+      }, 0);
       if (trigger.isConnected) trigger.focus();
     };
     frame.on('close', restore);
