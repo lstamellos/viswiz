@@ -31,7 +31,7 @@ final class NodeRichEditorTest extends TestCase {
         self::assertStringContainsString( 'editorApi().remove(instance.id)', $javascript );
         self::assertStringContainsString( "form?.addEventListener('submit', () => sync(instance), true)", $javascript );
         self::assertStringContainsString( "dialog.addEventListener('close', () => {", $javascript );
-        self::assertStringContainsString( 'if (!dialog.open) cleanup(dialog);', $javascript );
+        self::assertStringContainsString( "if (!dialog.open && dialog.dataset.viswizMediaHandoff !== '1') cleanup(dialog);", $javascript );
         self::assertStringContainsString( "dialog.addEventListener('cancel', () => cleanup(dialog), { capture: true, once: true })", $javascript );
         self::assertStringContainsString( 'MutationObserver', $javascript );
         self::assertStringContainsString( "dialog.dataset.viswizRichEditorState = 'fallback'", $javascript );
