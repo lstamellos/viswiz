@@ -81,7 +81,11 @@
     dialog.setAttribute('aria-modal', 'true');
 
     dialog.addEventListener('click', rememberInvoker, true);
-    dialog.addEventListener('close', () => restoreFocus(context), { once: true });
+    // WordPress media selection switches native dialogs to non-modal briefly.
+    // Do not restore the invoker's focus until a genuine final dialog close.
+    dialog.addEventListener('close', () => {
+      if (!dialog.open && dialog.dataset.viswizMediaHandoff !== '1') restoreFocus(context);
+    });
   }
 
   function bindNodePicker(picker) {
