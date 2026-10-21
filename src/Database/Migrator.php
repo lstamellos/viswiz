@@ -2,6 +2,7 @@
 namespace VisWiz\Database;
 
 use VisWiz\Domain\Registry;
+use VisWiz\Diagnostics;
 use VisWiz\Support;
 
 final class Migrator {
@@ -305,6 +306,8 @@ final class Migrator {
         update_option( self::OPTION_LEGACY_MAP, $id_map, false );
         if ( $migration_ok ) {
             update_option( self::OPTION_MIGRATED, gmdate( 'c' ), false );
+        } else {
+            Diagnostics::record( 'migration', 'legacy_migration_incomplete' );
         }
     }
 
