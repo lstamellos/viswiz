@@ -13,7 +13,6 @@
     if (!stateMap.has(container)) {
       stateMap.set(container, {
         spec: null,
-        specPromise: null,
         selectedFacets: new Map(),
         focusUuid: '',
         focusHops: 1,
@@ -34,7 +33,6 @@
     if (!container || !isGraphSpec(spec)) return;
     const state = stateFor(container);
     state.spec = spec;
-    state.specPromise = Promise.resolve(spec);
     queue(container);
   }
 
@@ -68,26 +66,20 @@
   function getSpec(container) {
     if (!container) return Promise.resolve(null);
     const state = stateFor(container);
+
+    // Adopt the base renderer's already-fetched spec if this runtime started late.
+    // Only the VisWiz frontend loader requests public visualization payloads.
+    const rendered = window.VisWiz?.getRenderedSpec?.(container);
+    if (isGraphSpec(rendered)) {
+      state.spec = rendered;
+      return Promise.resolve(rendered);
+    }
     if (state.spec) return Promise.resolve(state.spec);
-    if (state.specPromise) return state.specPromise;
 
     const inline = inlinePreviewSpec(container);
     if (inline) {
       state.spec = inline;
-      state.specPromise = Promise.resolve(inline);
-      return state.specPromise;
-    }
-
-    if (container.dataset.viswizEndpoint) {
-      state.specPromise = fetch(container.dataset.viswizEndpoint, { credentials: 'same-origin' })
-        .then(async (response) => {
-          const body = await response.json();
-          if (!response.ok || body?.code || !isGraphSpec(body)) return null;
-          state.spec = body;
-          return body;
-        })
-        .catch(() => null);
-      return state.specPromise;
+      return Promise.resolve(inline);
     }
     return Promise.resolve(null);
   }
