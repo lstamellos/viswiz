@@ -30,7 +30,8 @@ final class NodeRichEditorTest extends TestCase {
         self::assertStringContainsString( 'api.getContent(instance.id)', $javascript );
         self::assertStringContainsString( 'editorApi().remove(instance.id)', $javascript );
         self::assertStringContainsString( "form?.addEventListener('submit', () => sync(instance), true)", $javascript );
-        self::assertStringContainsString( "dialog.addEventListener('close', () => cleanup(dialog), { capture: true, once: true })", $javascript );
+        self::assertStringContainsString( "dialog.addEventListener('close', () => {", $javascript );
+        self::assertStringContainsString( "if (!dialog.open && dialog.dataset.viswizMediaHandoff !== '1') cleanup(dialog);", $javascript );
         self::assertStringContainsString( "dialog.addEventListener('cancel', () => cleanup(dialog), { capture: true, once: true })", $javascript );
         self::assertStringContainsString( 'MutationObserver', $javascript );
         self::assertStringContainsString( "dialog.dataset.viswizRichEditorState = 'fallback'", $javascript );
@@ -58,8 +59,8 @@ final class NodeRichEditorTest extends TestCase {
 
     public function test_rich_editor_release_does_not_change_database_schema_version(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        self::assertStringContainsString( 'Version: 2.0.41', $plugin );
-        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.41' );", $plugin );
+        self::assertStringContainsString( 'Version: 2.0.42', $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.42' );", $plugin );
         self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
     }
 }

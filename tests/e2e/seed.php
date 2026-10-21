@@ -271,8 +271,31 @@ if ( is_wp_error( $block_page_id ) ) {
 }
 $block_page_id = (int) $block_page_id;
 
+$sample_media = wp_upload_bits(
+    'viswiz-e2e-node-image.png',
+    null,
+    base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO/a85kAAAAASUVORK5CYII=' )
+);
+if ( ! empty( $sample_media['error'] ) ) {
+    viswiz_e2e_fail( 'Could not upload image fixture: ' . $sample_media['error'] );
+}
+$media_attachment_id = wp_insert_attachment(
+    array(
+        'post_title'     => 'VisWiz E2E node image',
+        'post_mime_type' => 'image/png',
+        'post_status'    => 'inherit',
+    ),
+    $sample_media['file'],
+    0,
+    true
+);
+if ( is_wp_error( $media_attachment_id ) || ! $media_attachment_id ) {
+    viswiz_e2e_fail( 'Could not create image attachment fixture.' );
+}
+
 $fixture = array(
     'graphDatasetId' => $graph_id,
+    'mediaAttachmentId' => (int) $media_attachment_id,
     'rowDatasetId' => $row_id,
     'visualizationId' => $visualization_id,
     'pageId' => $page_id,
