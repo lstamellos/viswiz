@@ -3,6 +3,7 @@ namespace VisWiz;
 
 use VisWiz\Admin\Admin;
 use VisWiz\Admin\DatasetEditorPage;
+use VisWiz\Admin\DiagnosticsPage;
 use VisWiz\Admin\ImportUi;
 use VisWiz\Admin\NodePublicFields;
 use VisWiz\Admin\NodeRichEditor;
@@ -43,6 +44,7 @@ final class Plugin {
         add_action( 'admin_init', array( self::class, 'maybe_upgrade_capabilities' ), 6 );
 
         Admin::register();
+        DiagnosticsPage::register();
         DatasetEditorPage::register();
         NodeRichEditor::register();
         NodePublicFields::register();
