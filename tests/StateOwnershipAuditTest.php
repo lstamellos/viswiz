@@ -63,4 +63,18 @@ final class StateOwnershipAuditTest extends TestCase {
         self::assertStringContainsString( 'window.VisWiz.render', $preview );
         self::assertStringContainsString( 'Frontend::preview_payload', $api );
     }
+
+    public function test_public_graph_runtime_adopts_the_frontend_spec_without_refetching(): void {
+        $frontend = file_get_contents( $this->root . '/assets/viswiz.js' );
+        $runtime = file_get_contents( $this->root . '/assets/viswiz-graph-runtime.js' );
+
+        self::assertSame( 1, substr_count( $frontend, 'fetch(' ) );
+        self::assertStringContainsString( 'const renderedSpecs = new WeakMap();', $frontend );
+        self::assertStringContainsString( 'renderedSpecs.set(container, spec);', $frontend );
+        self::assertStringContainsString( 'getRenderedSpec: (container) => renderedSpecs.get(container) || null', $frontend );
+        self::assertStringContainsString( 'window.VisWiz?.getRenderedSpec?.(container)', $runtime );
+        self::assertStringContainsString( 'api.render = (container, spec) =>', $runtime );
+        self::assertStringNotContainsString( 'fetch(', $runtime );
+        self::assertStringNotContainsString( 'specPromise', $runtime );
+    }
 }
