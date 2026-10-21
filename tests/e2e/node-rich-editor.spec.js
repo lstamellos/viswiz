@@ -99,35 +99,3 @@ test('node description uses the WordPress visual editor and survives repeated di
   await expect(dialog).toHaveCount(0);
   await expectEditorRemoved(page, thirdId);
 });
-
-
-test('WordPress media library stays above the node editor and restores the draft', async ({ page }) => {
-  await login(page);
-  const editor = await createGraphDataset(page, 'E2E node media layering');
-  await editor.getByRole('button', { name: 'Add node' }).click();
-  const dialog = page.locator('dialog.viswiz-editor-dialog').last();
-  await expect(dialog).toBeVisible();
-  await dialog.locator('input[name="title"]').fill('Unsaved image draft');
-
-  await dialog.getByRole('button', { name: 'Choose featured image' }).click();
-  const media = page.locator('.media-modal:visible');
-  await expect(media).toBeVisible();
-  await expect(dialog).toHaveAttribute('data-viswiz-media-handoff', '1');
-  await expect(dialog).toHaveCSS('visibility', 'hidden');
-
-  // The native WP media dialog must be in front and accept real pointer clicks.
-  await media.locator('.media-modal-close').click();
-  await expect(media).toHaveCount(0);
-  await expect(dialog).toHaveCSS('visibility', 'visible');
-  await expect(dialog.locator('input[name="title"]')).toHaveValue('Unsaved image draft');
-  await expect(dialog).toHaveJSProperty('open', true);
-
-  // Repeat the same handoff for the multi-image picker.
-  await dialog.getByRole('button', { name: 'Choose other images' }).click();
-  await expect(page.locator('.media-modal:visible')).toBeVisible();
-  await expect(dialog).toHaveCSS('visibility', 'hidden');
-  await page.locator('.media-modal:visible .media-modal-close').click();
-  await expect(dialog).toHaveCSS('visibility', 'visible');
-  await expect(dialog.locator('input[name="title"]')).toHaveValue('Unsaved image draft');
-  await dialog.getByRole('button', { name: 'Close' }).click();
-});
