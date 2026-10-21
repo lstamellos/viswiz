@@ -105,7 +105,7 @@ test('WordPress media library stays above the node editor and restores the draft
   await login(page);
   const editor = await createGraphDataset(page, 'E2E node media layering');
   await editor.getByRole('button', { name: 'Add node' }).click();
-  const dialog = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Add node' }) });
+  const dialog = page.locator('dialog.viswiz-editor-dialog').last();
   await expect(dialog).toBeVisible();
   await dialog.locator('input[name="title"]').fill('Unsaved image draft');
 
