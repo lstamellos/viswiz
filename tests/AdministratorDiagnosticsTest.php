@@ -13,7 +13,7 @@ final class AdministratorDiagnosticsTest extends TestCase {
 
         self::assertStringContainsString( 'private const MAX_EVENTS = 20', $diagnostics );
         self::assertStringContainsString( 'sanitize_key( $code )', $diagnostics );
-        self::assertStringContainsString( "array_slice( $events, 0, self::MAX_EVENTS )", $diagnostics );
+        self::assertStringContainsString( 'array_slice( $events, 0, self::MAX_EVENTS )', $diagnostics );
         self::assertStringContainsString( "get_transient( $throttle )", $diagnostics );
         self::assertStringContainsString( "'manage_viswiz_settings'", $page );
         self::assertStringContainsString( 'DiagnosticsPage::register();', $plugin );
