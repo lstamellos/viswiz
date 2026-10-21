@@ -9,7 +9,6 @@ This file documents the internal contract so future graph changes do not recreat
 Each graph visualization has one `WeakMap` entry owned by the graph runtime. The state contains:
 
 - the current graph `spec`
-- the pending spec promise when a fallback fetch is required
 - selected type/subtype facets
 - connection-focus root UUID and hop depth
 - pending node/modal navigation context
@@ -23,7 +22,7 @@ The authoritative graph spec is supplied by the actual VisWiz render call whenev
 
 This is especially important for the dataset editor preview: `viswiz-admin.js` renders from its current in-memory dataset state after each revision. The runtime therefore uses that live spec rather than independently caching the initial `#viswiz-dataset-payload` script.
 
-For a public graph that was loaded through the base frontend loader before the bridge can observe its render call, the saved visualization REST endpoint is the fallback source. Parsing the serialized admin payload is likewise only a fallback for an already-rendered inline preview. Regardless of acquisition path, all graph features consume the resulting spec from the same per-container runtime state.
+For a public graph rendered before the bridge can observe its render call, the base frontend renderer exposes its last successfully rendered spec reference through `window.VisWiz.getRenderedSpec(container)`. The graph runtime adopts that same object into its per-container state, without requesting the public visualization REST endpoint again. Public payload fetching belongs only to the base frontend loader. Parsing the serialized admin payload remains a fallback for an already-rendered legacy inline preview. Regardless of acquisition path, all graph features consume the resulting spec from the same per-container runtime state.
 
 ## State application order
 
