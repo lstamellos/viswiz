@@ -30,7 +30,8 @@ final class NodeRichEditorTest extends TestCase {
         self::assertStringContainsString( 'api.getContent(instance.id)', $javascript );
         self::assertStringContainsString( 'editorApi().remove(instance.id)', $javascript );
         self::assertStringContainsString( "form?.addEventListener('submit', () => sync(instance), true)", $javascript );
-        self::assertStringContainsString( "dialog.addEventListener('close', () => cleanup(dialog), { capture: true, once: true })", $javascript );
+        self::assertStringContainsString( "dialog.addEventListener('close', () => {", $javascript );
+        self::assertStringContainsString( 'if (!dialog.open) cleanup(dialog);', $javascript );
         self::assertStringContainsString( "dialog.addEventListener('cancel', () => cleanup(dialog), { capture: true, once: true })", $javascript );
         self::assertStringContainsString( 'MutationObserver', $javascript );
         self::assertStringContainsString( "dialog.dataset.viswizRichEditorState = 'fallback'", $javascript );
