@@ -116,7 +116,7 @@ test('WordPress media library stays above the node editor and restores the draft
   await expect(dialog).toHaveCSS('visibility', 'hidden');
 
   // The native WP media dialog must be in front and accept real pointer clicks.
-  await media.getByRole('button', { name: 'Close dialog' }).click();
+  await media.locator('.media-modal-close').click();
   await expect(media).toHaveCount(0);
   await expect(dialog).toHaveCSS('visibility', 'visible');
   await expect(dialog.locator('input[name="title"]')).toHaveValue('Unsaved image draft');
@@ -126,7 +126,7 @@ test('WordPress media library stays above the node editor and restores the draft
   await dialog.getByRole('button', { name: 'Choose other images' }).click();
   await expect(page.locator('.media-modal:visible')).toBeVisible();
   await expect(dialog).toHaveCSS('visibility', 'hidden');
-  await page.locator('.media-modal:visible').getByRole('button', { name: 'Close dialog' }).click();
+  await page.locator('.media-modal:visible .media-modal-close').click();
   await expect(dialog).toHaveCSS('visibility', 'visible');
   await expect(dialog.locator('input[name="title"]')).toHaveValue('Unsaved image draft');
   await dialog.getByRole('button', { name: 'Close' }).click();
