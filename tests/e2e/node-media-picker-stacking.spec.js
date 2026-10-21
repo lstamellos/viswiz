@@ -16,6 +16,20 @@ async function login(page) {
   ]);
 }
 
+async function createGraphDataset(page, name) {
+  await page.goto('/wp-admin/admin.php?page=viswiz-datasets');
+  const card = page.locator('.viswiz-card').filter({
+    has: page.getByRole('heading', { name: 'Create dataset' }),
+  });
+  await card.locator('input[name="name"]').fill(name);
+  await card.locator('select[name="schema_type"]').selectOption('graph');
+  await Promise.all([
+    page.waitForURL(/page=viswiz-datasets&dataset_id=\d+/),
+    card.getByRole('button', { name: 'Create dataset' }).click(),
+  ]);
+  return page.locator('#viswiz-dataset-editor');
+}
+
 async function mediaOpened(page, dialogs) {
   const modal = page.locator('.media-modal:visible').last();
   await expect(modal).toBeVisible();
@@ -44,8 +58,9 @@ test('node featured and gallery images use clickable WordPress media library and
   const clientErrors = [];
   page.on('pageerror', (error) => clientErrors.push(error.message));
   await login(page);
-  await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.graphDatasetId}`);
-  const editor = page.locator('#viswiz-dataset-editor');
+  // Own dataset: saving a node must not change the shared public graph fixture
+  // used by the rest of the browser regression suite.
+  const editor = await createGraphDataset(page, 'E2E media picker isolated graph');
   await editor.getByRole('button', { name: 'Add node' }).click();
 
   const dialog = page.locator('dialog.viswiz-editor-dialog').last();
@@ -98,6 +113,7 @@ test('quick-create node image picker restores both nested editor dialogs', async
   await relation.getByRole('button', { name: 'Create to node' }).click();
   const node = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Create to node' }) });
   await expect(node).toBeVisible();
+  await expect(relation).toBeVisible();
 
   await node.getByRole('button', { name: 'Choose featured image' }).click();
   const modal = await mediaOpened(page, [relation, node]);
