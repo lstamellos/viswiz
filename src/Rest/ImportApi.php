@@ -2,6 +2,7 @@
 namespace VisWiz\Rest;
 
 use VisWiz\Domain\Registry;
+use VisWiz\Diagnostics;
 use VisWiz\Import\DatasetImporter;
 use VisWiz\Import\ImportGuard;
 use WP_REST_Request;
@@ -40,10 +41,16 @@ final class ImportApi {
         $args = self::import_args( $request );
         $guard = ImportGuard::validate( $id, $args );
         if ( is_wp_error( $guard ) ) {
+            Diagnostics::record( 'import_preview', $guard->get_error_code() );
             return $guard;
         }
         $importer = new DatasetImporter();
         $result = $importer->preview( $id, $args );
+        if ( is_wp_error( $result ) ) {
+            Diagnostics::record( 'import_preview', $result->get_error_code() );
+        } elseif ( ! empty( $result['errors'] ) ) {
+            Diagnostics::record( 'import_preview', 'validation_failed' );
+        }
         return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
     }
 
@@ -52,12 +59,16 @@ final class ImportApi {
         $args = self::import_args( $request );
         $guard = ImportGuard::validate( $id, $args );
         if ( is_wp_error( $guard ) ) {
+            Diagnostics::record( 'import_commit', $guard->get_error_code() );
             return $guard;
         }
         $revision = $request->get_param( 'expected_revision' );
         $revision = null === $revision || '' === $revision ? null : absint( $revision );
         $importer = new DatasetImporter();
         $result = $importer->commit( $id, $args, $revision );
+        if ( is_wp_error( $result ) ) {
+            Diagnostics::record( 'import_commit', $result->get_error_code() );
+        }
         return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
     }
 

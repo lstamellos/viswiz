@@ -2,6 +2,7 @@
 namespace VisWiz\Rest;
 
 use VisWiz\Database\DatasetRepository;
+use VisWiz\Diagnostics;
 use VisWiz\Domain\RowWriteGuard;
 use VisWiz\Frontend\Frontend;
 use VisWiz\WooCommerce\SalesQuery;
@@ -144,6 +145,9 @@ final class Api {
 
     public static function visualization( WP_REST_Request $request ) {
         $payload = Frontend::get_payload( absint( $request['id'] ) );
+        if ( is_wp_error( $payload ) ) {
+            Diagnostics::record( 'public_load', $payload->get_error_code() );
+        }
         return is_wp_error( $payload ) ? $payload : rest_ensure_response( $payload );
     }
 
