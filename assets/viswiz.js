@@ -3,6 +3,8 @@
   const { __, sprintf } = window.wp.i18n;
 
   const inflight = new Map();
+  // Retain only the last successfully rendered spec reference for a late runtime handoff.
+  const renderedSpecs = new WeakMap();
   const DEFAULT_COLORS = ['#2563eb', '#7c3aed', '#059669', '#ea580c', '#0891b2', '#be123c', '#4f46e5', '#a16207'];
   const svgNS = 'http://www.w3.org/2000/svg';
   function fetchSpec(url) {
@@ -582,6 +584,7 @@
     };
     (renderers[spec.renderer] || renderPie)(container, spec);
     addFullscreen(container, spec);
+    renderedSpecs.set(container, spec);
   }
 
   function load(container) {
@@ -602,6 +605,6 @@
   }
 
   function init() { document.querySelectorAll('[data-viswiz-visualization]').forEach(load); }
-  window.VisWiz = { render, load, init };
+  window.VisWiz = { render, load, init, getRenderedSpec: (container) => renderedSpecs.get(container) || null };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
