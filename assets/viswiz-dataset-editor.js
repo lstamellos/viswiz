@@ -222,7 +222,11 @@
     head.appendChild(close);
     body.appendChild(head);
     dialog.appendChild(body);
-    dialog.addEventListener('close', () => dialog.remove());
+    // A media picker temporarily switches this dialog to non-modal. Native
+    // close events are queued, so only remove it when it remains closed.
+    dialog.addEventListener('close', () => {
+      if (!dialog.open) dialog.remove();
+    });
     return { dialog, body };
   }
 
@@ -560,6 +564,34 @@
     }
   }
 
+  function openNodeMediaPicker(frame, trigger) {
+    // WordPress media frames use regular DOM overlays, which cannot appear
+    // above a native showModal() dialog in the browser's top layer.
+    // Preserve every currently open VisWiz dialog (including a parent relation
+    // editor in the quick-create flow) while the media library is active.
+    const dialogs = [...document.querySelectorAll('dialog.viswiz-editor-dialog[open]')];
+    [...dialogs].reverse().forEach((dialog) => {
+      dialog.close();
+      dialog.show();
+    });
+
+    const restore = () => {
+      dialogs.forEach((dialog) => {
+        if (!dialog.isConnected || !dialog.open) return;
+        dialog.close();
+        dialog.showModal();
+      });
+      if (trigger.isConnected) trigger.focus();
+    };
+    frame.on('close', restore);
+    try {
+      frame.open();
+    } catch (error) {
+      restore();
+      throw error;
+    }
+  }
+
   function openNodeDialog(state, node, options = {}) {
     const current = clone(node || options.seed || { uuid: uuid(), slug: '', title: '', label: '', node_type: '', node_subtype: '', description: '', main_image_id: 0, other_image_ids: [], meta: {} });
     if (!current.uuid) current.uuid = uuid();
@@ -590,14 +622,14 @@
       mainButton.addEventListener('click', () => {
         const frame = wp.media({ title: __('Choose featured image', 'viswiz'), multiple: false, library: { type: 'image' } });
         frame.on('select', () => { const item = frame.state().get('selection').first()?.toJSON(); if (item) mainImage.value = String(item.id || 0); });
-        frame.open();
+        openNodeMediaPicker(frame, mainButton);
       });
       const otherButton = button(__('Choose other images', 'viswiz'), 'button viswiz-media-button');
       otherImages.insertAdjacentElement('afterend', otherButton);
       otherButton.addEventListener('click', () => {
         const frame = wp.media({ title: __('Choose node images', 'viswiz'), multiple: true, library: { type: 'image' } });
         frame.on('select', () => { otherImages.value = frame.state().get('selection').map((item) => item.toJSON().id).filter(Boolean).join(','); });
-        frame.open();
+        openNodeMediaPicker(frame, otherButton);
       });
     }
 
