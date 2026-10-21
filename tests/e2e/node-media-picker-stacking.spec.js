@@ -58,6 +58,7 @@ test('node featured and gallery images use clickable WordPress media library and
 
   await dialog.getByRole('button', { name: 'Choose featured image' }).click();
   let modal = await mediaOpened(page, [dialog]);
+  await modal.getByRole('tab', { name: 'Media Library' }).click();
   const image = modal.locator(`.attachment[data-id="${fixture.mediaAttachmentId}"]`);
   await expect(image).toBeVisible();
   await image.click();
@@ -67,6 +68,7 @@ test('node featured and gallery images use clickable WordPress media library and
 
   await dialog.getByRole('button', { name: 'Choose other images' }).click();
   modal = await mediaOpened(page, [dialog]);
+  await modal.getByRole('tab', { name: 'Media Library' }).click();
   await modal.locator(`.attachment[data-id="${fixture.mediaAttachmentId}"]`).click();
   await modal.locator('.media-button-select').click();
   await mediaClosed(page, [dialog]);
@@ -90,7 +92,7 @@ test('quick-create node image picker restores both nested editor dialogs', async
   await login(page);
   await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.graphDatasetId}`);
   const editor = page.locator('#viswiz-dataset-editor');
-  await editor.getByRole('button', { name: 'Add relation', exact: true }).click();
+  await editor.locator('.viswiz-editor-toolbar').getByRole('button', { name: 'Add relation', exact: true }).click();
   const relation = page.locator('dialog.viswiz-editor-dialog').filter({ has: page.getByRole('heading', { name: 'Add relation' }) });
   await expect(relation).toBeVisible();
   await relation.getByRole('button', { name: 'Create to node' }).click();
