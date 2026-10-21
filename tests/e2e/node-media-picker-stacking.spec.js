@@ -34,7 +34,8 @@ async function mediaOpened(page, dialogs) {
   const modal = page.locator('.media-modal:visible').last();
   await expect(modal).toBeVisible();
   for (const dialog of dialogs) {
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute('data-viswiz-media-handoff', '1');
+    await expect(dialog).toHaveCSS('visibility', 'hidden');
     await expect.poll(() => dialog.evaluate((element) => element.matches(':modal'))).toBe(false);
   }
   // Assert the actual WordPress media frame receives pointer events.
