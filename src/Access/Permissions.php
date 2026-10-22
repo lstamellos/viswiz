@@ -102,12 +102,12 @@ final class Permissions {
             return false;
         }
         $editors = array_values( array_filter( self::ids( $editors ), array( self::class, 'can_create_dataset' ) ) );
+        if ( $owner && ! self::can_create_dataset( $owner ) ) {
+            return false;
+        }
         update_option( self::DATASET_ACL_PREFIX . $id, $editors, false );
         if ( $owner ) {
             global $wpdb;
-            if ( ! self::can_create_dataset( $owner ) ) {
-                return false;
-            }
             $wpdb->update( \VisWiz\Support::table( 'datasets' ), array( 'created_by' => $owner ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
         }
         return true;
@@ -121,6 +121,9 @@ final class Permissions {
             return false;
         }
         $editors = array_values( array_filter( self::ids( $editors ), array( self::class, 'can_create_visualization' ) ) );
+        if ( $owner && ! self::can_create_visualization( $owner ) ) {
+            return false;
+        }
         update_post_meta( $id, self::VISUALIZATION_ACL_KEY, $editors );
         if ( $owner && self::can_create_visualization( $owner ) ) {
             wp_update_post( array( 'ID' => $id, 'post_author' => $owner ) );
