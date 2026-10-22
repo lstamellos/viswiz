@@ -41,6 +41,6 @@ final class SchemaAwareDatasetEditorTest extends TestCase {
 
     public function test_schema_aware_editor_does_not_change_database_schema_version(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        $this->assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
+        $this->assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20001 );", $plugin );
     }
 }
