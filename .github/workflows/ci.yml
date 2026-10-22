@@ -137,6 +137,9 @@ jobs:
       - name: Run integration smoke tests
         run: wp eval-file "$GITHUB_WORKSPACE/tests/wp-smoke.php" --path=/tmp/wordpress --allow-root
 
+      - name: Benchmark admin collection scale
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/wp-admin-performance.php" --path=/tmp/wordpress --allow-root
+
   browser-e2e:
     name: Chromium browser E2E
     runs-on: ubuntu-latest
