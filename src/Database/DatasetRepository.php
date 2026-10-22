@@ -16,6 +16,8 @@ final class DatasetRepository {
         }
         $row['id']       = (int) $row['id'];
         $row['revision'] = (int) $row['revision'];
+        $row['created_by'] = (int) $row['created_by'];
+        $row['owner_id'] = (int) ( $row['owner_id'] ?? 0 );
         $row['settings'] = Support::json_decode_array( $row['settings'] ?? '' );
         return $row;
     }
@@ -36,6 +38,12 @@ final class DatasetRepository {
         $where  = array( '1=1' );
         $params = array();
 
+        if ( ! empty( $args['access_user_id'] ) ) {
+            $uid = (int) $args['access_user_id'];
+            $acl = Support::table( 'dataset_editors' );
+            $where[] = "(d.created_by=%d OR d.owner_id=%d OR EXISTS (SELECT 1 FROM {$acl} a WHERE a.dataset_id=d.id AND a.user_id=%d))";
+            array_push( $params, $uid, $uid, $uid );
+        }
         if ( '' !== $search ) {
             $like    = '%' . $wpdb->esc_like( $search ) . '%';
             $where[] = '(d.name LIKE %s OR d.description LIKE %s)';
@@ -74,6 +82,8 @@ final class DatasetRepository {
         foreach ( $items as &$item ) {
             $item['id']                  = (int) $item['id'];
             $item['revision']            = (int) $item['revision'];
+            $item['created_by']          = (int) $item['created_by'];
+            $item['owner_id']            = (int) ( $item['owner_id'] ?? 0 );
             $item['row_count']           = (int) $item['row_count'];
             $item['node_count']          = (int) $item['node_count'];
             $item['relation_count']      = (int) $item['relation_count'];
@@ -91,6 +101,12 @@ final class DatasetRepository {
         $schema = sanitize_key( (string) ( $args['schema_type'] ?? '' ) );
         $where  = array( '1=1' );
         $params = array();
+        if ( ! empty( $args['access_user_id'] ) ) {
+            $uid = (int) $args['access_user_id'];
+            $acl = Support::table( 'dataset_editors' );
+            $where[] = "(created_by=%d OR owner_id=%d OR EXISTS (SELECT 1 FROM {$acl} a WHERE a.dataset_id={$table}.id AND a.user_id=%d))";
+            array_push( $params, $uid, $uid, $uid );
+        }
         if ( '' !== $search ) {
             $like     = '%' . $wpdb->esc_like( $search ) . '%';
             $where[]  = '(name LIKE %s OR description LIKE %s)';
@@ -134,10 +150,11 @@ final class DatasetRepository {
                 'revision'    => 1,
                 'settings'    => Support::json( Support::sanitize_meta( $data['settings'] ?? array() ) ),
                 'created_by'  => get_current_user_id(),
+                'owner_id'    => get_current_user_id(),
                 'created_at'  => $now,
                 'updated_at'  => $now,
             ),
-            array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s' )
+            array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%d', '%s', '%s' )
         );
         if ( false === $ok ) {
             $wpdb->query( 'ROLLBACK' );
@@ -687,7 +704,7 @@ final class DatasetRepository {
             $wpdb->query( 'ROLLBACK' );
             return false;
         }
-        foreach ( array( 'rows', 'edges', 'nodes', 'dataset_revisions' ) as $suffix ) {
+        foreach ( array( 'rows', 'edges', 'nodes', 'dataset_revisions', 'dataset_editors' ) as $suffix ) {
             if ( false === $wpdb->delete( Support::table( $suffix ), array( 'dataset_id' => $dataset_id ), array( '%d' ) ) ) {
                 $wpdb->query( 'ROLLBACK' );
                 return false;
