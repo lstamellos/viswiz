@@ -64,3 +64,8 @@
 .viswiz-graph-node.is-viswiz-connection-root .viswiz-node-card-tag-bg{stroke-width:1.1}
 @media(max-width:900px){.viswiz-search-group{flex:1 1 100%;max-width:none}.viswiz-filter-group{flex:1 1 auto}.viswiz-graph-status{margin-left:0!important}}
 @media(max-width:700px){.viswiz-graph-header{align-items:flex-start;flex-wrap:wrap}.viswiz-graph-header>.viswiz-title{flex:1 1 100%}.viswiz-view-controls{margin-left:auto}.viswiz-search-group{flex:1 1 100%;max-width:none;min-width:0}.viswiz-filter-group{flex:1 1 100%;flex-wrap:wrap}.viswiz-filter-group select{flex:1 1 180px;max-width:none}.viswiz-clear-all-filters{flex:1 1 auto}.viswiz-graph-status{flex:1 1 100%;width:100%;margin-left:0!important}.viswiz-selected-facets{flex:1 1 100%}.viswiz-selected-facet{max-width:100%;overflow:hidden;text-overflow:ellipsis}.viswiz-connection-focus-bar{align-items:flex-start;flex-wrap:wrap}.viswiz-connection-focus-label{flex:1 1 100%;white-space:normal}.viswiz-connection-focus-controls{margin-left:auto}}
+
+/* Dense overviews stay keyboard selectable without expensive node-card DOM. */
+.viswiz-graph-node.is-compact:hover,.viswiz-graph-node.is-compact:focus{stroke:#111827;stroke-width:3;outline:none}
+
+.is-viswiz-compact .viswiz-graph-node{transition:none}

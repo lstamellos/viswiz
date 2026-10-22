@@ -51,3 +51,34 @@ Related-node navigation resolves relations and nodes from the full graph spec. I
 ## Extension rule
 
 New graph interaction features should be implemented in the consolidated runtime or, once a formal extension API exists, through that documented API. Do not add another chained compatibility script to repair or override graph state owned elsewhere.
+
+
+## Dynamic overview and dense rendering (October 2026)
+
+The base graph renderer derives its initial SVG `viewBox` from the actual
+layout bounds with padding. It no longer uses a fixed 1000 by 1100 footprint.
+The **100%** reset restores this fitted overview. Layouts use bounded linear
+traversals for directed flow/org data (including cycles), and non-overlapping
+grid spacing for free graphs.
+
+Above 240 visible nodes, public graph rendering switches to compact SVG markers
+with per-node keyboard interaction and modal access. It omits expensive card
+cover images, clip paths, node labels, relation labels and arrows in the
+overview. Native search/type filters redraw the reduced result as full node
+cards when the filtered count is 240 or less; detail modals still draw their
+contents from the full graph spec. The shared graph runtime skips the expensive
+node-card enhancement for compact views and resolves facet state from the marker
+attributes. It never launches a second REST request.
+
+Large non-graph row datasets are rendered with bounded DOM: categorical/card
+renderers use numbered range paging; dense line/area paths use min/max sampling
+that preserves extrema; scatter and map plots use resolution-bounded canvas
+above 1500 points. The complete underlying `spec.data` remains available in
+memory; these client-side measures do **not** reduce REST payload size,
+server-side query cost or the CPU spent parsing very large JSON responses.
+
+Limitations: compact overviews deliberately omit in-place card imagery and edge
+labels; dense canvas does not expose a keyboard-focusable point per datum.
+These are density accommodations, not new visualization types.
+See `tests/e2e/public-large-renderers.spec.js` and
+`tests/e2e/performance-budgets.spec.js` for regression and scale checks.

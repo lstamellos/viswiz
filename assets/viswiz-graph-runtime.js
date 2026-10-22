@@ -381,6 +381,8 @@
   }
 
   function styleNodes(container, spec) {
+    // Dense overview markers deliberately skip card imagery, clipping paths and tags.
+    if (container.querySelector('.viswiz-graph-svg.is-viswiz-compact')) return;
     const groups = [...container.querySelectorAll('.viswiz-graph-node')];
     if (!groups.length) return;
     const nodes = visibleNodes(container, spec);
@@ -546,6 +548,12 @@
 
   function nodeMatchesSelected(group, selected) {
     if (!selected.size) return true;
+    // Compact markers have no clickable tag children, but must still honor
+    // facet selections created in a node's detail modal.
+    if (group.classList.contains('is-compact')) {
+      return selected.has(facetKey('node_type', group.dataset.viswizNodeType || ''))
+        || selected.has(facetKey('node_subtype', group.dataset.viswizNodeSubtype || ''));
+    }
     return [...group.querySelectorAll('.viswiz-node-card-tag')].some((tag) => (
       selected.has(facetKey(tag.dataset.viswizPropertyKind || '', tag.dataset.viswizPropertyValue || ''))
     ));
@@ -561,7 +569,7 @@
       if (match && uuid) matched.add(uuid);
       group.style.display = '';
       group.style.opacity = selected.size && !match ? '0.18' : '';
-      group.style.filter = selected.size && !match ? 'grayscale(1)' : '';
+      group.style.filter = group.classList.contains('is-compact') ? '' : (selected.size && !match ? 'grayscale(1)' : '');
       group.classList.toggle('is-viswiz-property-muted', Boolean(selected.size && !match));
       group.querySelectorAll('.viswiz-node-card-tag').forEach((tag) => {
         const active = selected.has(facetKey(tag.dataset.viswizPropertyKind || '', tag.dataset.viswizPropertyValue || ''));
