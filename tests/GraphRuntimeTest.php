@@ -96,6 +96,6 @@ final class GraphRuntimeTest extends TestCase {
 
         self::assertStringContainsString( 'Version: 2.0.43', $bootstrap );
         self::assertStringContainsString( "define( 'VISWIZ_VERSION', '2.0.43' );", $bootstrap );
-        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $bootstrap );
+        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20001 );", $bootstrap );
     }
 }
