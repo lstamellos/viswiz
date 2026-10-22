@@ -126,4 +126,60 @@ $wpdb->query( "DROP TABLE IF EXISTS {$legacy_relations}" );
 $wpdb->query( "DROP TABLE IF EXISTS {$legacy_points}" );
 $wpdb->query( "DROP TABLE IF EXISTS {$legacy_datasets}" );
 
+
+/* End-to-end authorization checks with actual WordPress roles and REST registration. */
+$access_admin_id = get_current_user_id();
+$access_owner_id = wp_create_user( 'viswiz-acl-owner', wp_generate_password(), 'viswiz-acl-owner@example.invalid' );
+$access_peer_id = wp_create_user( 'viswiz-acl-peer', wp_generate_password(), 'viswiz-acl-peer@example.invalid' );
+$access_subscriber_id = wp_create_user( 'viswiz-acl-subscriber', wp_generate_password(), 'viswiz-acl-subscriber@example.invalid' );
+get_userdata( $access_owner_id )->set_role( 'author' );
+get_userdata( $access_peer_id )->set_role( 'author' );
+get_userdata( $access_subscriber_id )->set_role( 'subscriber' );
+
+wp_set_current_user( $access_owner_id );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::can_create_dataset(), 'Author cannot create datasets.' );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::can_create_visualization(), 'Author cannot create visualizations.' );
+$access_dataset_id = $repo->create( array( 'name' => 'ACL fixture', 'schema_type' => 'categorical' ) );
+viswiz_smoke_assert( ! is_wp_error( $access_dataset_id ), 'Author dataset creation failed.' );
+$access_dataset_id = (int) $access_dataset_id;
+$access_post_id = wp_insert_post( array(
+    'post_type' => 'viswiz_visualization',
+    'post_title' => 'ACL fixture visualization',
+    'post_author' => $access_owner_id,
+    'post_status' => 'draft',
+) );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Dataset owner cannot edit.' );
+viswiz_smoke_assert( current_user_can( 'edit_post', $access_post_id ), 'Visualization owner cannot edit.' );
+
+wp_set_current_user( $access_peer_id );
+viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Other author can edit private dataset.' );
+viswiz_smoke_assert( ! current_user_can( 'edit_post', $access_post_id ), 'Other author can edit visualization.' );
+$acl_rest = rest_do_request( new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $access_dataset_id ) );
+viswiz_smoke_assert( 403 === $acl_rest->get_status(), 'REST leaked unauthorized dataset.' );
+wp_set_current_user( $access_owner_id );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::save_dataset( $access_dataset_id, array( $access_peer_id ) ), 'Owner could not grant dataset access.' );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::save_visualization( $access_post_id, array( $access_peer_id ) ), 'Owner could not grant visualization access.' );
+wp_set_current_user( $access_peer_id );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Dataset editor grant failed.' );
+viswiz_smoke_assert( current_user_can( 'edit_post', $access_post_id ), 'Visualization editor grant failed.' );
+$acl_rest = rest_do_request( new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $access_dataset_id ) );
+viswiz_smoke_assert( 200 === $acl_rest->get_status(), 'REST rejected assigned editor.' );
+viswiz_smoke_assert( ! \VisWiz\Access\Permissions::save_dataset( $access_dataset_id, array( $access_peer_id, $access_subscriber_id ) ), 'Non-owner changed dataset ACL.' );
+wp_set_current_user( $access_subscriber_id );
+viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_create_dataset(), 'Subscriber can create datasets.' );
+viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Subscriber can edit dataset.' );
+
+wp_set_current_user( $access_admin_id );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::save_dataset( $access_dataset_id, array(), $access_peer_id ), 'Administrator could not transfer dataset.' );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::save_visualization( $access_post_id, array(), $access_peer_id ), 'Administrator could not transfer visualization.' );
+wp_set_current_user( $access_owner_id );
+viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Old owner retained dataset access after transfer.' );
+viswiz_smoke_assert( ! current_user_can( 'edit_post', $access_post_id ), 'Old owner retained visualization access after transfer.' );
+wp_set_current_user( $access_peer_id );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::can_manage_dataset( $access_dataset_id ), 'New dataset owner cannot manage ACL.' );
+viswiz_smoke_assert( \VisWiz\Access\Permissions::can_manage_visualization( $access_post_id ), 'New visualization owner cannot manage ACL.' );
+wp_set_current_user( $access_admin_id );
+wp_delete_post( $access_post_id, true );
+$repo->delete_with_usage_cleanup( $access_dataset_id );
+
 echo "VisWiz WordPress smoke tests passed.\n";
