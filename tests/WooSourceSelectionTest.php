@@ -66,6 +66,6 @@ final class WooSourceSelectionTest extends TestCase {
         self::assertStringContainsString( "'category_ids'=>Support::int_list", $admin );
         self::assertStringContainsString( "'product_ids'     => Support::int_list", $query );
         self::assertStringContainsString( "'category_ids'    => Support::int_list", $query );
-        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20001 );", $plugin );
     }
 }
