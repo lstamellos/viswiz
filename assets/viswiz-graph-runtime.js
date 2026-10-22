@@ -569,7 +569,7 @@
       if (match && uuid) matched.add(uuid);
       group.style.display = '';
       group.style.opacity = selected.size && !match ? '0.18' : '';
-      group.style.filter = selected.size && !match ? 'grayscale(1)' : '';
+      group.style.filter = group.classList.contains('is-compact') ? '' : (selected.size && !match ? 'grayscale(1)' : '');
       group.classList.toggle('is-viswiz-property-muted', Boolean(selected.size && !match));
       group.querySelectorAll('.viswiz-node-card-tag').forEach((tag) => {
         const active = selected.has(facetKey(tag.dataset.viswizPropertyKind || '', tag.dataset.viswizPropertyValue || ''));
