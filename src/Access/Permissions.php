@@ -77,7 +77,7 @@ final class Permissions {
         }
     }
 
-    public static function filter_admin_visualization_list( \\WP_Query $query ): void {
+    public static function filter_admin_visualization_list( \WP_Query $query ): void {
         if ( ! is_admin() || ! $query->is_main_query() || 'viswiz_visualization' !== $query->get( 'post_type' )
             || self::manager( get_current_user_id() ) || ! self::can_create_visualization() ) {
             return;
