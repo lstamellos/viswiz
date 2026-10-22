@@ -230,6 +230,10 @@ final class Admin {
         }
 
         $dataset_id = absint( $_POST['viswiz_dataset_id'] ?? 0 );
+        if ( 'woo_live' === $source && ! current_user_can( 'manage_woocommerce' ) ) {
+            $source = 'dataset';
+            update_post_meta( $post_id, '_viswiz_last_validation_error', __( 'WooCommerce access is required for live sources.', 'viswiz' ) );
+        }
         if ( 'dataset' === $source ) {
             $repo    = new DatasetRepository();
             $dataset = $repo->get( $dataset_id );
@@ -351,6 +355,7 @@ final class Admin {
                     <?php endif; ?>
                 </main>
                 <aside>
+                    <?php Access::dataset_box( $dataset ); ?>
                     <section class="viswiz-card">
                         <h2><?php esc_html_e( 'Integrity', 'viswiz' ); ?></h2>
                         <?php if ( ! $issues ) : ?><p class="viswiz-ok"><?php esc_html_e( 'No graph integrity issues found.', 'viswiz' ); ?></p><?php else : ?><ul class="viswiz-issues"><?php foreach ( $issues as $issue ) : ?><li class="is-<?php echo esc_attr( $issue['severity'] ); ?>"><?php echo esc_html( $issue['message'] ); ?></li><?php endforeach; ?></ul><?php endif; ?>
@@ -386,7 +391,7 @@ final class Admin {
     }
 
     public static function delete_dataset(): void {
-        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); if ( ! Access::can_edit_dataset( $id ) ) { wp_die( esc_html__( 'Permission denied.', 'viswiz' ) ); } check_admin_referer( 'viswiz_dataset_delete_' . $id ); $repo = new DatasetRepository(); $repo->delete_with_usage_cleanup( $id ); wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&deleted=1' ) ); exit;
+        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); if ( ! Access::can_manage_dataset( $id ) ) { wp_die( esc_html__( 'Permission denied.', 'viswiz' ) ); } check_admin_referer( 'viswiz_dataset_delete_' . $id ); $repo = new DatasetRepository(); $repo->delete_with_usage_cleanup( $id ); wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&deleted=1' ) ); exit;
     }
 
     public static function export_dataset(): void {
