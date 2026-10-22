@@ -16,7 +16,7 @@ Pre-production datasets are disposable test fixtures rather than a backwards-com
 
 The original P0 stabilization and editing/import milestones are complete. The visualization-creation workflow and public graph accessibility milestones are also complete through VisWiz 2.0.40. Phase C responsive/theme compatibility has been closed with browser coverage for graph and non-graph renderers, mobile/fullscreen/modal behavior, Gutenberg embedding and multiple visualizations in constrained containers. JavaScript localization consolidation is also complete.
 
-The previously identified state-ownership defect was resolved in PR #133, and bounded administrator diagnostics were added in PR #134. Representative frontend performance tiers are measured in PR #135 and documented in `docs/STABILIZATION_ACCEPTANCE_2.0.41.md`. Backend/admin high-volume timing and reliable JS heap measurements remain unverified and are not claimed as passed; they are documented limitations of the release acceptance evidence. P2 work remains frozen.
+The previously identified state-ownership defect was resolved in PR #133, and bounded administrator diagnostics were added in PR #134. Representative frontend performance tiers are measured in PR #135 and documented in `docs/STABILIZATION_ACCEPTANCE_2.0.41.md`. High-volume WordPress admin REST timing was subsequently measured at the same tiers in PR #140 (2026-10-22); see `docs/ADMIN_SCALE_BENCHMARK_2026-10-22.md`. Accurate per-request memory use and full-browser load at these upper tiers are still unverified. P2 work remains frozen. P2 work remains frozen.
 
 ## P0 — stabilize the current runtime
 
@@ -197,7 +197,7 @@ Closed by Phase C PRs #108, #110 and #111. Keep the established constrained-mobi
 
 ## P1 — performance and observability
 
-### 21. Establish performance budgets — FRONTEND BASELINE COMPLETED / ADMIN SCALE NOT VERIFIED
+### 21. Establish performance budgets — VERIFIED FRONTEND AND ADMIN CI BASELINES
 
 Create representative benchmarks for:
 
@@ -212,7 +212,7 @@ Measure:
 - memory use;
 - layout/interaction responsiveness.
 
-Chromium frontend tier measurements were completed in PR #135 and recorded in `docs/STABILIZATION_ACCEPTANCE_2.0.41.md`, with soft budgets and limitations. Existing bounded admin REST collections remain tested for pagination. This run did not establish high-volume admin latency, accurate heap usage, or a universal hard size limit. No renderer rewrite or additional feature is part of this stabilization release.
+Chromium frontend tier measurements were completed in PR #135; REST/admin benchmarks covering all named size tiers were added in PR #140 and recorded in `docs/ADMIN_SCALE_BENCHMARK_2026-10-22.md`. All tests validate bounded page sizes and off-page search. At 5k graph nodes, the first 100-node page took ~1 second server-side; this known limitation is documented rather than optimized in this phase. Reliable per-request memory peaks, end-to-end browser latency at maximum size and universal size ceilings remain unmeasured. No renderer rewrite or additional feature is part of this stabilization phase.
 
 ### 22. Avoid duplicate data fetch/state derivation — COMPLETED
 
@@ -256,7 +256,7 @@ Legacy tables are not retained for a backwards-compatibility promise. If cleanup
 
 1. Release 2.0.41 with all five required CI jobs green and verify the release ZIP.
 2. Verify installation/update and critical editor/public workflows on the actual WordPress deployment (not demonstrated by GitHub CI).
-3. Preserve recorded frontend budget evidence and explicitly avoid asserting unmeasured admin/heap limits.
+3. Preserve frontend and admin measured budget evidence; do not assert unmeasured per-request heap or full-browser maximum-size limits.
 4. Keep P2 #24–#27 out of scope.
 
 ## Permanent regression requirements
