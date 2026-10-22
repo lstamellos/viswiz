@@ -1,6 +1,7 @@
 <?php
 namespace VisWiz\Rest;
 
+use VisWiz\Access;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Diagnostics;
 use VisWiz\Domain\RowWriteGuard;
@@ -129,7 +130,7 @@ final class Api {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( self::class, 'commerce_snapshot' ),
-                'permission_callback' => static fn(): bool => current_user_can( 'edit_viswiz_datasets' ) && current_user_can( 'manage_woocommerce' ),
+                'permission_callback' => static fn( WP_REST_Request $request ): bool => Access::can_edit_dataset( absint( $request['id'] ) ) && current_user_can( 'manage_woocommerce' ),
             )
         );
     }
@@ -139,8 +140,8 @@ final class Api {
         return 'publish' === get_post_status( $id ) || current_user_can( 'edit_post', $id );
     }
 
-    public static function can_edit_datasets(): bool {
-        return current_user_can( 'edit_viswiz_datasets' );
+    public static function can_edit_datasets( WP_REST_Request $request ): bool {
+        return Access::can_edit_dataset( absint( $request['id'] ) );
     }
 
     public static function visualization( WP_REST_Request $request ) {
@@ -163,6 +164,9 @@ final class Api {
         );
         $items = array();
         foreach ( $posts as $post ) {
+            if ( ! current_user_can( 'edit_post', $post->ID ) ) {
+                continue;
+            }
             $items[] = array(
                 'id'        => $post->ID,
                 'title'     => get_the_title( $post ),
