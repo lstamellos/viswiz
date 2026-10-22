@@ -1,6 +1,8 @@
 <?php
 namespace VisWiz\Admin;
 
+use VisWiz\Access\Permissions;
+
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Domain\GraphValidator;
 use VisWiz\Domain\Registry;
@@ -114,7 +116,8 @@ final class Admin {
         $settings   = Frontend::sanitize_settings( get_post_meta( $post->ID, '_viswiz_settings', true ) );
         $woo        = Support::json_decode_array( get_post_meta( $post->ID, '_viswiz_woo_config', true ) );
         $repo       = new DatasetRepository();
-        $datasets   = $repo->list_with_counts( array( 'limit' => 200 ) );
+        $access_scope = Permissions::manager( get_current_user_id() ) ? 0 : get_current_user_id();
+        $datasets   = $repo->list_with_counts( array( 'limit' => 200, 'accessible_user_id' => $access_scope ) );
         $error      = (string) get_post_meta( $post->ID, '_viswiz_last_validation_error', true );
         delete_post_meta( $post->ID, '_viswiz_last_validation_error' );
         if ( $error ) {
@@ -250,6 +253,9 @@ final class Admin {
         }
         $dataset_id = absint( $_GET['dataset_id'] ?? 0 );
         if ( $dataset_id ) {
+            if ( ! Permissions::can_edit_dataset( $dataset_id ) ) {
+                wp_die( esc_html__( 'Permission denied.', 'viswiz' ) );
+            }
             self::dataset_detail_page( $dataset_id );
             return;
         }
@@ -259,8 +265,10 @@ final class Admin {
         $schema = sanitize_key( wp_unslash( $_GET['schema_type'] ?? '' ) );
         $paged  = max( 1, absint( $_GET['paged'] ?? 1 ) );
         $limit  = 30;
-        $items  = $repo->list_with_counts( array( 'search' => $search, 'schema_type' => $schema, 'limit' => $limit, 'offset' => ( $paged - 1 ) * $limit ) );
-        $total  = $repo->count( array( 'search' => $search, 'schema_type' => $schema ) );
+        $access_scope = Permissions::manager( get_current_user_id() ) ? 0 : get_current_user_id();
+        $args = array( 'search' => $search, 'schema_type' => $schema, 'accessible_user_id' => $access_scope );
+        $items = $repo->list_with_counts( array_merge( $args, array( 'limit' => $limit, 'offset' => ( $paged - 1 ) * $limit ) ) );
+        $total = $repo->count( $args );
         ?>
         <div class="wrap viswiz-admin-wrap">
             <h1 class="wp-heading-inline"><?php esc_html_e( 'Datasets', 'viswiz' ); ?></h1>
@@ -357,22 +365,22 @@ final class Admin {
     }
 
     public static function update_dataset(): void {
-        self::require_dataset_cap(); $id = absint( $_POST['dataset_id'] ?? 0 ); check_admin_referer( 'viswiz_dataset_update_' . $id );
+        self::require_dataset_cap(); $id = absint( $_POST['dataset_id'] ?? 0 ); if ( ! Permissions::can_edit_dataset( $id ) ) { wp_die( esc_html__( 'Permission denied.', 'viswiz' ) ); } check_admin_referer( 'viswiz_dataset_update_' . $id );
         $repo = new DatasetRepository(); $result = $repo->update_metadata( $id, array( 'name' => wp_unslash( $_POST['name'] ?? '' ), 'description' => wp_unslash( $_POST['description'] ?? '' ) ), absint( $_POST['expected_revision'] ?? 0 ) ?: null );
         if ( is_wp_error( $result ) ) { wp_die( esc_html( $result->get_error_message() ) ); }
         wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&dataset_id=' . $id . '&updated=1' ) ); exit;
     }
 
     public static function duplicate_dataset(): void {
-        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); check_admin_referer( 'viswiz_dataset_duplicate_' . $id ); $repo = new DatasetRepository(); $new_id = $repo->duplicate( $id ); if ( is_wp_error( $new_id ) ) { wp_die( esc_html( $new_id->get_error_message() ) ); } wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&dataset_id=' . $new_id ) ); exit;
+        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); if ( ! Permissions::can_edit_dataset( $id ) ) { wp_die( esc_html__( 'Permission denied.', 'viswiz' ) ); } check_admin_referer( 'viswiz_dataset_duplicate_' . $id ); $repo = new DatasetRepository(); $new_id = $repo->duplicate( $id ); if ( is_wp_error( $new_id ) ) { wp_die( esc_html( $new_id->get_error_message() ) ); } wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&dataset_id=' . $new_id ) ); exit;
     }
 
     public static function delete_dataset(): void {
-        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); check_admin_referer( 'viswiz_dataset_delete_' . $id ); $repo = new DatasetRepository(); $repo->delete_with_usage_cleanup( $id ); wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&deleted=1' ) ); exit;
+        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); if ( ! Permissions::can_edit_dataset( $id ) ) { wp_die( esc_html__( 'Permission denied.', 'viswiz' ) ); } check_admin_referer( 'viswiz_dataset_delete_' . $id ); $repo = new DatasetRepository(); $repo->delete_with_usage_cleanup( $id ); wp_safe_redirect( admin_url( 'admin.php?page=viswiz-datasets&deleted=1' ) ); exit;
     }
 
     public static function export_dataset(): void {
-        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); check_admin_referer( 'viswiz_dataset_export_' . $id ); $repo = new DatasetRepository(); $dataset = $repo->get( $id ); if ( ! $dataset ) { wp_die( esc_html__( 'Dataset not found.', 'viswiz' ) ); } nocache_headers(); header( 'Content-Type: application/json; charset=utf-8' ); header( 'Content-Disposition: attachment; filename="viswiz-dataset-' . $id . '-r' . (int) $dataset['revision'] . '.json"' ); echo wp_json_encode( array( 'format' => 'viswiz-dataset-v2', 'dataset' => $dataset, 'payload' => $repo->get_payload( $id ) ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ); exit;
+        self::require_dataset_cap(); $id = absint( $_GET['dataset_id'] ?? 0 ); if ( ! Permissions::can_edit_dataset( $id ) ) { wp_die( esc_html__( 'Permission denied.', 'viswiz' ) ); } check_admin_referer( 'viswiz_dataset_export_' . $id ); $repo = new DatasetRepository(); $dataset = $repo->get( $id ); if ( ! $dataset ) { wp_die( esc_html__( 'Dataset not found.', 'viswiz' ) ); } nocache_headers(); header( 'Content-Type: application/json; charset=utf-8' ); header( 'Content-Disposition: attachment; filename="viswiz-dataset-' . $id . '-r' . (int) $dataset['revision'] . '.json"' ); echo wp_json_encode( array( 'format' => 'viswiz-dataset-v2', 'dataset' => $dataset, 'payload' => $repo->get_payload( $id ) ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ); exit;
     }
 
     public static function node_types_page(): void { self::schema_page( 'node' ); }
@@ -411,5 +419,5 @@ final class Admin {
 
     private static function woo_config_from_post(): array { $raw=wp_unslash($_POST['viswiz_woo']??array()); return array('metric'=>sanitize_key($raw['metric']??'revenue'),'group_by'=>sanitize_key($raw['group_by']??'total'),'period_mode'=>sanitize_key($raw['period_mode']??'relative'),'period_value'=>absint($raw['period_value']??12),'period_unit'=>sanitize_key($raw['period_unit']??'months'),'period_start'=>sanitize_text_field($raw['period_start']??''),'period_end'=>sanitize_text_field($raw['period_end']??''),'product_ids'=>Support::int_list($raw['product_ids']??array()),'category_ids'=>Support::int_list($raw['category_ids']??array()),'date_basis'=>sanitize_key($raw['date_basis']??'created'),'revenue_basis'=>sanitize_key($raw['revenue_basis']??'gross'),'deduct_refunds'=>isset($raw['deduct_refunds'])); }
     private static function checkbox( string $name, bool $checked, string $label, string $attrs='' ): void { echo '<label class="viswiz-check"><input type="checkbox" name="'.esc_attr($name).'" value="1" '.checked($checked,true,false).' '.$attrs.'> '.esc_html($label).'</label>'; }
-    private static function require_dataset_cap(): void { if(!current_user_can('edit_viswiz_datasets'))wp_die(esc_html__('Permission denied.','viswiz')); }
+    private static function require_dataset_cap(): void { if(!Permissions::can_create_dataset())wp_die(esc_html__('Permission denied.','viswiz')); }
 }

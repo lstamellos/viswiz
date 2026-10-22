@@ -1,6 +1,9 @@
 <?php
 namespace VisWiz\Admin;
 
+use VisWiz\Access\Permissions;
+use VisWiz\Access\EditorUi;
+
 use VisWiz\Database\DatasetCollectionRepository;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Domain\Registry;
@@ -74,6 +77,9 @@ final class DatasetEditorPage {
         if ( ! $dataset ) {
             wp_die( esc_html__( 'Dataset not found.', 'viswiz' ) );
         }
+        if ( ! Permissions::can_edit_dataset( $dataset_id ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'viswiz' ), '', array( 'response' => 403 ) );
+        }
         $revisions = $repo->revisions( $dataset_id );
         $collection_repo = new DatasetCollectionRepository();
         $orphan_count = 'graph' === $dataset['schema_type'] ? $collection_repo->graph_orphan_count( $dataset_id ) : 0;
@@ -84,6 +90,7 @@ final class DatasetEditorPage {
         ?>
         <div class="wrap viswiz-admin-wrap">
             <p><a href="<?php echo esc_url( admin_url( 'admin.php?page=viswiz-datasets' ) ); ?>">&larr; <?php esc_html_e( 'All datasets', 'viswiz' ); ?></a></p>
+            <?php EditorUi::dataset_form( $dataset_id, (int) $dataset['created_by'] ); ?>
             <h1><?php echo esc_html( $dataset['name'] ); ?> <small>r<?php echo esc_html( (string) $dataset['revision'] ); ?></small></h1>
             <div class="viswiz-admin-grid viswiz-dataset-detail-grid">
                 <main>
@@ -201,6 +208,9 @@ final class DatasetEditorPage {
         }
 
         $dataset_id = absint( $_POST['dataset_id'] ?? 0 );
+        if ( ! Permissions::can_edit_dataset( $dataset_id ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'viswiz' ) );
+        }
         check_admin_referer( 'viswiz_visualization_create_from_dataset_' . $dataset_id );
 
         $repo = new DatasetRepository();

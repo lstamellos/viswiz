@@ -34,7 +34,7 @@ final class UpdaterSettingsTest extends TestCase {
 
     public function test_obsolete_update_capability_is_removed_on_capability_upgrade(): void {
         $source = file_get_contents( dirname( __DIR__ ) . '/src/Plugin.php' );
-        self::assertStringContainsString( 'CAPABILITIES_VERSION = 2', $source );
+        self::assertStringContainsString( 'CAPABILITIES_VERSION = 3', $source );
         self::assertStringContainsString( "remove_cap( 'manage_viswiz_updates' )", $source );
         self::assertStringNotContainsString( "array( 'manage_viswiz_schema', 'manage_viswiz_settings', 'manage_viswiz_updates' )", $source );
     }
