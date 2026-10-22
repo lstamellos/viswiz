@@ -222,17 +222,40 @@
     });
   }
 
+
+  function createPlotCanvas(container, width, height, label) {
+    const canvas = el('canvas', { class: 'viswiz-svg', role: 'img', 'aria-label': label });
+    // Prevent high-DPI screens from allocating an unbounded backing store.
+    const scale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.scale(scale, scale);
+    container.appendChild(canvas);
+    return context;
+  }
+
   function renderScatter(container, spec) {
     const data = pointsForLine(spec);
     addHeader(container, spec);
     if (!data.length) return empty(container);
     const width = 800, height = 420, pad = 55;
-    const svg = svgFrame(container, width, height);
-    const xs = data.map((p) => p.x), ys = data.map((p) => p.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    data.forEach((p) => {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    });
+    const ctx = data.length > 1500 ? createPlotCanvas(container, width, height, __('Scatter plot', 'viswiz') + ' · ' + data.length) : null;
+    const svg = ctx ? null : svgFrame(container, width, height);
     const sx = (v) => pad + (v - minX) / (maxX - minX || 1) * (width - pad * 2);
     const sy = (v) => height - pad - (v - minY) / (maxY - minY || 1) * (height - pad * 2);
     data.forEach((p, i) => {
+      if (ctx) {
+        ctx.fillStyle = p.row.color || color(spec.settings, i);
+        ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), 4, 0, Math.PI * 2); ctx.fill();
+        return;
+      }
       const c = svgEl('circle', { cx: sx(p.x), cy: sy(p.y), r: 7, fill: p.row.color || color(spec.settings, i), tabindex: 0 });
       c.appendChild(svgEl('title', {}, `${p.row.label || ''}: ${p.x}, ${p.y}`));
       svg.appendChild(c);
@@ -285,14 +308,29 @@
     addHeader(container, spec);
     const data = rows(spec).filter((r) => Number.isFinite(Number(r.latitude)) && Number.isFinite(Number(r.longitude)));
     if (!data.length) return empty(container);
-    const width = 900, height = 450, svg = svgFrame(container, width, height);
-    svg.classList.add('viswiz-map-svg');
-    for (let lon = -120; lon <= 120; lon += 60) svg.appendChild(svgEl('line', { x1: (lon + 180) / 360 * width, x2: (lon + 180) / 360 * width, y1: 0, y2: height, class: 'viswiz-map-grid' }));
-    for (let lat = -60; lat <= 60; lat += 30) svg.appendChild(svgEl('line', { x1: 0, x2: width, y1: (90 - lat) / 180 * height, y2: (90 - lat) / 180 * height, class: 'viswiz-map-grid' }));
+    const width = 900, height = 450;
+    const ctx = data.length > 1500 ? createPlotCanvas(container, width, height, __('Map', 'viswiz') + ' · ' + data.length) : null;
+    const svg = ctx ? null : svgFrame(container, width, height);
+    if (svg) svg.classList.add('viswiz-map-svg');
+    for (let lon = -120; lon <= 120; lon += 60) {
+      const x = (lon + 180) / 360 * width;
+      if (ctx) { ctx.strokeStyle = '#d1d5db'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+      else svg.appendChild(svgEl('line', { x1: x, x2: x, y1: 0, y2: height, class: 'viswiz-map-grid' }));
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const y = (90 - lat) / 180 * height;
+      if (ctx) { ctx.strokeStyle = '#d1d5db'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+      else svg.appendChild(svgEl('line', { x1: 0, x2: width, y1: y, y2: y, class: 'viswiz-map-grid' }));
+    }
     data.forEach((row, i) => {
       const x = (Number(row.longitude) + 180) / 360 * width;
       const y = (90 - Number(row.latitude)) / 180 * height;
       const r = Math.max(5, Math.min(24, 5 + Math.sqrt(Math.abs(Number(row.value || 0)))));
+      if (ctx) {
+        ctx.fillStyle = row.color || color(spec.settings, i);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        return;
+      }
       const c = svgEl('circle', { cx: x, cy: y, r, fill: row.color || color(spec.settings, i), tabindex: 0, class: 'viswiz-map-marker' });
       c.appendChild(svgEl('title', {}, `${row.label || ''} ${formatNumber(row.value, spec)}`)); svg.appendChild(c);
     });
