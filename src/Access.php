@@ -8,12 +8,30 @@ final class Access {
     private const CREATOR_META = '_viswiz_created_by';
 
     public static function register(): void {
+        // Mirror baseline WordPress permissions for custom roles created after activation.
+        add_filter( 'user_has_cap', array( self::class, 'inherit_wordpress_caps' ), 10, 4 );
         add_filter( 'map_meta_cap', array( self::class, 'map_visualization_edit' ), 10, 4 );
         add_action( 'wp_after_insert_post', array( self::class, 'remember_creator' ), 10, 2 );
         add_filter( 'posts_where', array( self::class, 'restrict_visualization_list' ), 10, 2 );
         add_action( 'admin_post_viswiz_dataset_access', array( self::class, 'save_dataset_access' ) );
         add_action( 'add_meta_boxes_viswiz_visualization', array( self::class, 'add_visualization_box' ), 30 );
         add_action( 'save_post_viswiz_visualization', array( self::class, 'save_visualization_access' ), 30, 2 );
+    }
+
+    public static function inherit_wordpress_caps( array $allcaps ): array {
+        if ( ! empty( $allcaps['edit_posts'] ) ) {
+            $allcaps['edit_viswiz_datasets']       = true;
+            $allcaps['edit_viswiz_visualizations'] = true;
+            $allcaps['read_viswiz_visualization']  = true;
+            if ( ! empty( $allcaps['publish_posts'] ) ) {
+                $allcaps['publish_viswiz_visualizations'] = true;
+                $allcaps['edit_published_viswiz_visualizations'] = true;
+            }
+            if ( ! empty( $allcaps['delete_posts'] ) ) {
+                $allcaps['delete_viswiz_visualizations'] = true;
+            }
+        }
+        return $allcaps;
     }
 
     public static function is_manager( int $user_id = 0 ): bool {
