@@ -175,23 +175,47 @@
     })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   }
 
+
+  // Min/max sampling retains spikes while avoiding a huge SVG path and 50k circles.
+  function reduceLinePoints(points, maxBuckets = 900) {
+    if (points.length <= maxBuckets * 2) return points;
+    const result = [points[0]];
+    const size = Math.ceil((points.length - 2) / maxBuckets);
+    for (let i = 1; i < points.length - 1; i += size) {
+      const end = Math.min(points.length - 1, i + size);
+      let low = i, high = i;
+      for (let j = i + 1; j < end; j++) {
+        if (points[j].y < points[low].y) low = j;
+        if (points[j].y > points[high].y) high = j;
+      }
+      result.push(points[Math.min(low, high)]);
+      if (low !== high) result.push(points[Math.max(low, high)]);
+    }
+    result.push(points[points.length - 1]);
+    return result;
+  }
+
   function renderLine(container, spec, area = false) {
     const data = pointsForLine(spec);
     addHeader(container, spec);
     if (!data.length) return empty(container);
     const width = 800, height = 420, pad = 55;
     const svg = svgFrame(container, width, height);
-    const xs = data.map((p) => p.x), ys = data.map((p) => p.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(0, ...ys), maxY = Math.max(1, ...ys);
+    let minX = Infinity, maxX = -Infinity, minY = 0, maxY = 1;
+    data.forEach((p) => {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    });
+    const samples = reduceLinePoints(data);
     const sx = (v) => pad + (v - minX) / (maxX - minX || 1) * (width - pad * 2);
     const sy = (v) => height - pad - (v - minY) / (maxY - minY || 1) * (height - pad * 2);
-    const path = data.map((p, i) => `${i ? 'L' : 'M'} ${sx(p.x)} ${sy(p.y)}`).join(' ');
+    const path = samples.map((p, i) => `${i ? 'L' : 'M'} ${sx(p.x)} ${sy(p.y)}`).join(' ');
     if (area) {
       const d = `${path} L ${sx(data[data.length - 1].x)} ${sy(minY)} L ${sx(data[0].x)} ${sy(minY)} Z`;
       svg.appendChild(svgEl('path', { d, fill: color(spec.settings, 0), opacity: 0.18 }));
     }
     svg.appendChild(svgEl('path', { d: path, fill: 'none', stroke: color(spec.settings, 0), 'stroke-width': 3 }));
-    data.forEach((p, i) => {
+    if (data.length <= 1500) data.forEach((p, i) => {
       const circle = svgEl('circle', { cx: sx(p.x), cy: sy(p.y), r: 5, fill: p.row.color || color(spec.settings, i) });
       circle.appendChild(svgEl('title', {}, `${p.row.label || p.row.x_value || i}: ${formatNumber(p.y, spec)}`));
       svg.appendChild(circle);
