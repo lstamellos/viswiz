@@ -528,7 +528,7 @@
       nodes.forEach((node, i) => {
         const pos = layout.get(node.uuid); if (!pos) return;
         const attrs = {
-          class: compact ? 'viswiz-graph-node is-compact' : 'viswiz-graph-node',
+          class: 'viswiz-graph-node',
           tabindex: 0, role: 'button',
           'data-viswiz-node-uuid': node.uuid,
           'data-viswiz-node-type': node.node_type || '',
@@ -536,7 +536,7 @@
           'aria-label': `${__('View node', 'viswiz')}: ${node.title || node.label || __('Node', 'viswiz')}`,
         };
         const g = compact
-          ? svgEl('circle', { ...attrs, cx: pos.x, cy: pos.y, r: 10, fill: node.meta?.color || color(spec.settings, i) })
+          ? svgEl('circle', { ...attrs, class: 'viswiz-graph-node is-compact', cx: pos.x, cy: pos.y, r: 10, fill: node.meta?.color || color(spec.settings, i) })
           : svgEl('g', { ...attrs, transform: `translate(${pos.x},${pos.y})` });
         if (!compact) {
           g.appendChild(svgEl('rect', { x: -76, y: -35, width: 152, height: 70, rx: 14, fill: node.meta?.color || color(spec.settings, i), opacity: 0.96 }));
