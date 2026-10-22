@@ -133,6 +133,26 @@ function viswiz_perf_request( int $dataset, string $collection, array $args, int
     );
 }
 
+function viswiz_perf_node_options( int $dataset, int $size ): array {
+    $times = array();
+    $bytes = 0;
+    for ( $sample = 0; $sample < 3; $sample++ ) {
+        $request = new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $dataset . '/nodes/options' );
+        $request->set_param( 'search', 'Benchmark Node ' . $size );
+        $request->set_param( 'per_page', 20 );
+        $start = hrtime( true );
+        $response = rest_do_request( $request );
+        $times[] = round( ( hrtime( true ) - $start ) / 1000000, 2 );
+        viswiz_perf_assert( 200 === $response->get_status(), 'Node options failed.' );
+        $items = $response->get_data();
+        viswiz_perf_assert( is_array( $items ) && 1 === count( $items ), 'Node options search returned incorrect count.' );
+        viswiz_perf_assert( count( $items ) <= 20, 'Node options exceeded per-page cap.' );
+        $bytes = strlen( wp_json_encode( $items ) );
+    }
+    sort( $times, SORT_NUMERIC );
+    return array( 'operation' => 'node_options', 'p50_ms' => $times[1], 'max_ms' => $times[2], 'response_bytes' => $bytes, 'items' => 1 );
+}
+
 function viswiz_perf_admin_page( int $dataset ): array {
     $old_get = $_GET;
     $_GET['page'] = 'viswiz-datasets';
@@ -181,12 +201,10 @@ foreach ( array( 100, 500, 1000, 5000 ) as $size ) {
         'node_search' => viswiz_perf_request( $dataset, 'nodes', array( 'page' => 1, 'per_page' => 100, 'search' => 'Benchmark Node ' . $size ), 1, 100 ),
         'relations' => viswiz_perf_request( $dataset, 'relations', array( 'page' => 1, 'per_page' => 100 ), (int) floor( $size * 1.5 ), 100 ),
         'relation_search' => viswiz_perf_request( $dataset, 'relations', array( 'page' => 1, 'per_page' => 100, 'search' => 'Connects ' . $size ), $size >= 2 ? 1 : 0, 100 ),
-        'options' => viswiz_perf_request( $dataset, 'nodes/options', array( 'per_page' => 20, 'search' => 'Benchmark Node ' . $size ), 0, 20 ),
+        'options' => viswiz_perf_node_options( $dataset, $size ),
         'admin' => viswiz_perf_admin_page( $dataset ),
     );
 }
 
-// The node/options endpoint returns a bounded array but not a total-count header;
-// it is intentionally validated separately in the main CI suite.
 echo 'VISWIZ_ADMIN_PERFORMANCE_RESULTS=' . wp_json_encode( $results ) . PHP_EOL;
 echo "VisWiz admin scale benchmark passed.\n";
