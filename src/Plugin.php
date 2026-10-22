@@ -3,6 +3,7 @@ namespace VisWiz;
 
 use VisWiz\Admin\Admin;
 use VisWiz\Access\Permissions;
+use VisWiz\Access\EditorUi;
 use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\DiagnosticsPage;
 use VisWiz\Admin\ImportUi;
@@ -45,6 +46,7 @@ final class Plugin {
         add_action( 'admin_init', array( self::class, 'maybe_upgrade_capabilities' ), 6 );
 
         Permissions::register();
+        EditorUi::register();
         Admin::register();
         DiagnosticsPage::register();
         DatasetEditorPage::register();
