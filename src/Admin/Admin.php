@@ -116,7 +116,7 @@ final class Admin {
         $settings   = Frontend::sanitize_settings( get_post_meta( $post->ID, '_viswiz_settings', true ) );
         $woo        = Support::json_decode_array( get_post_meta( $post->ID, '_viswiz_woo_config', true ) );
         $repo       = new DatasetRepository();
-        $datasets   = $repo->list_with_counts( array( 'limit' => 200 ) );
+        $datasets   = array_values( array_filter( $repo->list_with_counts( array( 'limit' => 200 ) ), static fn( array $item ): bool => Permissions::can_edit_dataset( (int) $item['id'] ) ) );
         $error      = (string) get_post_meta( $post->ID, '_viswiz_last_validation_error', true );
         delete_post_meta( $post->ID, '_viswiz_last_validation_error' );
         if ( $error ) {
@@ -265,6 +265,7 @@ final class Admin {
         $paged  = max( 1, absint( $_GET['paged'] ?? 1 ) );
         $limit  = 30;
         $items  = $repo->list_with_counts( array( 'search' => $search, 'schema_type' => $schema, 'limit' => $limit, 'offset' => ( $paged - 1 ) * $limit ) );
+        $items  = array_values( array_filter( $items, static fn( array $item ): bool => Permissions::can_edit_dataset( (int) $item['id'] ) ) );
         $total  = $repo->count( array( 'search' => $search, 'schema_type' => $schema ) );
         ?>
         <div class="wrap viswiz-admin-wrap">
