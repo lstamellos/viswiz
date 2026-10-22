@@ -2,6 +2,7 @@
 namespace VisWiz;
 
 use VisWiz\Admin\Admin;
+use VisWiz\Access;
 use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\DiagnosticsPage;
 use VisWiz\Admin\ImportUi;
@@ -21,7 +22,7 @@ use VisWiz\Update\GitHubUpdater;
 use VisWiz\WooCommerce\Compatibility;
 
 final class Plugin {
-    private const CAPABILITIES_VERSION = 2;
+    private const CAPABILITIES_VERSION = 3;
 
     public static function register(): void {
         register_activation_hook( VISWIZ_FILE, array( self::class, 'activate' ) );
@@ -43,6 +44,7 @@ final class Plugin {
         add_action( 'admin_init', array( Migrator::class, 'maybe_upgrade' ), 5 );
         add_action( 'admin_init', array( self::class, 'maybe_upgrade_capabilities' ), 6 );
 
+        Access::register();
         Admin::register();
         DiagnosticsPage::register();
         DatasetEditorPage::register();
@@ -125,6 +127,25 @@ final class Plugin {
             'edit_published_viswiz_visualizations',
             'edit_viswiz_datasets',
         );
+
+        // Every WordPress role that may create posts can create VisWiz items.
+        // Publishing/other-author privileges continue to follow core role capabilities.
+        foreach ( wp_roles()->roles as $role_name => $definition ) {
+            $role = get_role( $role_name );
+            if ( ! $role || ! $role->has_cap( 'edit_posts' ) ) {
+                continue;
+            }
+            foreach ( array( 'edit_viswiz_visualizations', 'edit_viswiz_datasets', 'read_viswiz_visualization' ) as $cap ) {
+                $role->add_cap( $cap );
+            }
+            if ( $role->has_cap( 'publish_posts' ) ) {
+                $role->add_cap( 'publish_viswiz_visualizations' );
+                $role->add_cap( 'edit_published_viswiz_visualizations' );
+            }
+            if ( $role->has_cap( 'delete_posts' ) ) {
+                $role->add_cap( 'delete_viswiz_visualizations' );
+            }
+        }
 
         foreach ( array( 'administrator', 'editor' ) as $role_name ) {
             $role = get_role( $role_name );
