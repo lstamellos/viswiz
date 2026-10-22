@@ -4,8 +4,6 @@ use VisWiz\Access;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Rest\Api;
 use VisWiz\Rest\DatasetEditorApi;
-use VisWiz\Rest\SpreadsheetEditorApi;
-use VisWiz\Rest\VisualizationPreviewApi;
 
 function viswiz_access_assert( bool $ok, string $message ): void {
     if ( ! $ok ) {
@@ -13,6 +11,7 @@ function viswiz_access_assert( bool $ok, string $message ): void {
     }
 }
 
+require_once ABSPATH . 'wp-admin/includes/user.php';
 global $wpdb;
 $administrator = get_users( array( 'role' => 'administrator', 'number' => 1 ) )[0];
 $original_user = get_current_user_id();
@@ -48,7 +47,9 @@ try {
     viswiz_access_assert( current_user_can( 'edit_viswiz_visualizations' ), 'Contributor lacks visualization creation right' );
     viswiz_access_assert( ! Access::can_edit_dataset( $dataset_id ), 'Unassigned contributor can edit dataset' );
     viswiz_access_assert( ! current_user_can( 'edit_post', $post_id ), 'Unassigned contributor can edit visualization' );
-    viswiz_access_assert( ! Api::can_edit_datasets( new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $dataset_id ) ), 'Dataset REST permission bypass' );
+    $rest = new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $dataset_id );
+    $rest->set_param( 'id', $dataset_id );
+    viswiz_access_assert( ! Api::can_edit_datasets( $rest ), 'Dataset REST permission bypass' );
 
     $wpdb->insert( \VisWiz\Support::table( 'dataset_editors' ), array( 'dataset_id' => $dataset_id, 'user_id' => $ids['contributor'] ), array( '%d', '%d' ) );
     add_post_meta( $post_id, '_viswiz_editor_access', $ids['contributor'] );
@@ -56,7 +57,7 @@ try {
     viswiz_access_assert( current_user_can( 'edit_post', $post_id ), 'Visualization ACL editor cannot edit' );
     viswiz_access_assert( ! Access::can_manage_dataset( $dataset_id ), 'ACL editor can alter dataset sharing' );
     viswiz_access_assert( ! Access::can_manage_visualization( $post_id ), 'ACL editor can alter visualization sharing' );
-    viswiz_access_assert( DatasetEditorApi::can_edit_datasets( new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $dataset_id ) ), 'Dataset collection denied to ACL editor' );
+    viswiz_access_assert( DatasetEditorApi::can_edit_datasets( $rest ), 'Dataset collection denied to ACL editor' );
     $rest = new WP_REST_Request( 'POST', '/viswiz/v2/datasets/' . $dataset_id . '/editor/rows/batch' );
     $rest->set_param( 'id', $dataset_id );
     viswiz_access_assert( Access::can_edit_dataset( $dataset_id ), 'Batch edit intended access missing' );
