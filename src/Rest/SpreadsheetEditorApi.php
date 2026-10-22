@@ -1,6 +1,7 @@
 <?php
 namespace VisWiz\Rest;
 
+use VisWiz\Access;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Database\RowBatchRepository;
 use VisWiz\Domain\RowSchema;
@@ -20,7 +21,7 @@ final class SpreadsheetEditorApi {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array( self::class, 'save' ),
-                'permission_callback' => static fn(): bool => current_user_can( 'edit_viswiz_datasets' ),
+                'permission_callback' => static fn( WP_REST_Request $request ): bool => Access::can_edit_dataset( absint( $request['id'] ) ),
                 'args'                => array(
                     'id' => array( 'sanitize_callback' => 'absint' ),
                 ),

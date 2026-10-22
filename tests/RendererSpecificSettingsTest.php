@@ -57,6 +57,6 @@ final class RendererSpecificSettingsTest extends TestCase {
 
     public function test_settings_release_does_not_require_a_database_schema_change(): void {
         $plugin = file_get_contents( $this->root . '/viswiz.php' );
-        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20000 );", $plugin );
+        self::assertStringContainsString( "define( 'VISWIZ_DB_VERSION', 20001 );", $plugin );
     }
 }

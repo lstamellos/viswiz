@@ -32,6 +32,7 @@ final class Migrator {
         $nodes     = Support::table( 'nodes' );
         $edges     = Support::table( 'edges' );
         $revisions = Support::table( 'dataset_revisions' );
+        $editors   = Support::table( 'dataset_editors' );
 
         dbDelta(
             "CREATE TABLE {$datasets} (
@@ -44,14 +45,28 @@ final class Migrator {
                 revision bigint(20) unsigned NOT NULL DEFAULT 1,
                 settings longtext NULL,
                 created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+                owner_id bigint(20) unsigned NOT NULL DEFAULT 0,
                 created_at datetime NOT NULL,
                 updated_at datetime NOT NULL,
                 PRIMARY KEY  (id),
                 UNIQUE KEY uuid (uuid),
                 KEY schema_type (schema_type),
-                KEY source_type (source_type)
+                KEY source_type (source_type),
+                KEY owner_id (owner_id)
             ) {$charset};"
         );
+
+        dbDelta(
+            "CREATE TABLE {$editors} (
+                dataset_id bigint(20) unsigned NOT NULL,
+                user_id bigint(20) unsigned NOT NULL,
+                PRIMARY KEY  (dataset_id,user_id),
+                KEY user_id (user_id)
+            ) {$charset};"
+        );
+
+        // Keep the original creator immutable; transfer affects owner_id only.
+        $wpdb->query( "UPDATE {$datasets} SET owner_id=created_by WHERE owner_id=0 AND created_by<>0" );
 
         dbDelta(
             "CREATE TABLE {$rows} (

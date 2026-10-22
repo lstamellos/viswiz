@@ -1,6 +1,7 @@
 <?php
 namespace VisWiz\Admin;
 
+use VisWiz\Access;
 use VisWiz\Database\DatasetCollectionRepository;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Domain\Registry;
@@ -74,6 +75,9 @@ final class DatasetEditorPage {
         if ( ! $dataset ) {
             wp_die( esc_html__( 'Dataset not found.', 'viswiz' ) );
         }
+        if ( ! Access::can_edit_dataset( $dataset_id ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'viswiz' ), '', array( 'response' => 403 ) );
+        }
         $revisions = $repo->revisions( $dataset_id );
         $collection_repo = new DatasetCollectionRepository();
         $orphan_count = 'graph' === $dataset['schema_type'] ? $collection_repo->graph_orphan_count( $dataset_id ) : 0;
@@ -122,6 +126,7 @@ final class DatasetEditorPage {
                     </section>
                 </main>
                 <aside>
+                    <?php Access::dataset_box( $dataset ); ?>
                     <section class="viswiz-card">
                         <h2><?php esc_html_e( 'Integrity', 'viswiz' ); ?></h2>
                         <?php if ( 'graph' === $dataset['schema_type'] ) : ?>
@@ -187,7 +192,7 @@ final class DatasetEditorPage {
                     <section class="viswiz-card viswiz-danger-zone">
                         <h2><?php esc_html_e( 'Dataset actions', 'viswiz' ); ?></h2>
                         <p><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_duplicate&dataset_id=' . $dataset_id ), 'viswiz_dataset_duplicate_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Duplicate', 'viswiz' ); ?></a></p>
-                        <p><a class="button button-link-delete" data-viswiz-confirm href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_delete&dataset_id=' . $dataset_id ), 'viswiz_dataset_delete_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Delete dataset', 'viswiz' ); ?></a></p>
+                        <?php if ( Access::can_manage_dataset( $dataset_id ) ) : ?><p><a class="button button-link-delete" data-viswiz-confirm href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_delete&dataset_id=' . $dataset_id ), 'viswiz_dataset_delete_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Delete dataset', 'viswiz' ); ?></a></p><?php endif; ?>
                     </section>
                 </aside>
             </div>
@@ -207,6 +212,9 @@ final class DatasetEditorPage {
         $dataset = $repo->get( $dataset_id );
         if ( ! $dataset ) {
             wp_die( esc_html__( 'Dataset not found.', 'viswiz' ) );
+        }
+        if ( ! Access::can_edit_dataset( $dataset_id ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'viswiz' ), '', array( 'response' => 403 ) );
         }
 
         $renderer = sanitize_key( wp_unslash( $_POST['renderer'] ?? '' ) );
