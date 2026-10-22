@@ -33,8 +33,8 @@ test('initial graph view contains every node and adapts to graph size', async ({
       const nodesEls = [...host.querySelectorAll('.viswiz-graph-node')];
       const positions = nodesEls.map((element) => {
         if (compact) return { x: Number(element.getAttribute('cx')), y: Number(element.getAttribute('cy')) };
-        const match = /translate\\(([-\\d.]+),([-\\d.]+)\\)/.exec(element.getAttribute('transform') || '');
-        return { x: Number(match?.[1]), y: Number(match?.[2]) };
+        const coords = (element.getAttribute('transform') || '').replace('translate(', '').replace(')', '').split(',');
+        return { x: Number(coords[0]), y: Number(coords[1]) };
       });
       const margin = compact ? 10 : 105;
       const contained = positions.every(({ x, y }) => (
