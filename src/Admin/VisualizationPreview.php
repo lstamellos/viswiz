@@ -104,7 +104,7 @@ final class VisualizationPreview {
         }
 
         $requested_source = sanitize_key( (string) wp_unslash( $_POST['viswiz_source_type'] ?? get_post_meta( $post_id, '_viswiz_source_type', true ) ) );
-        $source = 'woo_live' === $requested_source && Registry::renderer_supports_woo_live( $renderer ) ? 'woo_live' : 'dataset';
+        $source = 'woo_live' === $requested_source && Registry::renderer_supports_woo_live( $renderer ) && current_user_can( 'manage_woocommerce' ) ? 'woo_live' : 'dataset';
         update_post_meta( $post_id, '_viswiz_source_type', $source );
         if ( 'woo_live' === $source ) {
             update_post_meta( $post_id, '_viswiz_dataset_id', 0 );
