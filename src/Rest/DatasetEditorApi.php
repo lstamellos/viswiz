@@ -1,6 +1,8 @@
 <?php
 namespace VisWiz\Rest;
 
+use VisWiz\Access\Permissions;
+
 use VisWiz\Database\DatasetCollectionRepository;
 use VisWiz\Database\DatasetRepository;
 use VisWiz\Domain\RowSchema;
@@ -62,8 +64,8 @@ final class DatasetEditorApi {
         self::register_write_routes();
     }
 
-    public static function can_edit_datasets(): bool {
-        return current_user_can( 'edit_viswiz_datasets' );
+    public static function can_edit_datasets( WP_REST_Request $request ): bool {
+        return Permissions::can_edit_dataset( absint( $request['id'] ?? $request['dataset_id'] ?? 0 ) );
     }
 
     public static function rows( WP_REST_Request $request ) {
