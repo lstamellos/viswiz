@@ -26,7 +26,8 @@ final class VisualizationPreviewTest extends TestCase {
 
         self::assertStringContainsString( 'VisualizationPreviewApi::register();', $plugin );
         self::assertStringContainsString( "'/visualizations/preview'", $api );
-        self::assertStringContainsString( "current_user_can( 'edit_viswiz_visualizations' )", $api );
+        self::assertStringContainsString( "Permissions::can_create_visualization()", $api );
+        self::assertStringContainsString( 'Permissions::can_edit_dataset', $api );
         self::assertStringContainsString( 'Frontend::preview_payload', $api );
     }
 
