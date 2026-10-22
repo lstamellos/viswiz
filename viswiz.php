@@ -2,7 +2,7 @@
 /**
  * Plugin Name: VisWiz WooCommerce Visualizer
  * Description: Dataset-first charts, progress visualizations and investigative node graphs for WordPress and WooCommerce.
- * Version: 2.0.43
+ * Version: 2.0.44
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: cremedia.studio
@@ -15,8 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'VISWIZ_VERSION', '2.0.43' );
-define( 'VISWIZ_DB_VERSION', 20000 );
+define( 'VISWIZ_VERSION', '2.0.44' );
+define( 'VISWIZ_DB_VERSION', 20001 );
 define( 'VISWIZ_FILE', __FILE__ );
 define( 'VISWIZ_DIR', plugin_dir_path( __FILE__ ) );
 define( 'VISWIZ_URL', plugin_dir_url( __FILE__ ) );
