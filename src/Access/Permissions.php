@@ -16,6 +16,16 @@ final class Permissions {
     public static function register(): void {
         add_filter( 'map_meta_cap', array( self::class, 'map_visualization_cap' ), 20, 4 );
         add_action( 'pre_get_posts', array( self::class, 'filter_admin_visualization_list' ) );
+        add_filter( 'user_has_cap', array( self::class, 'inherit_post_creation_caps' ), 10, 1 );
+    }
+
+    /** Any WordPress role allowed to create posts may also create VisWiz objects. */
+    public static function inherit_post_creation_caps( array $caps ): array {
+        if ( ! empty( $caps['edit_posts'] ) ) {
+            $caps['edit_viswiz_visualizations'] = true;
+            $caps['edit_viswiz_datasets'] = true;
+        }
+        return $caps;
     }
 
     public static function manager( int $user_id ): bool {
