@@ -165,6 +165,9 @@ final class Api {
         );
         $items = array();
         foreach ( $posts as $post ) {
+            if ( ! Permissions::can_edit_visualization( (int) $post->ID ) ) {
+                continue;
+            }
             $items[] = array(
                 'id'        => $post->ID,
                 'title'     => get_the_title( $post ),
