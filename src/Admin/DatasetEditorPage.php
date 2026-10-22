@@ -208,6 +208,9 @@ final class DatasetEditorPage {
         }
 
         $dataset_id = absint( $_POST['dataset_id'] ?? 0 );
+        if ( ! Permissions::can_edit_dataset( $dataset_id ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'viswiz' ) );
+        }
         check_admin_referer( 'viswiz_visualization_create_from_dataset_' . $dataset_id );
 
         $repo = new DatasetRepository();
