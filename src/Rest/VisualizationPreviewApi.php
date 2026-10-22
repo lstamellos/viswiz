@@ -28,7 +28,7 @@ final class VisualizationPreviewApi {
                         return false;
                     }
                     if ( 'dataset' !== sanitize_key( (string) ( $config['source_type'] ?? 'dataset' ) ) ) {
-                        return true;
+                        return current_user_can( 'manage_woocommerce' );
                     }
                     $id = absint( $config['dataset_id'] ?? 0 );
                     // An assigned visualization editor may preview its existing data source,
