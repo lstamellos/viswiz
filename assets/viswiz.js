@@ -39,7 +39,7 @@
     return node;
   }
 
-  function color(settings, index = 0) {
+  function color(settings = {}, index = 0) {
     if (index === 0 && settings.primary_color) return settings.primary_color;
     if (index === 1 && settings.secondary_color) return settings.secondary_color;
     return DEFAULT_COLORS[index % DEFAULT_COLORS.length];
@@ -77,7 +77,36 @@
     return Array.isArray(spec.data?.rows) ? spec.data.rows : [];
   }
 
+
+  // Mount a bounded number of row cards or categories at any one time.
+  function renderRowPages(container, spec, pageSize, renderPage) {
+    const all = rows(spec);
+    if (all.length <= pageSize) return false;
+    const surface = el('div', { class: 'viswiz-rows-page' });
+    const controls = el('nav', { class: 'viswiz-rows-pagination', 'aria-label': __('Visualization pages', 'viswiz') });
+    const previous = el('button', { type: 'button' }, __('Previous', 'viswiz'));
+    const range = el('span', { 'aria-live': 'polite' });
+    const next = el('button', { type: 'button' }, __('Next', 'viswiz'));
+    let page = 0;
+    const display = () => {
+      const start = page * pageSize;
+      const slice = all.slice(start, start + pageSize);
+      surface.replaceChildren();
+      renderPage(surface, { ...spec, data: { ...spec.data, rows: slice } });
+      range.textContent = String(start + 1) + '–' + String(start + slice.length) + ' / ' + String(all.length);
+      previous.disabled = page === 0;
+      next.disabled = start + slice.length >= all.length;
+    };
+    previous.addEventListener('click', () => { if (page > 0) { page--; display(); } });
+    next.addEventListener('click', () => { if ((page + 1) * pageSize < all.length) { page++; display(); } });
+    controls.append(previous, range, next);
+    container.append(surface, controls);
+    display();
+    return true;
+  }
+
   function renderPie(container, spec) {
+    if (renderRowPages(container, spec, 200, renderPie)) return;
     const data = rows(spec).filter((row) => Number(row.value) > 0);
     addHeader(container, spec);
     if (!data.length) return empty(container);
@@ -111,6 +140,7 @@
   }
 
   function renderBars(container, spec, vertical = false) {
+    if (renderRowPages(container, spec, vertical ? 120 : 80, (host, page) => renderBars(host, page, vertical))) return;
     const data = rows(spec);
     addHeader(container, spec);
     if (!data.length) return empty(container);
@@ -186,6 +216,7 @@
   }
 
   function renderCounter(container, spec) {
+    if (renderRowPages(container, spec, 150, renderCounter)) return;
     addHeader(container, spec);
     const grid = el('div', { class: 'viswiz-counter-grid' });
     rows(spec).forEach((row, index) => {
@@ -198,6 +229,7 @@
   }
 
   function renderTimeline(container, spec) {
+    if (renderRowPages(container, spec, 150, renderTimeline)) return;
     addHeader(container, spec);
     const list = el('ol', { class: 'viswiz-timeline' });
     rows(spec).forEach((row) => {
@@ -210,6 +242,7 @@
   }
 
   function renderProgress(container, spec) {
+    if (renderRowPages(container, spec, 150, renderProgress)) return;
     addHeader(container, spec);
     const targetDefault = Number(spec.settings?.target || 0);
     rows(spec).forEach((row) => {
@@ -242,6 +275,7 @@
   }
 
   function renderDiagram(container, spec) {
+    if (renderRowPages(container, spec, 150, renderDiagram)) return;
     addHeader(container, spec);
     const grid = el('div', { class: 'viswiz-diagram-grid' });
     rows(spec).forEach((row, i) => {
