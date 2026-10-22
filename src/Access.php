@@ -140,11 +140,6 @@ final class Access {
         return $user ? (string) $user->user_login : '#' . $uid;
     }
 
-    private static function resolve_user( string $login ): int {
-        $user = get_user_by( 'login', trim( $login ) );
-        return $user && self::can_work( (int) $user->ID, 'edit_viswiz_datasets' ) ? (int) $user->ID : 0;
-    }
-
     private static function require_target( string $login, string $cap ) {
         $user = get_user_by( 'login', trim( $login ) );
         if ( ! $user || ! self::can_work( (int) $user->ID, $cap ) ) {
@@ -185,7 +180,15 @@ final class Access {
         check_admin_referer( 'viswiz_dataset_access_' . $id );
         $operation = sanitize_key( wp_unslash( $_POST['operation'] ?? '' ) );
         $username = sanitize_user( wp_unslash( $_POST['username'] ?? '' ) );
-        $uid = self::require_target( $username, 'edit_viswiz_datasets' );
+        if ( 'remove' === $operation ) {
+            $user = get_user_by( 'login', $username );
+            if ( ! $user ) {
+                wp_die( esc_html__( 'WordPress user not found.', 'viswiz' ), '', array( 'response' => 400 ) );
+            }
+            $uid = (int) $user->ID;
+        } else {
+            $uid = self::require_target( $username, 'edit_viswiz_datasets' );
+        }
         global $wpdb;
         $table = Support::table( 'dataset_editors' );
         if ( 'add' === $operation ) {
@@ -235,7 +238,15 @@ final class Access {
             if ( '' === $login ) {
                 continue;
             }
-            $uid = self::require_target( $login, 'edit_viswiz_visualizations' );
+            if ( 'remove' === $operation ) {
+                $user = get_user_by( 'login', $login );
+                if ( ! $user ) {
+                    wp_die( esc_html__( 'WordPress user not found.', 'viswiz' ), '', array( 'response' => 400 ) );
+                }
+                $uid = (int) $user->ID;
+            } else {
+                $uid = self::require_target( $login, 'edit_viswiz_visualizations' );
+            }
             if ( 'add' === $operation ) {
                 if ( ! in_array( $uid, array_map( 'intval', get_post_meta( $post_id, self::EDITOR_META, false ) ), true ) ) {
                     add_post_meta( $post_id, self::EDITOR_META, $uid );
