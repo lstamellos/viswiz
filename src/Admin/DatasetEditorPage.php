@@ -192,7 +192,7 @@ final class DatasetEditorPage {
                     <section class="viswiz-card viswiz-danger-zone">
                         <h2><?php esc_html_e( 'Dataset actions', 'viswiz' ); ?></h2>
                         <p><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_duplicate&dataset_id=' . $dataset_id ), 'viswiz_dataset_duplicate_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Duplicate', 'viswiz' ); ?></a></p>
-                        <p><a class="button button-link-delete" data-viswiz-confirm href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_delete&dataset_id=' . $dataset_id ), 'viswiz_dataset_delete_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Delete dataset', 'viswiz' ); ?></a></p>
+                        <?php if ( Access::can_manage_dataset( $dataset_id ) ) : ?><p><a class="button button-link-delete" data-viswiz-confirm href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=viswiz_dataset_delete&dataset_id=' . $dataset_id ), 'viswiz_dataset_delete_' . $dataset_id ) ); ?>"><?php esc_html_e( 'Delete dataset', 'viswiz' ); ?></a></p><?php endif; ?>
                     </section>
                 </aside>
             </div>
