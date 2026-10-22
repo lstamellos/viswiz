@@ -18,7 +18,7 @@ final class ImportWorkflowTest extends TestCase {
         $api = file_get_contents( $this->root . '/src/Rest/ImportApi.php' );
         $this->assertStringContainsString( "/datasets/(?P<id>\\d+)/import/preview", $api );
         $this->assertStringContainsString( "/datasets/(?P<id>\\d+)/import'", $api );
-        $this->assertStringContainsString( "current_user_can( 'edit_viswiz_datasets' )", $api );
+        $this->assertStringContainsString( "Access::can_edit_dataset( absint( $request['id'] ) )", $api );
         $this->assertStringContainsString( 'expected_revision', $api );
         $this->assertStringContainsString( 'ImportGuard::validate', $api );
     }
