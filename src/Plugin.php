@@ -69,7 +69,22 @@ final class Plugin {
             return;
         }
         self::grant_capabilities();
+        self::backfill_visualization_creators();
         update_option( 'viswiz_capabilities_version', self::CAPABILITIES_VERSION, false );
+    }
+
+    private static function backfill_visualization_creators(): void {
+        global $wpdb;
+        // Capture the original post author before any transfer of ownership.
+        $rows = $wpdb->get_results(
+            "SELECT p.ID,p.post_author FROM {$wpdb->posts} p
+             LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id=p.ID AND pm.meta_key='_viswiz_created_by'
+             WHERE p.post_type='viswiz_visualization' AND pm.meta_id IS NULL",
+            ARRAY_A
+        );
+        foreach ( $rows ?: array() as $row ) {
+            add_post_meta( (int) $row['ID'], '_viswiz_created_by', (int) $row['post_author'], true );
+        }
     }
 
     public static function register_post_type(): void {
