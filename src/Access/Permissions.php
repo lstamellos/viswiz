@@ -125,7 +125,7 @@ final class Permissions {
             return false;
         }
         update_post_meta( $id, self::VISUALIZATION_ACL_KEY, $editors );
-        if ( $owner && self::can_create_visualization( $owner ) ) {
+        if ( $owner && (int) get_post_field( 'post_author', $id ) !== $owner ) {
             wp_update_post( array( 'ID' => $id, 'post_author' => $owner ) );
         }
         return true;
