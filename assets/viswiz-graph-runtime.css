@@ -67,3 +67,5 @@
 
 /* Dense overviews stay keyboard selectable without expensive node-card DOM. */
 .viswiz-graph-node.is-compact:hover,.viswiz-graph-node.is-compact:focus{stroke:#111827;stroke-width:3;outline:none}
+
+.is-viswiz-compact .viswiz-graph-node{transition:none}
