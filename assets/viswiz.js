@@ -253,47 +253,69 @@
     container.appendChild(grid);
   }
 
-  function graphLayout(nodes, relations, renderer, width, height) {
+  // Keep a real spatial footprint for every node: the opening view can then fit
+  // the entire graph instead of squeezing increasingly many cards into 1000px.
+  function graphLayout(nodes, relations, renderer, compact) {
     const result = new Map();
     if (!nodes.length) return result;
+    const stepX = compact ? 38 : 250;
+    const stepY = compact ? 36 : 190;
     if (renderer === 'org_chart' || renderer === 'flow_diagram') {
-      const incoming = new Map(nodes.map((n) => [n.uuid, 0]));
-      const outgoing = new Map(nodes.map((n) => [n.uuid, []]));
-      relations.forEach((r) => {
-        if (incoming.has(r.to_node_uuid) && outgoing.has(r.from_node_uuid)) {
-          incoming.set(r.to_node_uuid, incoming.get(r.to_node_uuid) + 1);
-          outgoing.get(r.from_node_uuid).push(r.to_node_uuid);
-        }
+      // Kahn traversal is linear in nodes + edges and terminates on cyclic data.
+      const incoming = new Map(nodes.map((node) => [node.uuid, 0]));
+      const outgoing = new Map(nodes.map((node) => [node.uuid, []]));
+      relations.forEach((rel) => {
+        if (!incoming.has(rel.to_node_uuid) || !outgoing.has(rel.from_node_uuid)) return;
+        incoming.set(rel.to_node_uuid, incoming.get(rel.to_node_uuid) + 1);
+        outgoing.get(rel.from_node_uuid).push(rel.to_node_uuid);
       });
-      const queue = [...nodes.filter((n) => incoming.get(n.uuid) === 0).map((n) => n.uuid)];
-      if (!queue.length) queue.push(nodes[0].uuid);
-      const level = new Map(queue.map((id) => [id, 0]));
-      for (let qi = 0; qi < queue.length; qi++) {
-        const id = queue[qi], l = level.get(id) || 0;
-        (outgoing.get(id) || []).forEach((next) => {
-          const nl = Math.max(level.get(next) || 0, l + 1);
-          if (!level.has(next) || nl > level.get(next)) level.set(next, nl);
-          if (!queue.includes(next)) queue.push(next);
-        });
+      const queue = nodes.filter((node) => incoming.get(node.uuid) === 0).map((node) => node.uuid);
+      const levels = new Map(queue.map((id) => [id, 0]));
+      for (let i = 0; i < queue.length; i += 1) {
+        const id = queue[i];
+        for (const next of outgoing.get(id)) {
+          levels.set(next, Math.max(levels.get(next) || 0, (levels.get(id) || 0) + 1));
+          incoming.set(next, incoming.get(next) - 1);
+          if (incoming.get(next) === 0) queue.push(next);
+        }
       }
-      nodes.forEach((n) => { if (!level.has(n.uuid)) level.set(n.uuid, 0); });
-      const groups = new Map(); nodes.forEach((n) => { const l = level.get(n.uuid); if (!groups.has(l)) groups.set(l, []); groups.get(l).push(n); });
-      const maxLevel = Math.max(0, ...groups.keys());
-      groups.forEach((group, l) => group.forEach((node, i) => {
-        const horizontal = renderer === 'flow_diagram';
-        const primary = (l + 1) / (maxLevel + 2);
-        const secondary = (i + 1) / (group.length + 1);
-        result.set(node.uuid, horizontal ? { x: width * primary, y: height * secondary } : { x: width * secondary, y: height * primary });
+      // Disconnected cycles have no root; place them in the first level.
+      nodes.forEach((node) => { if (!levels.has(node.uuid)) levels.set(node.uuid, 0); });
+      const groups = new Map();
+      nodes.forEach((node) => {
+        const level = levels.get(node.uuid);
+        if (!groups.has(level)) groups.set(level, []);
+        groups.get(level).push(node);
+      });
+      const horizontal = renderer === 'flow_diagram';
+      groups.forEach((group, level) => group.forEach((node, i) => {
+        const cross = (i - (group.length - 1) / 2);
+        result.set(node.uuid, horizontal
+          ? { x: level * stepX, y: cross * stepY }
+          : { x: cross * stepX, y: level * stepY });
       }));
-      return result;
+    } else {
+      const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length * 1.5)));
+      nodes.forEach((node, i) => {
+        result.set(node.uuid, { x: (i % columns) * stepX, y: Math.floor(i / columns) * stepY });
+      });
     }
-    const radius = Math.min(width, height) * 0.36, cx = width / 2, cy = height / 2;
-    nodes.forEach((node, i) => {
-      const a = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
-      const ring = nodes.length > 30 ? 0.58 + (i % 3) * 0.2 : 1;
-      result.set(node.uuid, { x: cx + Math.cos(a) * radius * ring, y: cy + Math.sin(a) * radius * ring });
-    });
     return result;
+  }
+
+  function graphBounds(layout, compact) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    layout.forEach(({ x, y }) => {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    });
+    const padX = compact ? 28 : 132;
+    const padY = compact ? 28 : 110;
+    return {
+      x: minX - padX, y: minY - padY,
+      w: Math.max(1, maxX - minX + padX * 2),
+      h: Math.max(1, maxY - minY + padY * 2),
+    };
   }
 
   function renderGraph(container, spec) {
@@ -318,8 +340,8 @@
     };
     const zoom = (factor) => {
       if (!view || !baseView) return;
-      const nextW = Math.max(baseView.w * 0.32, Math.min(baseView.w * 3, view.w * factor));
-      const nextH = Math.max(baseView.h * 0.32, Math.min(baseView.h * 3, view.h * factor));
+      const nextW = Math.max(baseView.w / 1024, Math.min(baseView.w * 3, view.w * factor));
+      const nextH = Math.max(baseView.h / 1024, Math.min(baseView.h * 3, view.h * factor));
       view.x += (view.w - nextW) / 2;
       view.y += (view.h - nextH) / 2;
       view.w = nextW;
@@ -378,11 +400,12 @@
       const relations = allRelations.filter((r) => ids.has(r.from_node_uuid) && ids.has(r.to_node_uuid) && (!relationType || r.relation_type === relationType));
       if (status) status.textContent = `${nodes.length}/${allNodes.length} ${__('nodes', 'viswiz')} · ${relations.length}/${allRelations.length} ${__('relations', 'viswiz')}`;
 
-      const width = 1000;
-      const height = Math.max(560, Math.min(1100, 440 + nodes.length * 4));
-      const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'viswiz-graph-svg', role: 'img', 'aria-label': __('Node graph', 'viswiz') });
+      const compact = nodes.length > 240;
+      const layout = graphLayout(nodes, relations, spec.renderer, compact);
+      baseView = graphBounds(layout, compact);
+      const svg = svgEl('svg', { viewBox: `${baseView.x} ${baseView.y} ${baseView.w} ${baseView.h}`, class: 'viswiz-graph-svg', role: 'img', 'aria-label': __('Node graph', 'viswiz') });
+      if (compact) svg.classList.add('is-viswiz-compact');
       activeSvg = svg;
-      baseView = { x: 0, y: 0, w: width, h: height };
       if (!view) view = { ...baseView };
       applyView();
 
@@ -395,25 +418,35 @@
       const graphLayer = svgEl('g', { class: 'viswiz-graph-layer' });
       svg.appendChild(graphLayer);
 
-      const layout = graphLayout(nodes, relations, spec.renderer, width, height);
       const nodeMap = new Map(nodes.map((n) => [n.uuid, n]));
       relations.forEach((rel) => {
         const a = layout.get(rel.from_node_uuid), b = layout.get(rel.to_node_uuid); if (!a || !b) return;
-        const line = svgEl('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'viswiz-graph-edge', 'stroke-width': Math.max(1, Math.min(6, Number(rel.intensity || 1))), 'marker-end': rel.direction === 'undirected' ? '' : `url(#${markerId})` });
+        const line = svgEl('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'viswiz-graph-edge', 'stroke-width': Math.max(1, Math.min(6, Number(rel.intensity || 1))), 'marker-end': compact || rel.direction === 'undirected' ? '' : `url(#${markerId})` });
         graphLayer.appendChild(line);
-        if (rel.direction === 'bidirectional') line.setAttribute('marker-start', `url(#${markerId})`);
-        if (spec.settings?.show_relation_labels !== false && (rel.label || rel.relation_type)) {
+        if (!compact && rel.direction === 'bidirectional') line.setAttribute('marker-start', `url(#${markerId})`);
+        if (!compact && spec.settings?.show_relation_labels !== false && (rel.label || rel.relation_type)) {
           const label = svgEl('text', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 6, class: 'viswiz-graph-edge-label', 'text-anchor': 'middle' }, rel.label || rel.relation_type);
           graphLayer.appendChild(label);
         }
       });
       nodes.forEach((node, i) => {
         const pos = layout.get(node.uuid); if (!pos) return;
-        const g = svgEl('g', { class: 'viswiz-graph-node', transform: `translate(${pos.x},${pos.y})`, tabindex: 0, role: 'button', 'aria-label': `${__('View node', 'viswiz')}: ${node.title || node.label || __('Node', 'viswiz')}` });
-        const rect = svgEl('rect', { x: -76, y: -35, width: 152, height: 70, rx: 14, fill: node.meta?.color || color(spec.settings, i), opacity: 0.96 });
-        g.appendChild(rect);
-        g.appendChild(svgEl('text', { x: 0, y: -3, 'text-anchor': 'middle', class: 'viswiz-graph-node-title' }, truncate(node.title || node.label || node.slug || '', 24)));
-        if (spec.settings?.show_type_badges !== false && node.node_type) g.appendChild(svgEl('text', { x: 0, y: 17, 'text-anchor': 'middle', class: 'viswiz-graph-node-type-label' }, truncate(`${node.node_type}${node.node_subtype ? ` / ${node.node_subtype}` : ''}`, 27)));
+        const attrs = {
+          class: compact ? 'viswiz-graph-node is-compact' : 'viswiz-graph-node',
+          tabindex: 0, role: 'button',
+          'data-viswiz-node-uuid': node.uuid,
+          'data-viswiz-node-type': node.node_type || '',
+          'data-viswiz-node-subtype': node.node_subtype || '',
+          'aria-label': `${__('View node', 'viswiz')}: ${node.title || node.label || __('Node', 'viswiz')}`,
+        };
+        const g = compact
+          ? svgEl('circle', { ...attrs, cx: pos.x, cy: pos.y, r: 10, fill: node.meta?.color || color(spec.settings, i) })
+          : svgEl('g', { ...attrs, transform: `translate(${pos.x},${pos.y})` });
+        if (!compact) {
+          g.appendChild(svgEl('rect', { x: -76, y: -35, width: 152, height: 70, rx: 14, fill: node.meta?.color || color(spec.settings, i), opacity: 0.96 }));
+          g.appendChild(svgEl('text', { x: 0, y: -3, 'text-anchor': 'middle', class: 'viswiz-graph-node-title' }, truncate(node.title || node.label || node.slug || '', 24)));
+          if (spec.settings?.show_type_badges !== false && node.node_type) g.appendChild(svgEl('text', { x: 0, y: 17, 'text-anchor': 'middle', class: 'viswiz-graph-node-type-label' }, truncate(`${node.node_type}${node.node_subtype ? ` / ${node.node_subtype}` : ''}`, 27)));
+        }
         const open = () => showNodeModal(container, node, relations, nodeMap, g);
         g.addEventListener('click', open);
         g.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
