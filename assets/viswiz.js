@@ -356,7 +356,7 @@
     if (!nodes.length) return result;
     const stepX = compact ? 38 : 250;
     const stepY = compact ? 36 : 190;
-    if (renderer === 'org_chart' || renderer === 'flow_diagram') {
+    if (!compact && (renderer === 'org_chart' || renderer === 'flow_diagram')) {
       // Kahn traversal is linear in nodes + edges and terminates on cyclic data.
       const incoming = new Map(nodes.map((node) => [node.uuid, 0]));
       const outgoing = new Map(nodes.map((node) => [node.uuid, []]));
@@ -390,7 +390,20 @@
           ? { x: level * stepX, y: cross * stepY }
           : { x: cross * stepX, y: level * stepY });
       }));
-    } else {
+      // Very wide or deep structures produce enormous, nearly invisible SVGs.
+      // Keep the hierarchy for regular cases and fall back to a balanced grid
+      // when one dimension dwarfs the other.
+      if (nodes.length > 24) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        result.forEach(({ x, y }) => {
+          minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        });
+        if (maxX - minX > 5 * Math.max(stepY, maxY - minY)
+          || maxY - minY > 5 * Math.max(stepX, maxX - minX)) result.clear();
+      }
+    }
+    if (!result.size) {
       const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length * 1.5)));
       nodes.forEach((node, i) => {
         result.set(node.uuid, { x: (i % columns) * stepX, y: Math.floor(i / columns) * stepY });
