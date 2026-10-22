@@ -1,6 +1,7 @@
 <?php
 namespace VisWiz\Database;
 
+use VisWiz\Access\Permissions;
 use VisWiz\Domain\GraphValidator;
 use VisWiz\Domain\Registry;
 use VisWiz\Support;
@@ -45,6 +46,12 @@ final class DatasetRepository {
         if ( '' !== $schema && Registry::schema_exists( $schema ) ) {
             $where[]  = 'd.schema_type = %s';
             $params[] = $schema;
+        }
+        $accessible_user = absint( $args['accessible_user_id'] ?? 0 );
+        if ( $accessible_user ) {
+            $allowed_ids = Permissions::assigned_dataset_ids( $accessible_user );
+            $where[] = '(d.created_by = %d' . ( $allowed_ids ? ' OR d.id IN (' . implode( ',', $allowed_ids ) . ')' : '' ) . ')';
+            $params[] = $accessible_user;
         }
 
         $sql = "SELECT d.*,
@@ -100,6 +107,12 @@ final class DatasetRepository {
         if ( '' !== $schema && Registry::schema_exists( $schema ) ) {
             $where[]  = 'schema_type = %s';
             $params[] = $schema;
+        }
+        $accessible_user = absint( $args['accessible_user_id'] ?? 0 );
+        if ( $accessible_user ) {
+            $allowed_ids = Permissions::assigned_dataset_ids( $accessible_user );
+            $where[] = '(created_by = %d' . ( $allowed_ids ? ' OR id IN (' . implode( ',', $allowed_ids ) . ')' : '' ) . ')';
+            $params[] = $accessible_user;
         }
         $sql = "SELECT COUNT(*) FROM {$table} WHERE " . implode( ' AND ', $where );
         if ( $params ) {
