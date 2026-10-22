@@ -10,9 +10,12 @@ use VisWiz\Database\DatasetRepository;
 final class Permissions {
     private const DATASET_ACL_PREFIX = 'viswiz_dataset_editors_';
     private const VISUALIZATION_ACL_KEY = '_viswiz_editors';
+    private const USER_DATASET_INDEX = '_viswiz_accessible_datasets';
+    private const USER_VISUALIZATION_INDEX = '_viswiz_accessible_visualizations';
 
     public static function register(): void {
         add_filter( 'map_meta_cap', array( self::class, 'map_visualization_cap' ), 20, 4 );
+        add_action( 'pre_get_posts', array( self::class, 'filter_admin_visualization_list' ) );
     }
 
     public static function manager( int $user_id ): bool {
@@ -53,6 +56,37 @@ final class Permissions {
 
     public static function visualization_editors( int $id ): array {
         return self::ids( get_post_meta( $id, self::VISUALIZATION_ACL_KEY, true ) );
+    }
+
+    public static function assigned_dataset_ids( int $user_id ): array {
+        return self::ids( get_user_meta( $user_id, self::USER_DATASET_INDEX, true ) );
+    }
+
+    public static function assigned_visualization_ids( int $user_id ): array {
+        return self::ids( get_user_meta( $user_id, self::USER_VISUALIZATION_INDEX, true ) );
+    }
+
+    private static function sync_reverse_index( string $key, int $object_id, array $old, array $new ): void {
+        foreach ( array_unique( array_merge( $old, $new ) ) as $user_id ) {
+            $ids = self::ids( get_user_meta( $user_id, $key, true ) );
+            $ids = array_values( array_diff( $ids, array( $object_id ) ) );
+            if ( in_array( $user_id, $new, true ) ) {
+                $ids[] = $object_id;
+            }
+            update_user_meta( $user_id, $key, self::ids( $ids ) );
+        }
+    }
+
+    public static function filter_admin_visualization_list( \\WP_Query $query ): void {
+        if ( ! is_admin() || ! $query->is_main_query() || 'viswiz_visualization' !== $query->get( 'post_type' )
+            || self::manager( get_current_user_id() ) || ! self::can_create_visualization() ) {
+            return;
+        }
+        $mine = get_posts( array( 'post_type' => 'viswiz_visualization', 'post_status' => 'any',
+            'author' => get_current_user_id(), 'fields' => 'ids', 'posts_per_page' => -1, 'suppress_filters' => true ) );
+        $visible = self::ids( array_merge( $mine, self::assigned_visualization_ids( get_current_user_id() ) ) );
+        $query->set( 'post__in', $visible ?: array( 0 ) );
+        $query->set( 'author', '' );
     }
 
     private static function ids( $value ): array {
@@ -105,7 +139,9 @@ final class Permissions {
         if ( $owner && ! self::can_create_dataset( $owner ) ) {
             return false;
         }
+        $previous = self::dataset_editors( $id );
         update_option( self::DATASET_ACL_PREFIX . $id, $editors, false );
+        self::sync_reverse_index( self::USER_DATASET_INDEX, $id, $previous, $editors );
         if ( $owner ) {
             global $wpdb;
             $wpdb->update( \VisWiz\Support::table( 'datasets' ), array( 'created_by' => $owner ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
@@ -124,7 +160,9 @@ final class Permissions {
         if ( $owner && ! self::can_create_visualization( $owner ) ) {
             return false;
         }
+        $previous = self::visualization_editors( $id );
         update_post_meta( $id, self::VISUALIZATION_ACL_KEY, $editors );
+        self::sync_reverse_index( self::USER_VISUALIZATION_INDEX, $id, $previous, $editors );
         if ( $owner && (int) get_post_field( 'post_author', $id ) !== $owner ) {
             wp_update_post( array( 'ID' => $id, 'post_author' => $owner ) );
         }
