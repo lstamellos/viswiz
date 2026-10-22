@@ -32,6 +32,7 @@ final class Plugin {
     public static function activate(): void {
         self::register_post_type();
         self::grant_capabilities();
+        self::backfill_visualization_creators();
         update_option( 'viswiz_capabilities_version', self::CAPABILITIES_VERSION, false );
         Migrator::install();
         flush_rewrite_rules();
