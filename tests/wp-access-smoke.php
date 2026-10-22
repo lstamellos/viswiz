@@ -22,6 +22,16 @@ foreach ( array( 'author', 'contributor', 'editor', 'subscriber' ) as $role ) {
     ( new WP_User( $uid ) )->set_role( $role );
     $ids[ $role ] = (int) $uid;
 }
+// This role is registered after VisWiz activation; it must inherit access dynamically.
+add_role( 'vw_late_writer', 'VisWiz late writer', array( 'read' => true, 'edit_posts' => true ) );
+$late_uid = wp_create_user( 'vw-access-late-' . wp_generate_password( 8, false ), wp_generate_password(), 'vw-access-late-' . wp_generate_password( 5, false ) . '@example.invalid' );
+viswiz_access_assert( ! is_wp_error( $late_uid ), 'Could not create late custom-role user' );
+( new WP_User( $late_uid ) )->set_role( 'vw_late_writer' );
+$ids['late_writer'] = (int) $late_uid;
+wp_set_current_user( (int) $late_uid );
+viswiz_access_assert( current_user_can( 'edit_viswiz_datasets' ), 'Late-created WordPress role cannot create datasets' );
+viswiz_access_assert( current_user_can( 'edit_viswiz_visualizations' ), 'Late-created WordPress role cannot create visualizations' );
+
 $repo = new DatasetRepository();
 $dataset_id = 0;
 $post_id = 0;
@@ -105,5 +115,6 @@ try {
     foreach ( $ids as $uid ) {
         wp_delete_user( $uid );
     }
+    remove_role( 'vw_late_writer' );
     wp_set_current_user( $original_user );
 }
