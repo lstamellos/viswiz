@@ -35,3 +35,7 @@ The release does not include Canvas/WebGL/workers, alternative renderers or new 
 - All five CI jobs required before release (PHP 8.1/8.3 unit/static, minimum WordPress/PHP, WordPress+WooCommerce smoke, Chromium E2E).
 - GitHub release package must validate as `viswiz-2.0.41.zip`.
 - WordPress production deployment/upgrade and actual site compatibility remain an operational acceptance check, separate from CI; do not claim that has been performed from the repository alone.
+
+## Follow-up scale verification (2026-10-22, VisWiz 2.0.43)
+
+The original 2.0.41 release did not include high-volume administrator measurements. A later benchmark-only change (PR #140) exercised WordPress REST dataset pages, searches and initial admin HTML generation for 1k/10k/50k rows and 100/500/1k/5k graph nodes using temporary CI fixtures. Full values, methodology and limitations are recorded in `docs/ADMIN_SCALE_BENCHMARK_2026-10-22.md`. This follow-up **does not retroactively change** the 2.0.41 release tests or verify production concurrency, accurate per-request heap peaks, or end-to-end client latency at maximum sizes.
