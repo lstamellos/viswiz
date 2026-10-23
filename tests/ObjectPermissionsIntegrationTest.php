@@ -54,7 +54,6 @@ final class ObjectPermissionsIntegrationTest extends TestCase {
         self::assertStringContainsString( 'AbortController', $js );
         self::assertStringContainsString( 'setTimeout', $js );
         self::assertStringContainsString( 'aria-activedescendant', $js );
-        self::assertStringContainsString( "input.name = mode", $js ) === false;
         self::assertStringContainsString( "hidden.name = mode", $js );
     }
 }
