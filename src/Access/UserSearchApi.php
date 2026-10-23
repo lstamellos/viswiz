@@ -59,6 +59,7 @@ final class UserSearchApi {
             array(
                 'search'         => '*' . $search . '*',
                 'search_columns' => array( 'user_login', 'display_name' ),
+                'capability'     => 'edit_posts',
                 'number'         => 40,
                 'orderby'        => 'display_name',
                 'order'          => 'ASC',
