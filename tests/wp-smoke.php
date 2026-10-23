@@ -157,9 +157,34 @@ $access_post_id = wp_insert_post( array(
 viswiz_smoke_assert( \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Dataset owner cannot edit.' );
 viswiz_smoke_assert( current_user_can( 'edit_post', $access_post_id ), 'Visualization owner cannot edit.' );
 
+// Search access is limited to the owner and scoped to the selected object.
+wp_update_user( array( 'ID' => $access_peer_id, 'display_name' => 'Αλεξάνδρα Ελέγχου' ) );
+$lookup_path = '/viswiz/v2/access/users';
+$search_request = static function ( string $kind, int $id, string $term ) use ( $lookup_path ): WP_REST_Response {
+    $request = new WP_REST_Request( 'GET', $lookup_path );
+    $request->set_param( 'kind', $kind );
+    $request->set_param( 'object_id', $id );
+    $request->set_param( 'search', $term );
+    return rest_do_request( $request );
+};
+$by_name = $search_request( 'dataset', $access_dataset_id, 'Αλεξ' );
+viswiz_smoke_assert( 200 === $by_name->get_status(), 'Owner cannot search eligible users by display name.' );
+viswiz_smoke_assert( in_array( $access_peer_id, array_column( $by_name->get_data(), 'id' ), true ), 'Display-name search did not find collaborator.' );
+$by_login = $search_request( 'visualization', $access_post_id, 'viswiz-acl-peer' );
+viswiz_smoke_assert( 200 === $by_login->get_status(), 'Owner cannot search visualization users.' );
+viswiz_smoke_assert( in_array( $access_peer_id, array_column( $by_login->get_data(), 'id' ), true ), 'Username search did not find collaborator.' );
+$by_subscriber = $search_request( 'dataset', $access_dataset_id, 'viswiz-acl-subscriber' );
+viswiz_smoke_assert( 200 === $by_subscriber->get_status() && ! $by_subscriber->get_data(), 'Lookup offered users without edit capability.' );
+viswiz_smoke_assert( ! isset( $by_name->get_data()[0]['email'] ), 'Lookup exposed user email.' );
+viswiz_smoke_assert( array() === $search_request( 'dataset', $access_dataset_id, 'a' )->get_data(), 'Lookup should require 2 characters.' );
+
 wp_set_current_user( $access_peer_id );
 viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Other author can edit private dataset.' );
 viswiz_smoke_assert( ! current_user_can( 'edit_post', $access_post_id ), 'Other author can edit visualization.' );
+
+viswiz_smoke_assert( 403 === $search_request( 'dataset', $access_dataset_id, 'Αλεξ' )->get_status(), 'Unassigned author can search users.' );
+viswiz_smoke_assert( 403 === $search_request( 'visualization', $access_post_id, 'viswiz' )->get_status(), 'Unassigned author can search visualization users.' );
+
 $acl_rest = rest_do_request( new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $access_dataset_id ) );
 viswiz_smoke_assert( 403 === $acl_rest->get_status(), 'REST leaked unauthorized dataset.' );
 wp_set_current_user( $access_owner_id );
@@ -171,7 +196,9 @@ viswiz_smoke_assert( current_user_can( 'edit_post', $access_post_id ), 'Visualiz
 $acl_rest = rest_do_request( new WP_REST_Request( 'GET', '/viswiz/v2/datasets/' . $access_dataset_id ) );
 viswiz_smoke_assert( 200 === $acl_rest->get_status(), 'REST rejected assigned editor.' );
 viswiz_smoke_assert( ! \VisWiz\Access\Permissions::save_dataset( $access_dataset_id, array( $access_peer_id, $access_subscriber_id ) ), 'Non-owner changed dataset ACL.' );
+viswiz_smoke_assert( 403 === $search_request( 'dataset', $access_dataset_id, 'viswiz' )->get_status(), 'Collaborator can search users without permission to assign them.' );
 wp_set_current_user( $access_subscriber_id );
+viswiz_smoke_assert( 403 === $search_request( 'dataset', $access_dataset_id, 'viswiz' )->get_status(), 'Subscriber can search users.' );
 viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_create_dataset(), 'Subscriber can create datasets.' );
 viswiz_smoke_assert( ! \VisWiz\Access\Permissions::can_edit_dataset( $access_dataset_id ), 'Subscriber can edit dataset.' );
 
