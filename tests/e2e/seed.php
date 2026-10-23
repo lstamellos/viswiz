@@ -293,7 +293,21 @@ if ( is_wp_error( $media_attachment_id ) || ! $media_attachment_id ) {
     viswiz_e2e_fail( 'Could not create image attachment fixture.' );
 }
 
+$acl_editor_id = wp_create_user( 'viswiz-e2e-alexandra', wp_generate_password(), 'viswiz-e2e-alexandra@example.invalid' );
+$acl_editor_two_id = wp_create_user( 'viswiz-e2e-nikos', wp_generate_password(), 'viswiz-e2e-nikos@example.invalid' );
+$acl_subscriber_id = wp_create_user( 'viswiz-e2e-viewer', wp_generate_password(), 'viswiz-e2e-viewer@example.invalid' );
+if ( is_wp_error( $acl_editor_id ) || is_wp_error( $acl_editor_two_id ) || is_wp_error( $acl_subscriber_id ) ) {
+    viswiz_e2e_fail( 'Could not create ACL search users.' );
+}
+get_userdata( $acl_editor_id )->set_role( 'author' );
+get_userdata( $acl_editor_two_id )->set_role( 'author' );
+get_userdata( $acl_subscriber_id )->set_role( 'subscriber' );
+wp_update_user( array( 'ID' => $acl_editor_id, 'display_name' => 'Αλεξάνδρα Δοκιμή' ) );
+wp_update_user( array( 'ID' => $acl_editor_two_id, 'display_name' => 'Nikos Contributor' ) );
+
 $fixture = array(
+    'aclEditorId' => (int) $acl_editor_id,
+    'aclSecondEditorId' => (int) $acl_editor_two_id,
     'graphDatasetId' => $graph_id,
     'mediaAttachmentId' => (int) $media_attachment_id,
     'rowDatasetId' => $row_id,
