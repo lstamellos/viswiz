@@ -37,4 +37,23 @@ final class ObjectPermissionsIntegrationTest extends TestCase {
         self::assertStringContainsString( 'Permissions::save_visualization', $ui );
         self::assertStringContainsString( '! self::manager( get_current_user_id() )', $permissions );
     }
+    public function test_access_picker_uses_scoped_name_and_username_autocomplete(): void {
+        $ui = $this->source( 'src/Access/EditorUi.php' );
+        $api = $this->source( 'src/Access/UserSearchApi.php' );
+        $js = $this->source( 'assets/viswiz-access-control.js' );
+        self::assertStringContainsString( 'UserSearchApi::register()', $this->source( 'src/Plugin.php' ) );
+        self::assertStringContainsString( "'/access/users'", $api );
+        self::assertStringContainsString( 'Permissions::can_manage_dataset', $api );
+        self::assertStringContainsString( 'Permissions::can_manage_visualization', $api );
+        self::assertStringContainsString( "'user_login', 'display_name'", $api );
+        self::assertStringContainsString( "'capability'     => 'edit_posts'", $api );
+        self::assertStringNotContainsString( "'user_email'", $api );
+        self::assertStringContainsString( "data-viswiz-user-picker", $ui );
+        self::assertStringContainsString( 'viswiz_access[', $ui );
+        self::assertStringContainsString( 'data-viswiz-user-search', $ui );
+        self::assertStringContainsString( 'AbortController', $js );
+        self::assertStringContainsString( 'setTimeout', $js );
+        self::assertStringContainsString( 'aria-activedescendant', $js );
+        self::assertStringContainsString( "hidden.name = mode", $js );
+    }
 }

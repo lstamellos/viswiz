@@ -4,6 +4,7 @@ namespace VisWiz;
 use VisWiz\Admin\Admin;
 use VisWiz\Access\Permissions;
 use VisWiz\Access\EditorUi;
+use VisWiz\Access\UserSearchApi;
 use VisWiz\Admin\DatasetEditorPage;
 use VisWiz\Admin\DiagnosticsPage;
 use VisWiz\Admin\ImportUi;
@@ -47,6 +48,7 @@ final class Plugin {
 
         Permissions::register();
         EditorUi::register();
+        UserSearchApi::register();
         Admin::register();
         DiagnosticsPage::register();
         DatasetEditorPage::register();
