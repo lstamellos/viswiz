@@ -59,7 +59,14 @@ test('dataset grants: search by Greek display name and username; save, reload, r
 
 test('visualization: search for editor and choose new owner by username', async ({ page }) => {
   await login(page);
-  await page.goto(`/wp-admin/post.php?post=${fixture.visualizationId}&action=edit`);
+  await page.goto(`/wp-admin/admin.php?page=viswiz-datasets&dataset_id=${fixture.rowDatasetId}`);
+  const create = page.locator('[data-viswiz-create-visualization]');
+  await create.locator('select[name="renderer"]').selectOption('bar');
+  await Promise.all([
+    page.waitForURL(/\/wp-admin\/post\.php\?post=\d+&action=edit/),
+    create.getByRole('button', { name: 'Create visualization' }).click(),
+  ]);
+  const visualizationId = Number(new URL(page.url()).searchParams.get('post'));
 
   const editorPicker = page.locator('[data-viswiz-user-picker][data-kind="visualization"][data-mode="editors"]');
   await expect(editorPicker).toBeVisible();
@@ -75,9 +82,9 @@ test('visualization: search for editor and choose new owner by username', async 
 
   await Promise.all([
     page.waitForLoadState('domcontentloaded'),
-    page.locator('#publish').click(),
+    page.locator('#save-post').click(),
   ]);
-  await page.goto(`/wp-admin/post.php?post=${fixture.visualizationId}&action=edit`);
+  await page.goto(`/wp-admin/post.php?post=${visualizationId}&action=edit`);
   await expect(page.locator('[data-viswiz-user-picker][data-mode="owner"] input[name="viswiz_access[owner]"]')).toHaveValue(String(fixture.aclSecondEditorId));
   await expect(page.locator('[data-viswiz-user-picker][data-mode="editors"] input[name="viswiz_access[editors][]"]')).toHaveValue(String(fixture.aclEditorId));
 });
